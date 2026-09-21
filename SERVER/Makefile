@@ -26,3 +26,4 @@ build:
 	$(MAKE) clean
 	$(MAKE) compile
 	$(MAKE) out
+	$(MAKE) run
