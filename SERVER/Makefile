@@ -1,9 +1,11 @@
 CC = gcc
 FLAGS = -g -Wall
-LIBS = -lmysqlclient -lcurl -ljson-c
+LIBS = -lmysqlclient -lcurl -ljson-c -lmicrohttpd -lpthread
 
-TARGET = llmserver
-OBJS = llmserver.o
+OUTPUT_DIR = build
+
+TARGET = $(DIRS)llmserver
+OBJS = $(DIRS)/llmserver.o
 RAW = llmserver.c
 
 .PHONY: compile out run clean build
@@ -11,16 +13,16 @@ RAW = llmserver.c
 
 
 compile:
-	$(CC) -c $(FLAGS) $(RAW)
+	$(CC) -c $(FLAGS) $(RAW) -o $(OUTPUT_DIR)/$(OBJS)
 
 out:
-	$(CC) -o $(TARGET) $(OBJS) $(LIBS)
+	$(CC) -o $(OUTPUT_DIR)/$(TARGET) $(OUTPUT_DIR)/$(OBJS) $(LIBS)
 
 run:
-	./$(TARGET)
+	./$(OUTPUT_DIR)/$(TARGET)
 
 clean:
-	rm -f $(TARGET) *.o
+	rm -f $(OUTPUT_DIR)/*
 
 build:
 	$(MAKE) clean
