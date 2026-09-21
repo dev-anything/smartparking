@@ -1,0 +1,19 @@
+.git
+__pycache__
+*.pyc
+
+
+# Image Processing
+numberplate/*venv*
+picam/captures
+
+# LLM
+llama/llama-models
+
+# DB
+mysql8/
+
+# Server
+server/*.o
+server/llmserver
+server/server
