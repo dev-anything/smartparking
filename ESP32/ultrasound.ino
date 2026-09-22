@@ -3,23 +3,23 @@
 const char* ssid = "iptime222";
 const char* password = "12345678";
 
-// [회의록 반영] 초음파용 ESP32 고정 IP: 192.168.0.101
+// 초음파용 ESP32 고정 IP: 192.168.0.101
 IPAddress local_IP(192, 168, 0, 101);
 IPAddress gateway(192, 168, 0, 1);
 IPAddress subnet(255, 255, 255, 0);
 IPAddress primaryDNS(8, 8, 8, 8);
 
-// C 서버(유찬님 PC/라즈베리파이) IP 및 수신 포트
-const char* serverIP = "192.168.0.7"; // 유찬님 C 서버 IP로 수정하세요
-const int serverPort = 10000;          // C 서버 수신 포트로 수정하세요
+// C 서버 IP 및 수신 포트
+const char* serverIP = "192.168.0.7"; // C 서버 IP
+const int serverPort = 10000;          // C 서버 수신 포트
 
-// 초음파 센서 4개 핀 할당 (Trig, Echo)
-const int TRIG_PINS[4] = {4, 16, 18, 21};
-const int ECHO_PINS[4] = {5, 17, 19, 22};
+// 초음파 센서 6개 핀 할당 (Trig, Echo)
+const int TRIG_PINS[6] = {4, 16, 18, 21, 23, 26};
+const int ECHO_PINS[6] = {5, 17, 19, 22, 25, 27};
 
 // 주차 상태 관리 (0: 비어있음, 1: 주차됨)
-int currentStatus[4] = {0, 0, 0, 0};
-int lastStatus[4]    = {-1, -1, -1, -1}; // 최초 부팅 시 무조건 1회 전송을 위해 -1 초기화
+int currentStatus[6] = {0, 0, 0, 0, 0, 0};
+int lastStatus[6]    = {-1, -1, -1, -1, -1, -1}; // 최초 부팅 시 무조건 1회 전송을 위해 -1 초기화
 
 // 초음파 거리 측정 (값이 튀는 현상 방지용 3회 평균 필터링)
 long readDistance(int index) {
@@ -46,7 +46,7 @@ long readDistance(int index) {
   return total / validReadings;
 }
 
-// C 서버로 "0:0:0:0" 형태 데이터 전송
+// C 서버로 "0:0:0:0:0:0" 형태 데이터 전송
 bool sendStatusToServer(String payload) {
   WiFiClient client;
   Serial.println("[C 서버 전송 시도]: " + payload);
@@ -66,8 +66,8 @@ bool sendStatusToServer(String payload) {
 void setup() {
   Serial.begin(115200);
 
-  // 초음파 핀 설정
-  for (int i = 0; i < 4; i++) {
+  // 초음파 6개 핀 설정
+  for (int i = 0; i < 6; i++) {
     pinMode(TRIG_PINS[i], OUTPUT);
     pinMode(ECHO_PINS[i], INPUT);
   }
@@ -84,7 +84,7 @@ void setup() {
   }
 
   Serial.println("\n=========================================");
-  Serial.print("★ 초음파 전용 ESP32 가동 (IP: ");
+  Serial.print("★ 초음파 6개 전용 ESP32 가동 (IP: ");
   Serial.print(WiFi.localIP());
   Serial.println(")");
   Serial.println("=========================================");
@@ -93,8 +93,8 @@ void setup() {
 void loop() {
   bool isChanged = false;
 
-  // 1. 4개 면 거리 측정 (10cm 이하 시 주차됨 1, 이상 시 비어있음 0)
-  for (int i = 0; i < 4; i++) {
+  //  6개 면 거리 측정 (10cm 이하 시 주차됨 1, 이상 시 비어있음 0)
+  for (int i = 0; i < 6; i++) {
     long dist = readDistance(i);
     int status = (dist > 0 && dist <= 10) ? 1 : 0;
     currentStatus[i] = status;
@@ -105,21 +105,23 @@ void loop() {
     }
   }
 
-  // 2. 상태에 변화가 생긴 경우에만 C 서버로 전송 ("0:0:0:0" 포맷)
+  //  상태에 변화가 생긴 경우에만 C 서버로 전송 ("0:0:0:0:0:0" 포맷)
   if (isChanged) {
     String payload = String(currentStatus[0]) + ":" +
                      String(currentStatus[1]) + ":" +
                      String(currentStatus[2]) + ":" +
-                     String(currentStatus[3]);
+                     String(currentStatus[3]) + ":" +
+                     String(currentStatus[4]) + ":" +
+                     String(currentStatus[5]);
 
     if (sendStatusToServer(payload)) {
       // 전송 성공 시 이전 상태 업데이트
-      for (int i = 0; i < 4; i++) {
+      for (int i = 0; i < 6; i++) {
         lastStatus[i] = currentStatus[i];
       }
     }
   }
 
-  // 3. 1초 간격 모니터링 (회의록 사양 준수)
+  //  1초 간격 모니터링
   delay(1000);
 }
