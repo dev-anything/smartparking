@@ -167,6 +167,18 @@ app.post("/api/llm-query", async (req, res) => {
 
   const rawSql = await callLLM(null, prompt);
 
+  let rows, fields;
+
+  try {
+    [rows, fields] = await pool.query(rawSql);
+  } catch (err) {
+    return { error: `쿼리 실행 오류: ${err.message}`};
+  }
+
+  console.log(rows, fields);
+
+  
+
   return res.status(200).json(rawSql);
 });
 
