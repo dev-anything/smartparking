@@ -31,8 +31,7 @@ typedef struct
     struct sockaddr_in client_addr;
 } client_info;
 
-
-void* print_client_info(void* arg);
+void *print_client_info(void *arg);
 
 int main()
 {
@@ -74,7 +73,7 @@ int main()
     server_addr.sin_port = htons(SERVER_PORT); // 포트 번호를 빅엔디언 바이트 순서로 변환해서 저장
 
     // 소켓에 정보를 실제 등록(bind)
-    if (bind(server_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0)
+    if (bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
     {
         perror("bind 실패");
         close(server_fd);
@@ -95,7 +94,7 @@ int main()
     while (1)
     {
         // 클라이언트 정보를 힙 영역에 할당
-        client_info* info = (client_info*)malloc(sizeof(client_info));
+        client_info *info = (client_info *)malloc(sizeof(client_info));
 
         // malloc이 실패할 경우 예외처리
         if (info == NULL)
@@ -104,12 +103,11 @@ int main()
             continue;
         }
 
-
         // accept()가 클라이언트 정보를 채워 넣을 구조체 크기를 미리 알려줘야 함
         socklen_t client_len = sizeof(info->client_addr);
 
         // 대기 큐에서 연결 요청 꺼내기
-        info->client_fd = accept(server_fd, (struct sockaddr*)&info->client_addr, &client_len);
+        info->client_fd = accept(server_fd, (struct sockaddr *)&info->client_addr, &client_len);
 
         // accept 실패 시 메모리 반환
         if (info->client_fd < 0)
@@ -118,7 +116,7 @@ int main()
             free(info);
             continue;
         }
-        
+
         // accept 성공 시 진행
         pthread_t tid;
 
@@ -140,10 +138,9 @@ int main()
     return 0;
 }
 
-
-void* print_client_info(void* arg)
+void *print_client_info(void *arg)
 {
-    client_info* info = (client_info*)arg;
+    client_info *info = (client_info *)arg;
 
     // 클라이언트 IP를 문자열로 변환
     char client_ip[INET_ADDRSTRLEN];
@@ -156,9 +153,10 @@ void* print_client_info(void* arg)
 
     // 이 스레드가 종료되지 않도록 무한 대기
     // sleep(1): 1초씩 쉬었다가 다시 반복 -> CPU를 거의 쓰지 않고 계속 살아있음
-    while (1) {
+    while (1)
+    {
         sleep(1);
     }
 
-    return NULL;   // while(1)이 무한 루프라 사실상 도달하지 않음
+    return NULL; // while(1)이 무한 루프라 사실상 도달하지 않음
 }
