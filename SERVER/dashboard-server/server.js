@@ -20,7 +20,7 @@ const RULE =
   `6. COUNT, SUM 등 집계 함수와 일반 컬럼을 함께 SELECT하지 마.\n` +
   `7. 집계 함수만 쓰거나, 일반 컬럼만 쓰는 쿼리를 작성해.\n` +
   `8. 입차 키워드는 entry_time 필드를 사용해.\n` +
-  `9. 출차 키워드는 exit_time 필드를 사용해.\n`
+  `9. 출차 키워드는 exit_time 필드를 사용해.\n`;
 
 const SCHEMA =
   "1. records TABLE (id INT PK NOT NULL, car_number CHAR(30) NOT NULL, entry_time DATETIME NOT NULL, exit_time DATETIME NULL)\n" +
@@ -41,7 +41,7 @@ const SCHEMA =
   "area_3: 해당 구역 주차 여부 판단(0: 주차 안됨 / 1: 주차됨\n" +
   "area_4: 해당 구역 주차 여부 판단(0: 주차 안됨 / 1: 주차됨\n" +
   "area_5: 해당 구역 주차 여부 판단(0: 주차 안됨 / 1: 주차됨\n" +
-  "area_6: 해당 구역 주차 여부 판단(0: 주차 안됨 / 1: 주차됨\n"
+  "area_6: 해당 구역 주차 여부 판단(0: 주차 안됨 / 1: 주차됨\n";
 
 const FEWSHOT_EXAMPLES =
     "SELECT * FROM parked_status;\n" +
@@ -110,11 +110,40 @@ const callLLM = async (systemMsg, userPrompt) => {
   }
 
   const queryResult = data?.choices?.[0]?.message?.content;
+  console.log("Query: ", queryResult);
 
   return queryResult;
 
 };
 
+const runQuery = async (sql) => {
+  let rows, fields;
+
+  try {
+    [rows, fields] = await pool.query(sql);
+  } catch (err) {
+    return { error: `쿼리 실행 오류: ${ err.message }`};
+  }
+
+  if (!Array.isArray(rows) || rows.length === 0)
+  {
+    return { text: "결과 없음", rows: []}
+  }
+
+  const columnNames = fields.map((f) => f.name);
+  const lines = [`컬럼: ${columnNames.join(', ')}`];
+
+  for (const row of rows)
+  {
+    const values = columnNames.map((name) => {
+      const v = row[name];
+      return v === null || v === undefined ? "NULL" : String(v);
+    });
+    lines.push(values.join(", "));
+  }
+
+  return { text: lines.join('\n', rows)};
+};
 
 // 테스트 API
 app.get('/', (req, res) => {
@@ -167,19 +196,30 @@ app.post("/api/llm-query", async (req, res) => {
 
   const rawSql = await callLLM(null, prompt);
 
-  let rows, fields;
+  const { text: resultText, error } = await runQuery(rawSql);
 
-  try {
-    [rows, fields] = await pool.query(rawSql);
-  } catch (err) {
-    return { error: `쿼리 실행 오류: ${err.message}`};
+  if (error)
+  {
+    return res.status(500).json({
+      answer: `쿼리 실행 중 오류가 발생했습니다: ${error}`,
+      rawSql,
+    });
   }
 
-  console.log(rows, fields);
+  console.log(`=== 쿼리 결과 ===\n${resultText}`)
 
-  
+  const summarizePrompt =
+    `사용자 질문: ${question}\n\n` +
+    `조회 결과:\n${resultText}\n\n` +
+    '위 데이터를 바탕으로 친절한 한국어 문장으로 답변해줘. ' +
+    '숫자나 값은 그대로 사용하고, 새로운 숫자나 정보를 만들어내지 마. ' +
+    '결과가 여러 개면 목록 형태로 자연스럽게 정리해줘.';
 
-  return res.status(200).json(rawSql);
+  const answer = await callLLM("너는 한국어로만 답변하는 친절한 AI 비서야.", summarizePrompt);
+
+  console.log(`=== 최종 답변 ===\n${answer ?? '(요약 실패)'}`);
+
+  return res.status(200).json(answer);
 });
 
 

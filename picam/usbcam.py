@@ -13,53 +13,35 @@ PLATE_PATTERN = re.compile(r'\d{2,3}[가-힣]\d{4}')  # 한국 번호판 형식
 last_saved_text = None
 last_saved_time = 0
 
+CAM_INDEX = 1          # 웹캠이 여러 개면 0, 1, 2... 순서로 바꿔가며 확인
+CAPTURE_WIDTH = 1280
+CAPTURE_HEIGHT = 720
 
 os.makedirs(SAVE_DIR, exist_ok=True)
 
-def gstreamer_pipeline(
-    sensor_id=0,
-    capture_width=1280,
-    capture_height=720,
-    display_width=1280,
-    display_height=720,
-    framerate=10,
-    flip_method=0,
-):
-    return (
-        "nvarguscamerasrc sensor-id=%d ! "
-        "video/x-raw(memory:NVMM), width=(int)%d, height=(int)%d, "
-        "format=(string)NV12, framerate=(fraction)%d/1 ! "
-        "nvvidconv flip-method=%d ! "
-        "video/x-raw, width=(int)%d, height=(int)%d, format=(string)BGRx ! "
-        "videoconvert ! "
-        "video/x-raw, format=(string)BGR ! appsink"
-        % (
-            sensor_id,
-            capture_width,
-            capture_height,
-            framerate,
-            flip_method,
-            display_width,
-            display_height,
-        )
-    )
 
 def show_camera():
-    pipeline = gstreamer_pipeline(flip_method=2)
-    print("GStreamer 파이프라인:", pipeline)
-
-    cap = cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)
+    """
+    USB 웹캠 오픈.
+    Jetson Nano에서는 V4L2 백엔드를 명시하는 게 안정적입니다.
+    """
+    cap = cv2.VideoCapture(CAM_INDEX, cv2.CAP_V4L2)
 
     if not cap.isOpened():
-        print("카메라를 열 수 없습니다. 연결 및 파이프라인을 확인하세요.")
-        return
+        print("카메라를 열 수 없습니다. USB 연결 및 장치 번호를 확인하세요 (예: ls /dev/video*).")
+        return None, None
 
-    window_name = "CSI Camera"
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAPTURE_WIDTH)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAPTURE_HEIGHT)
+
+    actual_w = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+    actual_h = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+    print(f"카메라 해상도: {int(actual_w)}x{int(actual_h)}")
+
+    window_name = "USB Camera"
     cv2.namedWindow(window_name, cv2.WINDOW_AUTOSIZE)
-    
-    return cap, window_name
 
-    
+    return cap, window_name
 
 
 def preprocess(frame):
@@ -67,6 +49,7 @@ def preprocess(frame):
     gray = cv2.bilateralFilter(gray, 11, 17, 17)
     _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     return thresh
+
 
 def find_plate_candidates(frame):
     """
@@ -85,7 +68,6 @@ def find_plate_candidates(frame):
         x, y, w, h = cv2.boundingRect(c)
         aspect_ratio = w / float(h) if h > 0 else 0
         area = w * h
-        # 번호판 대략적인 비율/크기 조건 (환경에 맞게 조정 필요)
         if 2.0 <= aspect_ratio <= 5.5 and area > 1500:
             candidates.append((x, y, w, h))
     return candidates
@@ -98,8 +80,8 @@ def ocr_plate(plate_img):
     processed = preprocess(plate_img)
     data = pytesseract.image_to_data(
         processed,
-        lang='kor',                       # 한글 번호판이면 'kor', 아니면 'eng'
-        config='--psm 7',                 # 한 줄 텍스트로 가정
+        lang='kor',
+        config='--psm 7',
         output_type=pytesseract.Output.DICT
     )
 
@@ -125,7 +107,7 @@ def save_capture(frame, plate_img, text):
 
     now = time.time()
     if text == last_saved_text and (now - last_saved_time) < SAVE_COOLDOWN:
-        return False  # 같은 번호판 중복 저장 방지
+        return False
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     frame_path = os.path.join(SAVE_DIR, f"{timestamp}_{text}_full.jpg")
@@ -141,10 +123,6 @@ def save_capture(frame, plate_img, text):
 
 
 def process_frame(frame):
-    """
-    메인 루프에서 프레임마다 호출할 함수
-    카메라 오픈 코드의 while 루프 안에서 frame 받아서 이 함수만 호출하면 됨
-    """
     candidates = find_plate_candidates(frame)
     print(f"[DEBUG] 후보 개수: {len(candidates)}")
 
@@ -162,20 +140,23 @@ def process_frame(frame):
 
     return frame
 
+
 if __name__ == "__main__":
     cap, window_name = show_camera()
+    if cap is None:
+        exit(1)
+
     try:
         while True:
             ret, frame = cap.read()
             if not ret:
                 print("프레임을 읽을 수 없습니다.")
                 break
-            
+
             frame = process_frame(frame)
 
             cv2.imshow(window_name, frame)
 
-            # 'q' 키를 누르면 종료
             keyCode = cv2.waitKey(10) & 0xFF
             if keyCode == ord('q'):
                 break
