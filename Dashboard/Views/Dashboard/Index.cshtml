@@ -3,7 +3,7 @@
 }
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h3 class="mb-0"><i class="bi bi-speedometer2"></i> 주차 현황 대시보드</h3>
-    <span class="text-muted small" id="currentTime">@DateTime.Now.ToString("yyyy-MM-dd ddd HH:mm")</span>
+    <span class="text-muted small" id="currentTime">-</span>
 </div>
 
 <!-- 상단 KPI 카드 -->
@@ -60,7 +60,11 @@
     <div class="card-body">
         <div class="parking-box">
             <div class="parking-grid" id="parkingGrid">
-                <!-- JavaScript 가 동적으로 생성 -->
+                <div class="text-center text-muted py-5">
+                    <i class="bi bi-wifi-off" style="font-size: 2rem;"></i><br>
+                    ESP32 센서 데이터 대기중...<br>
+                    <small>차량이 들어오면 자동으로 표시됩니다</small>
+                </div>
             </div>
         </div>
     </div>
@@ -73,7 +77,7 @@
     </div>
     <div class="card-body">
         <div class="row g-3" id="barrierList">
-            <!-- JavaScript 가 동적으로 생성 -->
+            <div class="text-center text-muted">차단기 데이터 대기중...</div>
         </div>
     </div>
 </div>
@@ -97,7 +101,7 @@
                             </tr>
                         </thead>
                         <tbody id="currentVehicles">
-                            <tr><td colspan="3" class="text-center text-muted py-4">로딩중...</td></tr>
+                            <tr><td colspan="3" class="text-center text-muted py-4">ESP32 센서 데이터 대기중...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -122,12 +126,54 @@
                             </tr>
                         </thead>
                         <tbody id="recentActivityBody">
-                            <tr><td colspan="4" class="text-center text-muted py-4">로딩중...</td></tr>
+                            <tr><td colspan="4" class="text-center text-muted py-4">서버에서 데이터 로딩중...</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- API 상태 표시 -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white">
+        <i class="bi bi-hdd-network"></i> API 연결 상태
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="alert alert-secondary mb-0" id="api1-status">
+                    <i class="bi bi-circle"></i> /api/parked-status
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="alert alert-secondary mb-0" id="api2-status">
+                    <i class="bi bi-circle"></i> /api/entry-exit-records
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="alert alert-secondary mb-0" id="api3-status">
+                    <i class="bi bi-circle"></i> /api/llm-query
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- LLM 쿼리 테스트 -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white">
+        <i class="bi bi-robot"></i> LLM 질의 테스트 (실제 API 호출)
+    </div>
+    <div class="card-body">
+        <div class="input-group">
+            <input type="text" id="llmQuestion" class="form-control" 
+                   placeholder="질문을 입력하세요 (예: 오늘 입차 수는?, 현재 주차 차량 수는?)" />
+            <button class="btn btn-primary" type="button" id="llmSubmit">질문</button>
+        </div>
+        <pre id="llmResult" class="mt-3 p-3 bg-light border rounded" 
+             style="min-height: 80px; white-space: pre-wrap; font-family: monospace;">여기에 답변이 표시됩니다...</pre>
     </div>
 </div>
 
@@ -137,10 +183,27 @@
     const API_BASE = 'http://192.168.0.7:10001/api';
     const REFRESH_INTERVAL = 3000;
     
-    // 주차 자리 그리드 렌더링
+    // API 상태 업데이트 (초록:성공, 빨강:실패)
+    function setApiStatus(apiNum, success) {
+        const el = document.getElementById(`api${apiNum}-status`);
+        if (!el) return;
+        el.className = 'alert alert-' + (success ? 'success' : 'danger') + ' mb-0';
+        el.innerHTML = '<i class="bi bi-' + (success ? 'check-circle' : 'x-circle') + '"></i> ' + el.textContent.substring(2);
+    }
+    
+    // 주차 자리 그리드 렌더링 (ESP32 데이터만 표시)
     function renderParkingGrid(spots) {
         const grid = document.getElementById('parkingGrid');
-        if (!grid || !spots || spots.length === 0) return;
+        if (!grid) return;
+        
+        // ESP32 데이터가 없으면 대기 메시지 표시
+        if (!spots || spots.length === 0) {
+            grid.innerHTML = '<div class="text-center text-muted py-5">' +
+                '<i class="bi bi-wifi-off" style="font-size: 2rem;"></i><br>' +
+                'ESP32 센서 데이터 대기중...<br>' +
+                '<small>차량이 들어오면 자동으로 표시됩니다</small></div>';
+            return;
+        }
         
         const leftSpots = spots.filter(s => s.zone === 'L').sort((a,b) => a.spot_number.localeCompare(b.spot_number));
         const rightSpots = spots.filter(s => s.zone === 'R').sort((a,b) => a.spot_number.localeCompare(b.spot_number));
@@ -153,7 +216,7 @@
             
             html += '<div class="parking-row">';
             
-            // 좌측 자리
+            // 좌측 자리 - ESP32 데이터 있을 때만 표시
             if (lspot) {
                 const cls = lspot.is_occupied ? 'cell-occupied' : lspot.status === 'Empty' ? 'cell-empty' : 'cell-unknown';
                 const title = `${lspot.spot_number} | ${lspot.status}` +
@@ -172,7 +235,7 @@
                 html += '<div class="cell cell-aisle"></div>';
             }
             
-            // 우측 자리
+            // 우측 자리 - ESP32 데이터 있을 때만 표시
             if (rspot) {
                 const cls = rspot.is_occupied ? 'cell-occupied' : rspot.status === 'Empty' ? 'cell-empty' : 'cell-unknown';
                 const title = `${rspot.spot_number} | ${rspot.status}` +
@@ -192,7 +255,12 @@
     // 차단기 상태 렌더링
     function renderBarriers(barriers) {
         const list = document.getElementById('barrierList');
-        if (!list || !barriers) return;
+        if (!list) return;
+        
+        if (!barriers || barriers.length === 0) {
+            list.innerHTML = '<div class="text-center text-muted">차단기 데이터 대기중...</div>';
+            return;
+        }
         
         list.innerHTML = barriers.map(b => `
             <div class="col-md-6">
@@ -212,18 +280,20 @@
         `).join('');
     }
     
-    // 현재 주차 차량 렌더링
+    // 현재 주차 차량 렌더링 (ESP32 데이터만)
     function renderCurrentVehicles(vehicles) {
         const tbody = document.getElementById('currentVehicles');
         const count = document.getElementById('currentVehicleCount');
-        if (!tbody || !vehicles) return;
+        if (!tbody || !count) return;
         
-        count.textContent = vehicles.length + '대';
-        
-        if (vehicles.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">현재 주차 중인 차량이 없습니다.</td></tr>';
+        // ESP32 데이터가 없으면 대기 메시지
+        if (!vehicles || vehicles.length === 0) {
+            count.textContent = '0 대';
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">ESP32 센서 데이터 대기중...</td></tr>';
             return;
         }
+        
+        count.textContent = vehicles.length + '대';
         
         tbody.innerHTML = vehicles.map(v => {
             const entryTime = new Date(v.entry_time);
@@ -231,26 +301,26 @@
             const hours = Math.floor(duration / 60);
             const mins = duration % 60;
             return `<tr>
-                <td class="fw-bold">${v.plate_number}</td>
+                <td class="fw-bold">${v.plate_number || '-'}</td>
                 <td>${entryTime.toLocaleString('ko-KR', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</td>
                 <td>${hours}시간 ${mins}분</td>
             </tr>`;
         }).join('');
     }
     
-    // 최근 입출입 기록 렌더링
+    // 최근 입출입 기록 렌더링 (API 2)
     function renderRecentActivity(records) {
         const tbody = document.getElementById('recentActivityBody');
-        if (!tbody || !records) return;
+        if (!tbody) return;
         
-        if (records.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">기록이 없습니다.</td></tr>';
+        if (!records || records.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">최근 입출입 기록이 없습니다.</td></tr>';
             return;
         }
         
         tbody.innerHTML = records.map(r => `
             <tr>
-                <td class="fw-bold">${r.plate_number}</td>
+                <td class="fw-bold">${r.plate_number || '-'}</td>
                 <td>${new Date(r.entry_time).toLocaleString('ko-KR', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</td>
                 <td>${r.exit_time ? new Date(r.exit_time).toLocaleString('ko-KR', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '-'}</td>
                 <td><span class="badge ${r.status === 'parked' ? 'text-bg-warning' : 'text-bg-success'}">${r.status === 'parked' ? '주차중' : '완료'}</span></td>
@@ -258,7 +328,7 @@
         `).join('');
     }
     
-    // 주차 현황 API 호출
+    // API 1: 주차 현황 조회 - ESP32 데이터
     async function fetchParkedStatus() {
         try {
             const res = await fetch(`${API_BASE}/parked-status`);
@@ -267,47 +337,89 @@
             
             if (!data.ok) return;
             
-            // KPI 업데이트
-            document.getElementById('totalSpots').innerHTML = data.total_spots + '<small class="text-muted">면</small>';
-            document.getElementById('occupiedSpots').innerHTML = data.spots_summary.occupied + '<small class="text-muted">대</small>';
-            document.getElementById('availableSpots').textContent = '여유 ' + data.spots_summary.empty + ' 대';
-            document.getElementById('todayEntriesExits').innerHTML = 
-                data.stats.today_entries + '<small class="text-muted fs-6">/ ' + data.stats.today_exits + '</small>';
-            document.getElementById('todayRevenue').innerHTML = 
-                Number(data.stats.today_revenue).toLocaleString() + '<small class="text-muted">원</small>';
-            document.getElementById('monthRevenue').textContent = 
-                '이번 달 ' + Number(data.stats.month_revenue).toLocaleString() + '원';
+            // 성공 상태 표시
+            setApiStatus(1, true);
             
-            // 자리 현황
-            document.getElementById('spotsOccupied').textContent = data.spots_summary.occupied;
-            document.getElementById('spotsEmpty').textContent = data.spots_summary.empty;
-            document.getElementById('spotsUnknown').textContent = data.spots_summary.unknown;
+            // KPI 업데이트
+            document.getElementById('totalSpots').innerHTML = (data.total_spots || 0) + '<small class="text-muted">면</small>';
+            document.getElementById('occupiedSpots').innerHTML = (data.spots_summary?.occupied || 0) + '<small class="text-muted">대</small>';
+            document.getElementById('availableSpots').textContent = '여유 ' + (data.spots_summary?.empty || 0) + ' 대';
+            document.getElementById('todayEntriesExits').innerHTML = 
+                (data.stats?.today_entries || 0) + '<small class="text-muted fs-6">/ ' + (data.stats?.today_exits || 0) + '</small>';
+            document.getElementById('todayRevenue').innerHTML = 
+                Number(data.stats?.today_revenue || 0).toLocaleString() + '<small class="text-muted">원</small>';
+            document.getElementById('monthRevenue').textContent = 
+                '이번 달 ' + Number(data.stats?.month_revenue || 0).toLocaleString() + '원';
+            
+            // 자리 현황 - ESP32 데이터만 표시
+            document.getElementById('spotsOccupied').textContent = data.spots_summary?.occupied || 0;
+            document.getElementById('spotsEmpty').textContent = data.spots_summary?.empty || 0;
+            document.getElementById('spotsUnknown').textContent = data.spots_summary?.unknown || 0;
             if (data.timestamp) {
                 document.getElementById('lastSensorUpdate').textContent = 
                     '마지막 갱신: ' + new Date(data.timestamp).toLocaleTimeString();
             }
             
+            // ESP32 센서 데이터로만 표시 (하드코딩 제거)
             renderParkingGrid(data.spots);
             renderBarriers(data.barriers);
             renderCurrentVehicles(data.current_vehicles);
             
         } catch (e) {
-            console.error('주차 현황 fetch 오류:', e);
+            console.warn('parked-status API 오류:', e.message);
+            setApiStatus(1, false);
         }
     }
     
-    // 입출입 기록 API 호출
+    // API 2: 입출입 기록 조회
     async function fetchEntryExitRecords() {
         try {
             const res = await fetch(`${API_BASE}/entry-exit-records?limit=10&status=all`);
             if (!res.ok) throw new Error('HTTP ' + res.status);
             const data = await res.json();
             
+            setApiStatus(2, true);
+            
             if (data.records) {
                 renderRecentActivity(data.records);
             }
         } catch (e) {
-            console.error('입출입 기록 fetch 오류:', e);
+            console.warn('entry-exit-records API 오류:', e.message);
+            setApiStatus(2, false);
+        }
+    }
+    
+    // API 3: LLM 질의 - 실제 서버로 전송
+    async function queryLLM(question) {
+        const resultBox = document.getElementById('llmResult');
+        if (!resultBox || !question) return;
+        
+        resultBox.textContent = '서버로 질의 전송중...';
+        setApiStatus(3, false);
+        
+        try {
+            const res = await fetch(`${API_BASE}/llm-query`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question: question })
+            });
+            
+            if (!res.ok) {
+                const errText = await res.text();
+                throw new Error('HTTP ' + res.status + ': ' + errText);
+            }
+            
+            // 서버에서 raw SQL 문자열 반환
+            const sql = await res.text();
+            setApiStatus(3, true);
+            
+            resultBox.textContent = '✅ 생성된 SQL 쿼리:\n\n' + sql + 
+                '\n\n[주의] 이 SQL 은 쿼리만 생성합니다.\n실행 결과는 백엔드에서 처리해야 합니다.';
+            
+        } catch (e) {
+            setApiStatus(3, false);
+            resultBox.textContent = '❌ 오류 발생:\n' + e.message + 
+                '\n\n서버 (http://192.168.0.7:10001) 가 실행 중인지 확인하세요.';
         }
     }
     
@@ -318,12 +430,32 @@
             now.toLocaleString('ko-KR', {year:'numeric',month:'2-digit',day:'2-digit',weekday:'short',hour:'2-digit',minute:'2-digit'});
     }
     
-    // 초기 로딩
-    fetchParkedStatus();
-    fetchEntryExitRecords();
+    // LLM 질문 버튼 이벤트
+    document.getElementById('llmSubmit')?.addEventListener('click', function() {
+        const question = document.getElementById('llmQuestion').value.trim();
+        if (question) {
+            queryLLM(question);
+        }
+    });
+    
+    document.getElementById('llmQuestion')?.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            const question = this.value.trim();
+            if (question) queryLLM(question);
+        }
+    });
+    
+    // 초기화 - 모든 데이터를 "-" 로 표시
     updateTime();
     
-    // 주기적 업데이트
+    console.log('대시보드 시작 - 3 초마다 API 폴링 시작...');
+    console.log('API Base:', API_BASE);
+    
+    // 첫 데이터 로드
+    fetchParkedStatus();
+    fetchEntryExitRecords();
+    
+    // 주기적 업데이트 (3 초마다)
     setInterval(fetchParkedStatus, REFRESH_INTERVAL);
     setInterval(fetchEntryExitRecords, REFRESH_INTERVAL * 2);
     setInterval(updateTime, 1000);
