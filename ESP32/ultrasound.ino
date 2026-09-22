@@ -10,7 +10,7 @@ IPAddress subnet(255, 255, 255, 0);
 IPAddress primaryDNS(8, 8, 8, 8);
 
 // C 서버 IP 및 수신 포트
-const char* serverIP = "192.168.0.7"; // C 서버 IP
+const char* serverIP = "192.168.0.7";  // C 서버 IP
 const int serverPort = 10000;          // C 서버 수신 포트
 
 // 초음파 센서 6개 핀 할당 (Trig, Echo)
