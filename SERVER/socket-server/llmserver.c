@@ -8,7 +8,7 @@
 #include <mysql/mysql.h>
 
 #define SERVER_PORT 10002
-#define LLM_API_URL "http://localhost:10001/v1/chat/completions"
+#define LLM_API_URL "http://localhost:10002/v1/chat/completions"
 #define MYSQL_HOST "127.0.0.1"
 #define MYSQL_USER "server"
 #define MYSQL_PASSWORD "server"
@@ -79,7 +79,8 @@ int main()
         "5. 출력 텍스트에 포함된 마크다운 문법은 모두 제거해.\n\n"
         "6. COUNT, SUM 등 집계 함수와 일반 컬럼을 함께 SELECT하지 마.\n"
         "7. 집계 함수만 쓰거나, 일반 컬럼만 쓰는 쿼리를 작성해.\n"
-        "8. 입차 관련 키워드는 entry_time, 출차 관련 키워드는 exit_time을 사용해.\n"
+        "8. 입차 키워드는 entry_time 필드를 사용해.\n"
+        "9. 출차 키워드는 exit_time 필드를 사용해.\n"
         "예시 출력:\n%s\n"
         "질문: %s\n",
         SCHEMA, FEWSHOT_EXAMPLES, question);
