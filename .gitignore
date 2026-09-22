@@ -1,6 +1,8 @@
 .git
 __pycache__
 *.pyc
+.env
+.env*
 
 
 # Image Processing
@@ -15,3 +17,4 @@ mysql8/
 
 # Server
 SERVER/build/
+node_modules/
