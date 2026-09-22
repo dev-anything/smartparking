@@ -51,7 +51,7 @@ def draw_roi(frame, roi, color=(255, 0, 0), thickness=2):
     return frame
 
 def show_camera():
-    pipeline = gstreamer_pipeline(flip_method=0)
+    pipeline = gstreamer_pipeline(flip_method=2)
     print("GStreamer 파이프라인:", pipeline)
 
     cap = cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)
