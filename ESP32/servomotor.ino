@@ -24,10 +24,10 @@ int targetExitAngle = 0;
 
 unsigned long lastEntryMoveTime = 0;
 unsigned long lastExitMoveTime = 0;
-const int MOVE_INTERVAL = 15; // 모터 회전 속도
+const int MOVE_INTERVAL = 20; // 모터 회전 속도 (부하 경감을 위해 약간 늘림)
 
 WiFiServer tcpServer(TCP_PORT);
-WiFiClient activeClient; // 소켓 연결 유지용 객체
+WiFiClient activeClient;
 
 void processSingleCommand(String cmd) {
   cmd.trim();
@@ -52,7 +52,6 @@ void processSingleCommand(String cmd) {
   }
 }
 
-// delay 없이 비동기로 서보모터 구동
 void updateServos() {
   unsigned long currentMillis = millis();
 
@@ -66,7 +65,7 @@ void updateServos() {
     }
   }
 
-  // 출구 차단기 (동시 동작 가능)
+  // 출구 차단기
   if (currentExitAngle != targetExitAngle) {
     if (currentMillis - lastExitMoveTime >= MOVE_INTERVAL) {
       lastExitMoveTime = currentMillis;
@@ -111,7 +110,7 @@ void loop() {
   // 1. 모터 각도 업데이트 (항상 동작)
   updateServos();
 
-  // 2. 새로운 접속 수신 처리
+  // 2. 새 연결 수신 (기존 연결이 없을 때만 받아옴)
   if (!activeClient || !activeClient.connected()) {
     WiFiClient newClient = tcpServer.available();
     if (newClient) {
@@ -120,17 +119,10 @@ void loop() {
     }
   }
 
-  // 3. 유지된 통로를 통해 명령어 수신 (연결 종료 안 함)
+  // 3. 개행문자(\n) 단위로 한 줄씩 안전하게 읽기
   if (activeClient && activeClient.connected() && activeClient.available()) {
-    String rawData = "";
-    while (activeClient.available()) {
-      char c = activeClient.read();
-      if (c == '\n' || c == '\r') {
-        if (rawData.length() > 0) break;
-      } else {
-        rawData += c;
-      }
-    }
+    String rawData = activeClient.readStringUntil('\n');
+    rawData.trim();
 
     if (rawData.length() > 0) {
       int commaIndex = 0;
