@@ -15,6 +15,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Admin> Admins => Set<Admin>();
     public DbSet<Fee> Fees => Set<Fee>();
     public DbSet<ParkingSpot> ParkingSpots => Set<ParkingSpot>();
+    public DbSet<BarrierGate> BarrierGates => Set<BarrierGate>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -68,6 +69,11 @@ public class ApplicationDbContext : DbContext
         // ParkingSpot: SpotNumber 유니크
         modelBuilder.Entity<ParkingSpot>()
             .HasIndex(s => s.SpotNumber)
+            .IsUnique();
+
+        // BarrierGate: GateCode 유니크
+        modelBuilder.Entity<BarrierGate>()
+            .HasIndex(g => g.GateCode)
             .IsUnique();
     }
 }

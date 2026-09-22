@@ -250,6 +250,106 @@ public class ApiController : ControllerBase
         return Ok(new { ok = true, data = v });
     }
 
+    // ============= [차단기 (서보 모터)] =============
+
+    /// <summary>현재 모든 차단기 상태 조회</summary>
+    [HttpGet("barrier/status")]
+    public async Task<IActionResult> BarrierStatus()
+    {
+        var gates = await _db.BarrierGates
+            .OrderBy(g => g.GateCode)
+            .Select(g => new
+            {
+                g.GateCode, g.DisplayName, g.Location, g.IsEnabled,
+                Status = g.Status.ToString(),
+                g.LastChanged, g.LastOpenedAt, g.LastClosedAt
+            })
+            .ToListAsync();
+        return Ok(new { ok = true, count = gates.Count, data = gates });
+    }
+
+    /// <summary>
+    /// ESP32가 차단기 상태를 서버에 보고 (실시간 추적)
+    /// POST /api/esp32/barrier/report
+    /// Body: { "gateCode": "ENTRY", "status": "Open", "note": null }
+    /// </summary>
+    [HttpPost("barrier/report")]
+    public async Task<IActionResult> BarrierReport([FromBody] BarrierReportDto dto)
+    {
+        if (dto == null || string.IsNullOrWhiteSpace(dto.GateCode))
+            return BadRequest(new { ok = false, error = "gateCode required" });
+
+        var gate = await _db.BarrierGates.FirstOrDefaultAsync(g => g.GateCode == dto.GateCode);
+        if (gate == null)
+            return Ok(new { ok = false, message = $"차단기 {dto.GateCode} 미등록" });
+
+        GateStatus newStatus;
+        if (!Enum.TryParse(dto.Status, true, out newStatus))
+            return BadRequest(new { ok = false, error = $"유효하지 않은 status: {dto.Status}" });
+
+        var now = DateTime.UtcNow;
+        gate.Status = newStatus;
+        gate.LastChanged = now;
+        if (newStatus == GateStatus.Open) gate.LastOpenedAt = now;
+        if (newStatus == GateStatus.Closed) gate.LastClosedAt = now;
+        if (!string.IsNullOrWhiteSpace(dto.Note)) gate.Note = dto.Note;
+
+        await _db.SaveChangesAsync();
+
+        _logger.LogInformation("[차단기] {Gate} → {Status}", gate.GateCode, gate.Status);
+
+        return Ok(new
+        {
+            ok = true, gateCode = gate.GateCode, status = gate.Status.ToString(),
+            lastChanged = gate.LastChanged
+        });
+    }
+
+    /// <summary>
+    /// 차단기 명령 (수동 OPEN/CLOSE 또는 시뮬레이션). 실제 ESP32 호출은 별도 클라이언트에서 처리.
+    /// POST /api/esp32/barrier/command
+    /// Body: { "gateCode": "ENTRY", "action": "OPEN" }
+    /// </summary>
+    [HttpPost("barrier/command")]
+    public async Task<IActionResult> BarrierCommand([FromBody] BarrierCommandDto dto)
+    {
+        if (dto == null || string.IsNullOrWhiteSpace(dto.GateCode) || string.IsNullOrWhiteSpace(dto.Action))
+            return BadRequest(new { ok = false, error = "gateCode and action required" });
+
+        var action = dto.Action.ToUpperInvariant();
+        GateStatus newStatus = action switch
+        {
+            "OPEN" => GateStatus.Open,
+            "CLOSE" => GateStatus.Closed,
+            "OPENING" => GateStatus.Opening,
+            "CLOSING" => GateStatus.Closing,
+            _ => GateStatus.Unknown
+        };
+
+        if (newStatus == GateStatus.Unknown)
+            return BadRequest(new { ok = false, error = "action must be OPEN/CLOSE/OPENING/CLOSING" });
+
+        var gate = await _db.BarrierGates.FirstOrDefaultAsync(g => g.GateCode == dto.GateCode);
+        if (gate == null)
+            return Ok(new { ok = false, message = $"차단기 {dto.GateCode} 미등록" });
+
+        var now = DateTime.UtcNow;
+        gate.Status = newStatus;
+        gate.LastChanged = now;
+        if (newStatus == GateStatus.Open) gate.LastOpenedAt = now;
+        if (newStatus == GateStatus.Closed) gate.LastClosedAt = now;
+
+        await _db.SaveChangesAsync();
+
+        _logger.LogInformation("[차단기 명령] {Gate} {Action} → {Status}", gate.GateCode, action, gate.Status);
+
+        return Ok(new
+        {
+            ok = true, gateCode = gate.GateCode, action,
+            status = gate.Status.ToString(), lastChanged = gate.LastChanged
+        });
+    }
+
     /// <summary>레거시 통합 entry (수동 차고등 단말기)</summary>
     [HttpPost("entry")]
     public async Task<IActionResult> Entry([FromBody] EntryDto dto)
@@ -320,5 +420,18 @@ public class ApiController : ControllerBase
         public string? PaymentMethod { get; set; }
         public string? SpotNumber { get; set; }
         public DateTime? Timestamp { get; set; }
+    }
+
+    public class BarrierReportDto
+    {
+        public string GateCode { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;     // Closed/Opening/Open/Closing/Error
+        public string? Note { get; set; }
+    }
+
+    public class BarrierCommandDto
+    {
+        public string GateCode { get; set; } = string.Empty;
+        public string Action { get; set; } = string.Empty;     // OPEN / CLOSE / OPENING / CLOSING
     }
 }

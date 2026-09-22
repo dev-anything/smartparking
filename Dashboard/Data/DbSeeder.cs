@@ -52,13 +52,13 @@ public static class DbSeeder
             );
         }
 
-        // 3) 주차 자리 시드 (기본 50개: A존 25개 + B존 25개)
+        // 3) 주차 자리 시드 (총 6개: L존 3개 + R존 3개 — 가운데 통로, 입구 아래)
         if (!await db.ParkingSpots.AnyAsync())
         {
             var spots = new List<ParkingSpot>();
-            foreach (var zone in new[] { "A", "B" })
+            foreach (var zone in new[] { "L", "R" })
             {
-                for (int i = 1; i <= 25; i++)
+                for (int i = 1; i <= 3; i++)
                 {
                     spots.Add(new ParkingSpot
                     {
@@ -70,6 +70,31 @@ public static class DbSeeder
                 }
             }
             db.ParkingSpots.AddRange(spots);
+        }
+
+        // 4) 차단기 시드 (입구 / 출구)
+        if (!await db.BarrierGates.AnyAsync())
+        {
+            db.BarrierGates.AddRange(
+                new BarrierGate
+                {
+                    GateCode = "ENTRY",
+                    DisplayName = "입구 차단기",
+                    Location = "주차장 입구 (정문)",
+                    Status = GateStatus.Closed,
+                    LastChanged = DateTime.UtcNow,
+                    LastClosedAt = DateTime.UtcNow
+                },
+                new BarrierGate
+                {
+                    GateCode = "EXIT",
+                    DisplayName = "출구 차단기",
+                    Location = "주차장 출구",
+                    Status = GateStatus.Closed,
+                    LastChanged = DateTime.UtcNow,
+                    LastClosedAt = DateTime.UtcNow
+                }
+            );
         }
 
         await db.SaveChangesAsync();

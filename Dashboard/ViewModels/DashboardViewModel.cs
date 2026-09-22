@@ -36,6 +36,9 @@ public class DashboardViewModel
     public List<ZoneStatus> Zones { get; set; } = new();
     public List<SpotView> AllSpots { get; set; } = new();
     public DateTime? LastSensorUpdate { get; set; }
+
+    // === 추가: 차단기 (ESP32 서보) ===
+    public List<BarrierView> Barriers { get; set; } = new();
 }
 
 public class EntryExitSummary
@@ -73,4 +76,15 @@ public class SpotView
     public string? OccupiedByPlateNumber { get; set; }
     public double? LastDistanceCm { get; set; }
     public DateTime LastUpdated { get; set; }
+}
+
+public class BarrierView
+{
+    public string GateCode { get; set; } = string.Empty;        // ENTRY / EXIT
+    public string DisplayName { get; set; } = string.Empty;
+    public string? Location { get; set; }
+    public string Status { get; set; } = "Unknown";             // Closed/Opening/Open/Closing/Error
+    public DateTime LastChanged { get; set; }
+    public DateTime? LastOpenedAt { get; set; }
+    public DateTime? LastClosedAt { get; set; }
 }

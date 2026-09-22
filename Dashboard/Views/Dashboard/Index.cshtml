@@ -66,52 +66,210 @@
         {
             <div class="text-muted text-center py-3">자리 데이터가 없습니다.</div>
         }
-        @foreach (var z in Model.Zones)
+        else
         {
-            <div class="mb-3">
-                <div class="d-flex justify-content-between align-items-end mb-2">
-                    <h6 class="mb-0"><i class="bi bi-grid-fill"></i> @z.Zone 존</h6>
-                    <small class="text-muted">
-                        <span class="text-success">빈 @z.Empty</span> ·
-                        <span class="text-danger">점유 @z.Occupied</span> ·
-                        <span class="text-secondary">미확인 @z.Unknown</span> ·
-                        전체 @z.Total
-                    </small>
-                </div>
-                <div class="spot-grid">
-                    @foreach (var spot in Model.AllSpots.Where(s => s.Zone == z.Zone))
+            // 6칸 주차장 (3행 × 2열): 좌(L-1~L-3) + 우(R-1~R-3), 일정한 크기, 하단 입구
+            var leftZone = Model.Zones.FirstOrDefault(z => z.Zone == "L");
+            var rightZone = Model.Zones.FirstOrDefault(z => z.Zone == "R");
+            var leftSpots = leftZone != null
+                ? Model.AllSpots.Where(s => s.Zone == "L").OrderBy(s => s.SpotNumber).ToList()
+                : new List<SpotView>();
+            var rightSpots = rightZone != null
+                ? Model.AllSpots.Where(s => s.Zone == "R").OrderBy(s => s.SpotNumber).ToList()
+                : new List<SpotView>();
+            var maxRows = Math.Max(leftSpots.Count, rightSpots.Count);
+            var grandEmpty = leftZone?.Empty + rightZone?.Empty ?? 0;
+            var grandOccupied = leftZone?.Occupied + rightZone?.Occupied ?? 0;
+            var grandUnknown = leftZone?.Unknown + rightZone?.Unknown ?? 0;
+
+            <div class="parking-box">
+                <div class="parking-grid">
+                    @for (int i = 0; i < maxRows; i++)
                     {
-                        var cssClass = spot.Status switch
+                        var lspot = i < leftSpots.Count ? leftSpots[i] : null;
+                        var rspot = i < rightSpots.Count ? rightSpots[i] : null;
+
+                        @* 좌측 자리 *@
+                        @if (lspot != null)
                         {
-                            "Occupied" => "spot-occupied",
-                            "Empty" => "spot-empty",
-                            _ => "spot-unknown"
-                        };
-                        var title = $"{spot.SpotNumber} | 상태: {spot.Status}" +
-                                    (spot.LastDistanceCm.HasValue ? $" | 거리: {spot.LastDistanceCm:F1}cm" : "") +
-                                    (string.IsNullOrEmpty(spot.OccupiedByPlateNumber) ? "" : $" | 차량: {spot.OccupiedByPlateNumber}") +
-                                    $" | 갱신: {spot.LastUpdated:HH:mm:ss}";
-                        <div class="spot @cssClass" title="@title" data-plate="@(spot.OccupiedByPlateNumber ?? "")" data-status="@spot.Status">
-                            <div class="spot-num">@spot.SpotNumber.Replace(z.Zone + "-", "")</div>
-                            @if (spot.Status == "Occupied" && !string.IsNullOrEmpty(spot.OccupiedByPlateNumber))
-                            {
-                                <div class="spot-plate">@spot.OccupiedByPlateNumber</div>
-                            }
-                            else if (spot.Status == "Empty")
-                            {
-                                <div class="spot-icon"><i class="bi bi-check2"></i></div>
-                            }
-                            else
-                            {
-                                <div class="spot-icon text-muted"><i class="bi bi-question"></i></div>
-                            }
-                        </div>
+                            var lCls = lspot.Status == "Occupied" ? "cell-occupied"
+                                       : lspot.Status == "Empty" ? "cell-empty" : "cell-unknown";
+                            var lTitle = $"{lspot.SpotNumber} | 상태: {lspot.Status}" +
+                                        (lspot.LastDistanceCm.HasValue ? $" | 거리: {lspot.LastDistanceCm:F1}cm" : "") +
+                                        (string.IsNullOrEmpty(lspot.OccupiedByPlateNumber) ? "" : $" | 차량: {lspot.OccupiedByPlateNumber}") +
+                                        $" | 갱신: {lspot.LastUpdated:HH:mm:ss}";
+                            <div class="parking-cell @lCls" title="@lTitle"
+                                 data-plate="@(lspot.OccupiedByPlateNumber ?? "")" data-status="@lspot.Status">
+                                <div class="cell-num">@lspot.SpotNumber</div>
+                                @if (lspot.Status == "Occupied" && !string.IsNullOrEmpty(lspot.OccupiedByPlateNumber))
+                                {
+                                    <div class="cell-plate">@lspot.OccupiedByPlateNumber</div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="parking-cell cell-unknown"><div class="cell-num">-</div></div>
+                        }
+
+                        @* 우측 자리 *@
+                        @if (rspot != null)
+                        {
+                            var rCls = rspot.Status == "Occupied" ? "cell-occupied"
+                                       : rspot.Status == "Empty" ? "cell-empty" : "cell-unknown";
+                            var rTitle = $"{rspot.SpotNumber} | 상태: {rspot.Status}" +
+                                        (rspot.LastDistanceCm.HasValue ? $" | 거리: {rspot.LastDistanceCm:F1}cm" : "") +
+                                        (string.IsNullOrEmpty(rspot.OccupiedByPlateNumber) ? "" : $" | 차량: {rspot.OccupiedByPlateNumber}") +
+                                        $" | 갱신: {rspot.LastUpdated:HH:mm:ss}";
+                            <div class="parking-cell @rCls" title="@rTitle"
+                                 data-plate="@(rspot.OccupiedByPlateNumber ?? "")" data-status="@rspot.Status">
+                                <div class="cell-num">@rspot.SpotNumber</div>
+                                @if (rspot.Status == "Occupied" && !string.IsNullOrEmpty(rspot.OccupiedByPlateNumber))
+                                {
+                                    <div class="cell-plate">@rspot.OccupiedByPlateNumber</div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="parking-cell cell-unknown"><div class="cell-num">-</div></div>
+                        }
                     }
                 </div>
+
+                <div class="parking-entrance">
+                    @{
+                        var entryGate = Model.Barriers.FirstOrDefault(b => b.GateCode == "ENTRY");
+                        var entryCls = entryGate?.Status;
+                        var entryIc = entryCls == "Open" ? "bi-shield-fill-check text-success"
+                                     : entryCls == "Opening" ? "bi-arrow-repeat text-warning"
+                                     : entryCls == "Closing" ? "bi-arrow-repeat text-warning"
+                                     : entryCls == "Error" ? "bi-exclamation-triangle-fill text-danger"
+                                     : "bi-lock-fill text-danger";
+                        var entryText = entryCls == "Open" ? "열림"
+                                       : entryCls == "Opening" ? "여는 중"
+                                       : entryCls == "Closing" ? "닫는 중"
+                                       : entryCls == "Error" ? "오류"
+                                       : "닫힘";
+                        var entryBadge = entryCls == "Open" ? "bg-success" : "bg-danger";
+                    }
+                    @if (entryGate != null)
+                    {
+                        <span class="gate-pill @entryBadge gate-pill-inline">
+                            <i class="bi @entryIc"></i>
+                            <strong>입구: @entryText</strong>
+                        </span>
+                    }
+                    <i class="bi bi-arrow-down-circle-fill"></i>
+                    <span>입구</span>
+                </div>
+            </div>
+
+            <div class="text-center mt-2 small text-muted">
+                <span class="text-success">빈 <strong>@grandEmpty</strong></span> ·
+                <span class="text-danger">점유 <strong>@grandOccupied</strong></span> ·
+                <span class="text-secondary">미확인 <strong>@grandUnknown</strong></span> ·
+                전체 <strong>@(grandEmpty + grandOccupied + grandUnknown)</strong>칸
             </div>
         }
     </div>
 </div>
+
+<!-- 차단기 상태 (입구 / 출구) — 자동 새로고침 + 토글 -->
+@if (Model.Barriers.Any())
+{
+    <div class="card border-0 shadow-sm mb-4 position-relative">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <span>
+                <i class="bi bi-shield-lock-fill"></i> 입구 / 출구 차단기
+                <small class="text-muted ms-2">(ESP32 서보 모터 원격 제어)</small>
+            </span>
+            <small class="text-muted">
+                <i class="bi bi-arrow-clockwise"></i>
+                <span id="lastRefresh">마지막 갱신: @DateTime.Now.ToString("HH:mm:ss")</span>
+            </small>
+        </div>
+        <div class="card-body">
+            <div class="row g-3" id="gateCardsContainer">
+                @foreach (var b in Model.Barriers)
+                {
+                    var cardTheme = b.GateCode == "ENTRY" ? "gate-entry" : "gate-exit";
+                    var mainLabel = b.GateCode == "ENTRY" ? "입구" : "출구";
+                    var sCls = b.Status == "Open" ? "is-open"
+                              : b.Status == "Opening" || b.Status == "Closing" ? "is-moving"
+                              : b.Status == "Error" ? "is-error"
+                              : "is-closed";
+                    var badgeCls = b.Status == "Open" ? "bg-success"
+                                  : b.Status == "Opening" || b.Status == "Closing" ? "bg-warning text-dark"
+                                  : b.Status == "Error" ? "bg-danger"
+                                  : "bg-secondary";
+                    var sText = b.Status == "Open" ? "열림"
+                               : b.Status == "Opening" ? "여는 중"
+                               : b.Status == "Closing" ? "닫는 중"
+                               : b.Status == "Error" ? "오류"
+                               : "닫힘";
+                    var iconCls = b.Status == "Open" ? "bi-shield-fill-check"
+                                 : b.Status == "Opening" ? "bi-arrow-clockwise"
+                                 : b.Status == "Closing" ? "bi-arrow-counterclockwise"
+                                 : b.Status == "Error" ? "bi-exclamation-triangle-fill"
+                                 : "bi-lock-fill";
+                    var since = b.Status == "Open" ? b.LastOpenedAt : (b.Status == "Closed" ? b.LastClosedAt : (DateTime?)null);
+                    var toggleLabel = b.Status == "Open" ? "닫기" : "열기";
+                    var toggleIcon  = b.Status == "Open" ? "bi-lock-fill" : "bi-unlock-fill";
+                    var toggleCls   = b.Status == "Open" ? "btn-danger" : "btn-success";
+                    var toggleAction = b.Status == "Open" ? "CLOSE" : "OPEN";
+
+                    <div class="col-md-6" id="gate-card-@b.GateCode" data-gate-code="@b.GateCode">
+                        <div class="gate-status-card @cardTheme @sCls" data-status="@b.Status">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <div class="gate-mainlabel">@mainLabel</div>
+                                    <small class="text-muted">@b.Location</small>
+                                </div>
+                                <span class="badge @badgeCls gate-big-badge">
+                                    <i class="bi @iconCls"></i> @sText
+                                </span>
+                            </div>
+
+                            <div class="gate-visual">
+                                <i class="bi gate-big-icon @iconCls"></i>
+                                <div class="gate-state-text">@sText</div>
+                            </div>
+
+                            <hr class="my-2" />
+                            <div class="row text-center small mb-3">
+                                <div class="col-6">
+                                    <div class="text-muted">@(b.Status == "Open" ? "열린 시각" : "닫힌 시각")</div>
+                                    <div class="fw-bold">@(since?.ToString("HH:mm:ss") ?? "—")</div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="text-muted">마지막 변경</div>
+                                    <div class="fw-bold">@b.LastChanged.ToString("HH:mm:ss")</div>
+                                </div>
+                            </div>
+
+                            <button type="button" class="btn @toggleCls w-100 gate-toggle-btn"
+                                    onclick="toggleGate('@b.GateCode')">
+                                <i class="bi @toggleIcon"></i> @toggleLabel (수동)
+                            </button>
+
+                            <div class="d-flex gap-2 mt-2 gate-mini-btns">
+                                <button type="button" class="btn btn-sm btn-outline-success flex-fill"
+                                        onclick="controlGate('@b.GateCode', 'OPEN')">
+                                    <i class="bi bi-unlock"></i> OPEN
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger flex-fill"
+                                        onclick="controlGate('@b.GateCode', 'CLOSE')">
+                                    <i class="bi bi-lock"></i> CLOSE
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
 
 <!-- 차트 두 개 -->
 <div class="row g-3 mb-4">
@@ -227,6 +385,156 @@
 
 @section Scripts {
 <script>
+    // ===== 차단기 수동/자동 새로고침 =====
+
+    // 상태 한국어 라벨
+    function statusKo(s) {
+        return s === 'Open' ? '열림'
+             : s === 'Opening' ? '여는 중'
+             : s === 'Closing' ? '닫는 중'
+             : s === 'Error' ? '오류'
+             : '닫힘';
+    }
+
+    // 상태별 부트스트랩 클래스
+    function statusCardCls(s) {
+        return s === 'Open' ? 'is-open'
+             : (s === 'Opening' || s === 'Closing') ? 'is-moving'
+             : s === 'Error' ? 'is-error'
+             : 'is-closed';
+    }
+    function statusBadgeCls(s) {
+        return s === 'Open' ? 'bg-success'
+             : (s === 'Opening' || s === 'Closing') ? 'bg-warning text-dark'
+             : s === 'Error' ? 'bg-danger'
+             : 'bg-secondary';
+    }
+    function statusIcon(s) {
+        return s === 'Open' ? 'bi-shield-fill-check'
+             : s === 'Opening' ? 'bi-arrow-clockwise'
+             : s === 'Closing' ? 'bi-arrow-counterclockwise'
+             : s === 'Error' ? 'bi-exclamation-triangle-fill'
+             : 'bi-lock-fill';
+    }
+    function fmtTime(d) {
+        if (!d) return '—';
+        const dt = new Date(d);
+        return dt.toTimeString().substring(0, 8);
+    }
+
+    function renderGateCard(g) {
+        const card = document.getElementById('gate-card-' + g.gateCode);
+        if (!card) return;
+
+        const inner = card.querySelector('.gate-status-card');
+        inner.dataset.status = g.status;
+
+        // 카드 색상 동기화
+        inner.classList.remove('is-open', 'is-closed', 'is-moving', 'is-error');
+        inner.classList.add(statusCardCls(g.status));
+
+        // 큰 배지
+        const badge = inner.querySelector('.gate-big-badge');
+        badge.className = 'badge ' + statusBadgeCls(g.status) + ' gate-big-badge';
+        badge.innerHTML = '<i class="bi ' + statusIcon(g.status) + '"></i> ' + statusKo(g.status);
+
+        // 큰 아이콘 + 상태
+        inner.querySelector('.gate-big-icon').className = 'bi gate-big-icon ' + statusIcon(g.status);
+        inner.querySelector('.gate-state-text').textContent = statusKo(g.status);
+
+        // 시간 표시
+        const sinceTime = g.status === 'Open' ? g.lastOpenedAt
+                        : g.status === 'Closed' ? g.lastClosedAt : null;
+        const sinceLabel = g.status === 'Open' ? '열린 시각'
+                         : g.status === 'Closed' ? '닫힌 시각' : '최근 시각';
+        const cells = inner.querySelectorAll('.row.text-center.small .text-muted');
+        if (cells.length >= 2) {
+            cells[0].textContent = sinceLabel;
+            cells[0].nextElementSibling.textContent = fmtTime(sinceTime);
+            cells[1].textContent = '마지막 변경';
+            cells[1].nextElementSibling.textContent = fmtTime(g.lastChanged);
+        }
+
+        // 토글 버튼 라벨 갱신
+        const isOpen = g.status === 'Open';
+        const toggle = inner.querySelector('.gate-toggle-btn');
+        toggle.className = 'btn w-100 gate-toggle-btn ' + (isOpen ? 'btn-danger' : 'btn-success');
+        toggle.innerHTML = '<i class="bi ' + (isOpen ? 'bi-lock-fill' : 'bi-unlock-fill') + '"></i> '
+                        + (isOpen ? '닫기' : '열기') + ' (수동)';
+        toggle.setAttribute('onclick', "toggleGate('" + g.gateCode + "')");
+
+        // 입구 옆 게이트 표시도 동기화
+        if (g.gateCode === 'ENTRY') {
+            const pill = document.querySelector('.gate-pill-inline');
+            if (pill) {
+                const sb = statusBadgeCls(g.status);
+                pill.className = 'gate-pill ' + sb + ' gate-pill-inline';
+                const isOpenP = g.status === 'Open';
+                const ic = isOpenP ? 'bi-shield-fill-check text-success'
+                          : (g.status === 'Opening' || g.status === 'Closing') ? 'bi-arrow-repeat text-warning'
+                          : g.status === 'Error' ? 'bi-exclamation-triangle-fill text-danger'
+                          : 'bi-lock-fill text-danger';
+                pill.innerHTML = '<i class="bi ' + ic + '"></i> <strong>입구: ' + statusKo(g.status) + '</strong>';
+            }
+        }
+    }
+
+    // 자동 폴링 (3초마다)
+    let lastFetchOk = true;
+    async function pollGates() {
+        try {
+            const resp = await fetch('/api/esp32/barrier/status', { cache: 'no-store' });
+            if (!resp.ok) throw new Error('http ' + resp.status);
+            const data = await resp.json();
+            if (data.ok && data.data) {
+                data.data.forEach(renderGateCard);
+                const tag = document.getElementById('lastRefresh');
+                if (tag) {
+                    const now = new Date();
+                    tag.textContent = '마지막 갱신: ' + now.toTimeString().substring(0, 8);
+                }
+                lastFetchOk = true;
+            }
+        } catch (e) {
+            if (lastFetchOk) {
+                console.warn('[poll] 서버 연결 끊김:', e.message);
+                lastFetchOk = false;
+            }
+        }
+    }
+
+    // 첫 폴링은 즉시 + 이후 3초마다
+    pollGates();
+    setInterval(pollGates, 3000);
+
+    // 토글 동작 (현재 상태 반대로 자동)
+    async function toggleGate(gateCode) {
+        const card = document.getElementById('gate-card-' + gateCode);
+        const current = card?.querySelector('.gate-status-card')?.dataset.status || 'Closed';
+        const next = (current === 'Open') ? 'CLOSE' : 'OPEN';
+        await controlGate(gateCode, next);
+    }
+
+    // 명시 OPEN / CLOSE
+    async function controlGate(gateCode, action) {
+        try {
+            const resp = await fetch('/api/esp32/barrier/command', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ gateCode, action })
+            });
+            const result = await resp.json();
+            if (result.ok) {
+                // 즉시 폴링 갱신 (full reload 안 함)
+                pollGates();
+            } else {
+                alert('명령 실패: ' + (result.message || resp.status));
+            }
+        } catch (e) {
+            alert('오류: ' + e.message);
+        }
+    }
+
     // 시간대별 입차 (오늘)
     const ctxHour = document.getElementById('chartHourly').getContext('2d');
     new Chart(ctxHour, {

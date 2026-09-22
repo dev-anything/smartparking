@@ -120,6 +120,21 @@ public class DashboardController : Controller
         var lastSensorUpdate = allSpots.Any()
             ? (DateTime?)allSpots.Max(s => s.LastUpdated)
             : null;
+
+        // 차단기 상태
+        var barrierEntities = await _db.BarrierGates
+            .OrderBy(g => g.GateCode)
+            .ToListAsync();
+        var barriers = barrierEntities.Select(g => new BarrierView
+        {
+            GateCode = g.GateCode,
+            DisplayName = g.DisplayName,
+            Location = g.Location,
+            Status = g.Status.ToString(),
+            LastChanged = g.LastChanged,
+            LastOpenedAt = g.LastOpenedAt,
+            LastClosedAt = g.LastClosedAt
+        }).ToList();
         var dayLabels = new List<string>();
         var dailyRevenue = new List<decimal>();
         for (int i = 0; i < 14; i++)
@@ -170,7 +185,8 @@ public class DashboardController : Controller
             SpotsUnknown = spotsUnknown,
             Zones = zones,
             AllSpots = spotViews,
-            LastSensorUpdate = lastSensorUpdate
+            LastSensorUpdate = lastSensorUpdate,
+            Barriers = barriers
         };
 
         return View(vm);
