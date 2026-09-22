@@ -1,0 +1,163 @@
+@model List<ParkingDashboard.Models.EntryExitRecord>
+@{
+    ViewData["Title"] = "입출입 기록";
+    int currentPage = ViewBag.Page ?? 1;
+    int totalPages = ViewBag.TotalPages ?? 0;
+    int totalCount = ViewBag.TotalCount ?? 0;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0"><i class="bi bi-arrow-left-right"></i> 입출입 기록</h3>
+    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#manualEntryModal">
+        <i class="bi bi-plus-lg"></i> 수동 입차 등록
+    </button>
+</div>
+
+<form method="get" class="card card-body border-0 shadow-sm mb-3">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label small">차량번호</label>
+            <input type="text" name="plate" value="@(ViewBag.Plate ?? "")" class="form-control" placeholder="예: 12가 3456" />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small">시작일</label>
+            <input type="date" name="from" value="@(ViewBag.From?.ToString("yyyy-MM-dd") ?? "")" class="form-control" />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small">종료일</label>
+            <input type="date" name="to" value="@(ViewBag.To?.ToString("yyyy-MM-dd") ?? "")" class="form-control" />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small">상태</label>
+            <select name="status" class="form-select">
+                <option value="">전체</option>
+                <option value="parked" selected="@(ViewBag.Status == "parked")">주차중</option>
+                <option value="done" selected="@(ViewBag.Status == "done")">출차완료</option>
+            </select>
+        </div>
+        <div class="col-md-3 d-flex">
+            <button type="submit" class="btn btn-primary me-2"><i class="bi bi-search"></i> 조회</button>
+            <a href="@Url.Action("Index")" class="btn btn-outline-secondary"><i class="bi bi-arrow-counterclockwise"></i> 초기화</a>
+        </div>
+    </div>
+</form>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>차량번호</th>
+                        <th>입차시각</th>
+                        <th>출차시각</th>
+                        <th>주차시간</th>
+                        <th>상태</th>
+                        <th>출처</th>
+                        <th>비고</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Any())
+                    {
+                        <tr><td colspan="9" class="text-center text-muted py-4">검색 결과가 없습니다.</td></tr>
+                    }
+                    @foreach (var e in Model)
+                    {
+                        <tr>
+                            <td>@e.Id</td>
+                            <td class="fw-bold">@e.PlateNumber</td>
+                            <td>@e.EntryTime.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@(e.ExitTime?.ToString("yyyy-MM-dd HH:mm") ?? "-")</td>
+                            <td>
+                                @{
+                                    int? m = e.DurationMinutes;
+                                    if (m == null)
+                                    {
+                                        var nowMin = (int)Math.Round((DateTime.UtcNow - e.EntryTime).TotalMinutes);
+                                        <span>@(nowMin / 60)시간 @(nowMin % 60)분</span>
+                                    }
+                                    else
+                                    {
+                                        var min = m.Value;
+                                        <span>@(min / 60)시간 @(min % 60)분</span>
+                                    }
+                                }
+                            </td>
+                            <td>
+                                @if (e.IsParked)
+                                {
+                                    <span class="badge bg-danger">주차중</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">완료</span>
+                                }
+                            </td>
+                            <td><span class="badge bg-light text-dark">@e.Source</span></td>
+                            <td class="text-muted small">@(e.Note ?? "")</td>
+                            <td>
+                                @if (e.IsParked)
+                                {
+                                    <form method="post" asp-action="ExitNow" asp-controller="EntryExit" class="d-inline">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@e.Id" />
+                                        <button type="submit" class="btn btn-sm btn-warning"
+                                                onclick="return confirm('@e.PlateNumber 차량을 출차 처리할까요?');">
+                                            <i class="bi bi-box-arrow-right"></i> 출차
+                                        </button>
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card-footer bg-white d-flex justify-content-between align-items-center">
+        <small class="text-muted">총 @totalCount 건</small>
+        <nav>
+            <ul class="pagination pagination-sm mb-0">
+                <li class="page-item @(currentPage <= 1 ? "disabled" : "")">
+                    <a class="page-link" href="@Url.Action("Index", new { plate = ViewBag.Plate, from = ViewBag.From, to = ViewBag.To, status = ViewBag.Status, page = currentPage - 1 })">이전</a>
+                </li>
+                <li class="page-item active"><span class="page-link">@currentPage / @(totalPages == 0 ? 1 : totalPages)</span></li>
+                <li class="page-item @(currentPage >= totalPages ? "disabled" : "")">
+                    <a class="page-link" href="@Url.Action("Index", new { plate = ViewBag.Plate, from = ViewBag.From, to = ViewBag.To, status = ViewBag.Status, page = currentPage + 1 })">다음</a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+</div>
+
+<!-- 수동 입차 등록 모달 -->
+<div class="modal fade" id="manualEntryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-action="ManualEntry" asp-controller="EntryExit">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-plus-circle"></i> 수동 입차 등록</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">차량번호</label>
+                        <input type="text" name="plateNumber" class="form-control" placeholder="예: 12가 3456" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">비고</label>
+                        <input type="text" name="note" class="form-control" placeholder="메모" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">등록</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

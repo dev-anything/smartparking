@@ -1,0 +1,138 @@
+@model List<ParkingDashboard.Models.Fee>
+@{
+    ViewData["Title"] = "수익 조회";
+    var methodGroup = ViewBag.MethodGroup as List<dynamic> ?? new List<dynamic>();
+    var daily = ViewBag.Daily as List<dynamic> ?? new List<dynamic>();
+}
+
+<h3 class="mb-3"><i class="bi bi-cash-coin"></i> 수익 조회</h3>
+
+<form method="get" class="card card-body border-0 shadow-sm mb-3">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label small">시작일</label>
+            <input type="date" name="from" value="@(((DateTime)ViewBag.From).ToString("yyyy-MM-dd"))" class="form-control" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small">종료일</label>
+            <input type="date" name="to" value="@(((DateTime)ViewBag.To).ToString("yyyy-MM-dd"))" class="form-control" />
+        </div>
+        <div class="col-md-3">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i> 조회</button>
+        </div>
+    </div>
+</form>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm"><div class="card-body">
+            <div class="text-muted small">총 수익</div>
+            <div class="fs-3 fw-bold text-primary">@(((decimal)ViewBag.TotalAmount).ToString("N0"))원</div>
+        </div></div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm"><div class="card-body">
+            <div class="text-muted small">결제 건수</div>
+            <div class="fs-3 fw-bold text-success">@ViewBag.TotalCount 건</div>
+        </div></div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm"><div class="card-body">
+            <div class="text-muted small">건당 평균</div>
+            <div class="fs-3 fw-bold text-warning">@(((decimal)ViewBag.AvgAmount).ToString("N0"))원</div>
+        </div></div>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white"><i class="bi bi-pie-chart"></i> 결제수단별 비중</div>
+            <div class="card-body">
+                <canvas id="chartMethod" height="160"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white"><i class="bi bi-bar-chart"></i> 일별 수익</div>
+            <div class="card-body">
+                <canvas id="chartDailyRev" height="160"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white"><i class="bi bi-list"></i> 상세 내역</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>결제시각</th>
+                        <th>차량번호</th>
+                        <th>입차</th>
+                        <th>출차</th>
+                        <th>주차(분)</th>
+                        <th>수단</th>
+                        <th class="text-end">금액</th>
+                        <th>비고</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Any())
+                    {
+                        <tr><td colspan="8" class="text-center text-muted py-4">해당 기간에 데이터가 없습니다.</td></tr>
+                    }
+                    @foreach (var f in Model)
+                    {
+                        <tr>
+                            <td>@f.PaidAt.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td class="fw-bold">@f.PlateNumber</td>
+                            <td>@f.EntryTime.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@f.ExitTime.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@f.ParkedMinutes</td>
+                            <td><span class="badge bg-light text-dark">@f.PaymentMethod</span></td>
+                            <td class="text-end fw-bold">@f.Amount.ToString("N0")원</td>
+                            <td class="text-muted small">@(f.Note ?? "")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    // 결제수단별
+    const ctxM = document.getElementById('chartMethod').getContext('2d');
+    new Chart(ctxM, {
+        type: 'doughnut',
+        data: {
+            labels: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(methodGroup.Select(m => (string)m.Method).ToList())),
+            datasets: [{
+                data: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(methodGroup.Select(m => (decimal)m.Total).ToList())),
+                backgroundColor: ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#6c757d']
+            }]
+        }
+    });
+
+    // 일별 수익
+    const ctxD = document.getElementById('chartDailyRev').getContext('2d');
+    new Chart(ctxD, {
+        type: 'bar',
+        data: {
+            labels: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(daily.Select(d => ((DateTime)d.Day).ToString("MM-dd")).ToList())),
+            datasets: [{
+                label: '수익',
+                data: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(daily.Select(d => (decimal)d.Total).ToList())),
+                backgroundColor: 'rgba(13, 110, 253, .7)',
+                borderRadius: 4
+            }]
+        },
+        options: { plugins: { legend: { display: false } } }
+    });
+</script>
+}

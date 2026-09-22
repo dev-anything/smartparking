@@ -1,0 +1,263 @@
+@model ParkingDashboard.ViewModels.DashboardViewModel
+@{
+    ViewData["Title"] = "대시보드";
+}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="mb-0"><i class="bi bi-speedometer2"></i> 주차 현황 대시보드</h3>
+    <span class="text-muted small">@DateTime.Now.ToString("yyyy-MM-dd ddd HH:mm")</span>
+</div>
+
+<!-- 상단 KPI 카드 -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card kpi-card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="kpi-label">총 주차면</div>
+                <div class="kpi-value text-primary">@Model.TotalSpots<small class="text-muted">면</small></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card kpi-card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="kpi-label">현재 주차</div>
+                <div class="kpi-value text-danger">@Model.OccupiedSpots<small class="text-muted">대</small></div>
+                <div class="kpi-sub">여유 @Model.AvailableSpots 대</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card kpi-card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="kpi-label">오늘 입차/출차</div>
+                <div class="kpi-value text-success">
+                    @Model.TodayEntries <small class="text-muted fs-6">/ @Model.TodayExits</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card kpi-card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="kpi-label">오늘 수익</div>
+                <div class="kpi-value text-warning">@Model.TodayRevenue.ToString("N0")<small class="text-muted">원</small></div>
+                <div class="kpi-sub">이번 달 @Model.MonthRevenue.ToString("N0")원</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ★ 새로 추가: 주차 자리 현황 (ESP32 초음파 센서) -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-grid-3x3-gap-fill"></i> 주차 자리 현황 (ESP32 초음파 센서)</span>
+        <small class="text-muted">
+            점유 <strong class="text-danger">@Model.SpotsOccupied</strong> ·
+            빈자리 <strong class="text-success">@Model.SpotsEmpty</strong> ·
+            미확인 <strong class="text-secondary">@Model.SpotsUnknown</strong>
+            @if (Model.LastSensorUpdate.HasValue)
+            {
+                <span class="ms-2">마지막 갱신: @Model.LastSensorUpdate.Value.ToString("HH:mm:ss")</span>
+            }
+        </small>
+    </div>
+    <div class="card-body">
+        @if (!Model.Zones.Any())
+        {
+            <div class="text-muted text-center py-3">자리 데이터가 없습니다.</div>
+        }
+        @foreach (var z in Model.Zones)
+        {
+            <div class="mb-3">
+                <div class="d-flex justify-content-between align-items-end mb-2">
+                    <h6 class="mb-0"><i class="bi bi-grid-fill"></i> @z.Zone 존</h6>
+                    <small class="text-muted">
+                        <span class="text-success">빈 @z.Empty</span> ·
+                        <span class="text-danger">점유 @z.Occupied</span> ·
+                        <span class="text-secondary">미확인 @z.Unknown</span> ·
+                        전체 @z.Total
+                    </small>
+                </div>
+                <div class="spot-grid">
+                    @foreach (var spot in Model.AllSpots.Where(s => s.Zone == z.Zone))
+                    {
+                        var cssClass = spot.Status switch
+                        {
+                            "Occupied" => "spot-occupied",
+                            "Empty" => "spot-empty",
+                            _ => "spot-unknown"
+                        };
+                        var title = $"{spot.SpotNumber} | 상태: {spot.Status}" +
+                                    (spot.LastDistanceCm.HasValue ? $" | 거리: {spot.LastDistanceCm:F1}cm" : "") +
+                                    (string.IsNullOrEmpty(spot.OccupiedByPlateNumber) ? "" : $" | 차량: {spot.OccupiedByPlateNumber}") +
+                                    $" | 갱신: {spot.LastUpdated:HH:mm:ss}";
+                        <div class="spot @cssClass" title="@title" data-plate="@(spot.OccupiedByPlateNumber ?? "")" data-status="@spot.Status">
+                            <div class="spot-num">@spot.SpotNumber.Replace(z.Zone + "-", "")</div>
+                            @if (spot.Status == "Occupied" && !string.IsNullOrEmpty(spot.OccupiedByPlateNumber))
+                            {
+                                <div class="spot-plate">@spot.OccupiedByPlateNumber</div>
+                            }
+                            else if (spot.Status == "Empty")
+                            {
+                                <div class="spot-icon"><i class="bi bi-check2"></i></div>
+                            }
+                            else
+                            {
+                                <div class="spot-icon text-muted"><i class="bi bi-question"></i></div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- 차트 두 개 -->
+<div class="row g-3 mb-4">
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white">
+                <i class="bi bi-bar-chart-line"></i> 오늘 시간대별 입차
+            </div>
+            <div class="card-body">
+                <canvas id="chartHourly" height="180"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white">
+                <i class="bi bi-graph-up"></i> 최근 14일 일별 수익
+            </div>
+            <div class="card-body">
+                <canvas id="chartDaily" height="180"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 현재 주차 차량 + 최근 활동 -->
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-car-front"></i> 현재 주차 차량 (@Model.CurrentParkedList.Count 대)</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive" style="max-height: 420px;">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th>차량번호</th>
+                                <th>소유자</th>
+                                <th>입차시각</th>
+                                <th>주차시간</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (!Model.CurrentParkedList.Any())
+                            {
+                                <tr><td colspan="4" class="text-center text-muted py-4">현재 주차 중인 차량이 없습니다.</td></tr>
+                            }
+                            @foreach (var p in Model.CurrentParkedList)
+                            {
+                                <tr>
+                                    <td class="fw-bold">@p.PlateNumber</td>
+                                    <td>@p.OwnerName</td>
+                                    <td>@p.EntryTime.ToString("MM-dd HH:mm")</td>
+                                    <td>@($"{p.DurationMinutes / 60}시간 {p.DurationMinutes % 60}분")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white">
+                <i class="bi bi-clock-history"></i> 최근 입출입 활동
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive" style="max-height: 420px;">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th>차량번호</th>
+                                <th>입차</th>
+                                <th>출차</th>
+                                <th>상태</th>
+                                <th>출처</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (!Model.RecentActivity.Any())
+                            {
+                                <tr><td colspan="5" class="text-center text-muted py-4">기록이 없습니다.</td></tr>
+                            }
+                            @foreach (var a in Model.RecentActivity)
+                            {
+                                <tr>
+                                    <td class="fw-bold">@a.PlateNumber</td>
+                                    <td>@a.EntryTime.ToString("MM-dd HH:mm")</td>
+                                    <td>@(a.ExitTime?.ToString("MM-dd HH:mm") ?? "-")</td>
+                                    <td>
+                                        @if (a.Status == "주차중")
+                                        {
+                                            <span class="badge bg-danger">주차중</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">완료</span>
+                                        }
+                                    </td>
+                                    <td><span class="text-muted small">@a.Source</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    // 시간대별 입차 (오늘)
+    const ctxHour = document.getElementById('chartHourly').getContext('2d');
+    new Chart(ctxHour, {
+        type: 'bar',
+        data: {
+            labels: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.HourLabels)),
+            datasets: [{
+                label: '입차 수',
+                data: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.HourlyEntries)),
+                backgroundColor: 'rgba(54, 162, 235, .7)',
+                borderRadius: 4
+            }]
+        },
+        options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+    });
+
+    // 일별 수익
+    const ctxDay = document.getElementById('chartDaily').getContext('2d');
+    new Chart(ctxDay, {
+        type: 'line',
+        data: {
+            labels: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.DayLabels)),
+            datasets: [{
+                label: '수익(원)',
+                data: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.DailyRevenue)),
+                borderColor: 'rgba(255, 159, 64, 1)',
+                backgroundColor: 'rgba(255, 159, 64, .2)',
+                fill: true, tension: .3, pointRadius: 3
+            }]
+        },
+        options: { responsive: true, plugins: { legend: { display: false } } }
+    });
+</script>
+}

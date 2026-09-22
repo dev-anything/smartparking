@@ -1,0 +1,4 @@
+@{ ViewData["Title"] = "접근 거부"; Layout = "_Layout"; }
+<h3 class="text-danger"><i class="bi bi-shield-lock"></i> 접근이 거부되었습니다.</h3>
+<p class="text-muted">관리자 로그인이 필요합니다.</p>
+<a href="@Url.Action("Login","Account")" class="btn btn-primary">로그인으로</a>

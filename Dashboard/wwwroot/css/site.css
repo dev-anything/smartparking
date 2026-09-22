@@ -1,0 +1,95 @@
+/* ====== 공통 스타일 ====== */
+body {
+    background-color: #f4f6f9;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    color: #1d2939;
+}
+
+main.container-fluid { max-width: 1400px; }
+
+/* 네비게이션 */
+.navbar { background-color: #0d1b2a !important; }
+.navbar-brand { letter-spacing: -.5px; }
+.nav-link.active { color: #ffc107 !important; font-weight: 600; }
+
+/* KPI 카드 */
+.kpi-card { transition: transform .15s ease, box-shadow .15s ease; border-radius: .75rem; }
+.kpi-card:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(0,0,0,.08); }
+.kpi-label { font-size: .8rem; color: #6b7280; font-weight: 500; }
+.kpi-value { font-size: 2rem; font-weight: 700; line-height: 1.2; }
+.kpi-sub { font-size: .75rem; color: #6b7280; }
+
+/* 카드 공통 */
+.card { border-radius: .75rem; }
+.card-header { font-weight: 600; }
+
+/* 테이블 */
+.table > :not(caption) > * > * { padding: .55rem .75rem; }
+
+/* 페이지네이션 */
+.pagination .page-link { color: #495057; }
+
+/* 코드/키워드 */
+code {
+    color: #d6336c; background: #fff0f4; padding: .1rem .35rem; border-radius: .25rem; font-size: .85em;
+}
+
+/* 스크롤바 (현재 주차 차량 표) */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,.15); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,.3); }
+
+/* ====== 주차 자리 격자 ====== */
+.spot-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+    gap: .5rem;
+}
+.spot {
+    position: relative;
+    aspect-ratio: 1 / .9;
+    border-radius: .5rem;
+    padding: .35rem;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    text-align: center;
+    cursor: pointer;
+    transition: transform .12s ease, box-shadow .12s ease;
+    border: 2px solid transparent;
+    user-select: none;
+    overflow: hidden;
+}
+.spot:hover { transform: scale(1.04); box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+.spot-num { font-weight: 700; font-size: .9rem; color: #1d2939; }
+.spot-plate { font-size: .65rem; color: #fff; margin-top: .15rem; line-height: 1; letter-spacing: -.3px; word-break: break-all; }
+.spot-icon { font-size: 1.4rem; }
+.spot-empty { background: #d1f5e0; border-color: #19875444; }
+.spot-empty .spot-num { color: #145c33; }
+.spot-empty .spot-icon { color: #198754; }
+.spot-occupied { background: #ffe2e2; border-color: #dc354544; }
+.spot-occupied .spot-num { color: #842029; }
+.spot-occupied .spot-plate { background: #dc3545; color: #fff; padding: 2px 5px; border-radius: 4px; font-weight: 600; }
+.spot-unknown { background: #e9ecef; border-color: #6c757d44; }
+.spot-unknown .spot-num { color: #495057; opacity: .6; }
+
+/* 자리 클릭 시 강조 */
+.spot-spotlight {
+    outline: 3px solid #ffc107;
+    transform: scale(1.08);
+    z-index: 5;
+}
+
+/* ====== LLM 음성 마이크 / 음성 듣기 ====== */
+#micBtn.active-mic {
+    animation: micPulse 1s infinite;
+    background: #dc3545;
+    color: #fff;
+}
+@keyframes micPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(220,53,69,.7); }
+    50%      { box-shadow: 0 0 0 12px rgba(220,53,69,0); }
+}
+#speakBtn.playing {
+    background: #ffc107;
+    color: #1d2939;
+    border-color: #ffc107;
+}

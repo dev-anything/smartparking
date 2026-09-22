@@ -1,0 +1,50 @@
+@model ParkingDashboard.ViewModels.VehicleViewModel
+@{ ViewData["Title"] = "차량 수정"; }
+
+<h3 class="mb-3"><i class="bi bi-pencil"></i> 차량 정보 수정</h3>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body">
+        <form method="post" asp-controller="Vehicles" asp-action="Edit">
+            @Html.AntiForgeryToken()
+            <div asp-validation-summary="All" class="text-danger small"></div>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">차량번호 (변경 불가)</label>
+                    <input value="@Model.PlateNumber" class="form-control-plaintext fw-bold" readonly />
+                    <input type="hidden" asp-for="PlateNumber" />
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="OwnerName" class="form-label"></label>
+                    <input asp-for="OwnerName" class="form-control" />
+                    <span asp-validation-for="OwnerName" class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="AccountNumber" class="form-label"></label>
+                    <input asp-for="AccountNumber" class="form-control" />
+                    <span asp-validation-for="AccountNumber" class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="PhoneNumber" class="form-label"></label>
+                    <input asp-for="PhoneNumber" class="form-control" />
+                    <span asp-validation-for="PhoneNumber" class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="RegisteredAt" class="form-label"></label>
+                    <input asp-for="RegisteredAt" type="date" class="form-control"
+                           value="@Model.RegisteredAt.ToString("yyyy-MM-dd")" />
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Memo" class="form-label"></label>
+                    <input asp-for="Memo" class="form-control" />
+                </div>
+            </div>
+
+            <div class="mt-4 d-flex justify-content-between">
+                <a href="@Url.Action("Index")" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> 목록</a>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> 저장</button>
+            </div>
+        </form>
+    </div>
+</div>

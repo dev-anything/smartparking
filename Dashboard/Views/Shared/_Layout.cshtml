@@ -1,0 +1,84 @@
+@*
+  메인 레이아웃 - 로그인 후 사용되는 공통 프레임
+  - 상단 네비게이션 / 사이드 메뉴 / 컨텐츠 영역으로 구성
+*@
+@{
+    var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
+    string NavClass(string c) => string.Equals(currentController, c, StringComparison.OrdinalIgnoreCase) ? "active" : "";
+}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - 공용주차장 관리자</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    @await RenderSectionAsync("Styles", required: false)
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold" href="@Url.Action("Index", "Dashboard")">
+                <i class="bi bi-p-square-fill text-warning"></i>
+                공용주차장 관리자
+            </a>
+            <button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navMain">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navMain">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item"><a class="nav-link @NavClass("Dashboard")" href="@Url.Action("Index", "Dashboard")"><i class="bi bi-speedometer2"></i> 대시보드</a></li>
+                    <li class="nav-item"><a class="nav-link @NavClass("EntryExit")" href="@Url.Action("Index", "EntryExit")"><i class="bi bi-arrow-left-right"></i> 입출입 기록</a></li>
+                    <li class="nav-item"><a class="nav-link @NavClass("Vehicles")" href="@Url.Action("Index", "Vehicles")"><i class="bi bi-car-front-fill"></i> 차량 관리</a></li>
+                    <li class="nav-item"><a class="nav-link @NavClass("Revenue")" href="@Url.Action("Index", "Revenue")"><i class="bi bi-cash-coin"></i> 수익 조회</a></li>
+                    <li class="nav-item"><a class="nav-link @NavClass("Reports")" href="@Url.Action("Index", "Reports")"><i class="bi bi-robot"></i> LLM 데이터 조회</a></li>
+                </ul>
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <span class="navbar-text me-3 text-secondary">
+                            <i class="bi bi-person-circle"></i> @User.FindFirst("FullName")?.Value
+                        </span>
+                    </li>
+                    <li class="nav-item">
+                        <form method="post" action="@Url.Action("Logout", "Account")" class="d-inline">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-sm btn-outline-light">
+                                <i class="bi bi-box-arrow-right"></i> 로그아웃
+                            </button>
+                        </form>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container-fluid py-4">
+        @if (TempData["Success"] != null)
+        {
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                <i class="bi bi-check-circle"></i> @TempData["Success"]
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        }
+        @if (TempData["Error"] != null)
+        {
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="bi bi-exclamation-triangle"></i> @TempData["Error"]
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        }
+        @RenderBody()
+    </main>
+
+    <footer class="text-center text-muted small py-3 border-top mt-4">
+        공용주차장 관리자 대시보드 &middot; ASP.NET Core &middot; © @DateTime.Now.Year
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

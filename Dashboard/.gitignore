@@ -1,0 +1,13 @@
+bin/
+obj/
+*.db
+*.db-shm
+*.db-wal
+.vs/
+.vscode/
+publish/
+*.user
+*.suo
+appsettings.Local.json
+.env
+.idea/
