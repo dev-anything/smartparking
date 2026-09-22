@@ -49,6 +49,54 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
+const callLLM = async (systemMsg, userPrompt) => {
+  const messages = [];
+  if (systemMsg)
+  {
+    messages.push({ role: "system", content: systemMsg});
+  }
+
+  message.push({ role: "user", content: userPrompt });
+
+  const body = {
+    message,
+    temperature: 0.2
+  };
+
+  let res;
+
+  try {
+    res = await fetch(LLM_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json'},
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(120_000),
+    });
+  } catch (err) {
+    console.error("LLM 요청 실패: ", err.message);
+    return null;
+  }
+
+  if (!res.ok)
+  {
+    console.error(`LLM 서버 오류 응답 반환: ${res.status}`);
+    return null;
+  }
+
+  let data;
+
+  try {
+    data = await res.json();
+  } catch (err) {
+    console.error("LLM 응답 파싱 실패: ", err.message);
+    return null;
+  }
+
+  const queryResult = data?.choices?.[0]?.message?.content;
+
+  return queryResult;
+
+};
 
 
 // 테스트 API
@@ -80,6 +128,42 @@ app.get('/api/entry-exit-records', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+
+// LLM 호출 요청 API
+app.post("/api/llm-query", async (req, res) => {
+  const question = req.body?.question;
+
+  if (typeof question !== 'string' || question.trim() === ' ')
+  {
+    return res.status(400).json({ answer: "question 필드가 필요합니다." });
+  }
+
+  const prompt =
+    `스키마: ${SCHEMA}\n\n` +
+    `위 스카마만 사용해서 MySQL SELECT 쿼리를 작성해.\n\n` +
+    `규칙:\n` +
+    `1. SELECT만 사용. INSERT, UPDATE, DELETE, DROP 등은 절대 사용 금지.\n` +
+    `2. 스키마에 없는 테이블이나 컬럼은 사용 금지.\n` +
+    `3. 세미콜론으로 끝낼 것.\n` +
+    `4. 답은 SQL 문장 그 자체만 출력. 다른 글자, 기호, 줄바꿈도 앞뒤에 절대 붙이지 마.\n` +
+    `5. 출력 텍스트에 포함된 마크다운 문법은 모두 제거해.\n\n` +
+    `6. COUNT, SUM 등 집계 함수와 일반 컬럼을 함께 SELECT하지 마.\n` +
+    `7. 집계 함수만 쓰거나, 일반 컬럼만 쓰는 쿼리를 작성해.\n` +
+    `8. 입차 키워드는 entry_time 필드를 사용해.\n` +
+    `9. 출차 키워드는 exit_time 필드를 사용해.\n` +
+    `예시 출력:\n${FEWSHOT_EXAMPLES}\n\n` +
+    `질문: ${question}`;
+
+  const rawSql = await callLLM(null, prompt);
+
+  res.send(rawSql);
+});
+
+
+
+
+
 
 
 app.listen(PORT, '0.0.0.0', () => {
