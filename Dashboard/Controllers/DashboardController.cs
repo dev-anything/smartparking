@@ -121,9 +121,9 @@ public class DashboardController : Controller
             ? (DateTime?)allSpots.Max(s => s.LastUpdated)
             : null;
 
-        // 차단기 상태
+        // 차단기 상태 (EXIT 먼저, ENTRY 뒤로 표시)
         var barrierEntities = await _db.BarrierGates
-            .OrderBy(g => g.GateCode)
+            .OrderByDescending(g => g.GateCode)
             .ToListAsync();
         var barriers = barrierEntities.Select(g => new BarrierView
         {

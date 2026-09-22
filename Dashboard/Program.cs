@@ -3,7 +3,10 @@ using Microsoft.EntityFrameworkCore;
 using ParkingDashboard.Data;
 using ParkingDashboard.Services;
 
+// 서버가 모든 네트워크 인터페이스(IPv4 0.0.0.0 + localhost)에서 접속 가능
+// 포트 10001 사용 — ESP32 / 외부 시스템 연동용 표준 포트
 var builder = WebApplication.CreateBuilder(args);
+builder.WebHost.UseUrls("http://0.0.0.0:10001", "http://localhost:10001");
 
 // ----- Services -----
 builder.Services.AddControllersWithViews();

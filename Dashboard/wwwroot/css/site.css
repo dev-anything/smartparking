@@ -184,6 +184,76 @@ code {
     color: #198754;
 }
 
+/* ====== 출구 라벨 (박스 상단) ====== */
+.parking-exit {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding: 8px 0 12px;
+    background: linear-gradient(to right, transparent, #fd7e1422, transparent);
+    color: #842029;
+    font-weight: 700;
+    font-size: 1.15rem;
+    border-bottom: 2px dashed #fd7e14;
+    border-radius: 6px 6px 0 0;
+}
+.parking-exit i {
+    font-size: 1.6rem;
+    color: #fd7e14;
+}
+
+/* 출구 게이트 pill (주황 계열) */
+.gate-pill.gate-pill-exit.bg-warning {
+    background: linear-gradient(to right, #fd7e14, #ffb74d) !important;
+    color: #fff !important;
+}
+.gate-pill.gate-pill-exit.bg-secondary {
+    background: linear-gradient(to right, #6c757d, #adb5bd) !important;
+    color: #fff !important;
+}
+.gate-pill.gate-pill-exit.bg-danger {
+    background: linear-gradient(to right, #dc3545, #e35d6a) !important;
+    color: #fff !important;
+}
+
+/* ====== 박스 하단 — 출구 / 입구 좌우 배치 ====== */
+.parking-entrances-row {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+    padding: 14px 8px 6px;
+    border-top: 2px dashed #adb5bd;
+}
+.parking-gate {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1 1 0;
+}
+.parking-gate .gate-pill {
+    /* 박스 안에 있을 때 너비 맞추기 */
+    width: 100%;
+    max-width: 240px;
+    justify-content: center;
+}
+.parking-gate.exit .gate-icon-line { color: #fd7e14; }
+.parking-gate.entry .gate-icon-line { color: #198754; }
+.gate-icon-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 1.05rem;
+    font-weight: 800;
+    letter-spacing: -.3px;
+}
+.gate-icon-line i { font-size: 1.6rem; }
+
 /* ====== 입구 옆 차단기 인디케이터 ====== */
 .gate-pill {
     display: inline-flex;

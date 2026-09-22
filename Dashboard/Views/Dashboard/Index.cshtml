@@ -137,8 +137,26 @@
                     }
                 </div>
 
-                <div class="parking-entrance">
+                <div class="parking-entrances-row">
                     @{
+                        // 출구
+                        var exitGate = Model.Barriers.FirstOrDefault(b => b.GateCode == "EXIT");
+                        var exitCls = exitGate?.Status;
+                        var exitIc = exitCls == "Open" ? "bi-shield-fill-check text-warning"
+                                    : exitCls == "Opening" ? "bi-arrow-repeat text-warning"
+                                    : exitCls == "Closing" ? "bi-arrow-repeat text-warning"
+                                    : exitCls == "Error" ? "bi-exclamation-triangle-fill text-danger"
+                                    : "bi-lock-fill text-secondary";
+                        var exitText = exitCls == "Open" ? "열림"
+                                      : exitCls == "Opening" ? "여는 중"
+                                      : exitCls == "Closing" ? "닫는 중"
+                                      : exitCls == "Error" ? "오류"
+                                      : "닫힘";
+                        var exitBadge = exitCls == "Open" ? "bg-warning text-dark"
+                                       : exitCls == "Opening" || exitCls == "Closing" ? "bg-warning text-dark"
+                                       : exitCls == "Error" ? "bg-danger"
+                                       : "bg-secondary";
+                        // 입구
                         var entryGate = Model.Barriers.FirstOrDefault(b => b.GateCode == "ENTRY");
                         var entryCls = entryGate?.Status;
                         var entryIc = entryCls == "Open" ? "bi-shield-fill-check text-success"
@@ -153,15 +171,36 @@
                                        : "닫힘";
                         var entryBadge = entryCls == "Open" ? "bg-success" : "bg-danger";
                     }
-                    @if (entryGate != null)
-                    {
-                        <span class="gate-pill @entryBadge gate-pill-inline">
-                            <i class="bi @entryIc"></i>
-                            <strong>입구: @entryText</strong>
-                        </span>
-                    }
-                    <i class="bi bi-arrow-down-circle-fill"></i>
-                    <span>입구</span>
+
+                    <!-- 출구 (좌측) -->
+                    <div class="parking-gate exit">
+                        @if (exitGate != null)
+                        {
+                            <span class="gate-pill @exitBadge gate-pill-exit">
+                                <i class="bi @exitIc"></i>
+                                <strong>출구: @exitText</strong>
+                            </span>
+                        }
+                        <div class="gate-icon-line">
+                            <i class="bi bi-arrow-down-circle-fill"></i>
+                            <strong>출구</strong>
+                        </div>
+                    </div>
+
+                    <!-- 입구 (우측) -->
+                    <div class="parking-gate entry">
+                        @if (entryGate != null)
+                        {
+                            <span class="gate-pill @entryBadge gate-pill-inline">
+                                <i class="bi @entryIc"></i>
+                                <strong>입구: @entryText</strong>
+                            </span>
+                        }
+                        <div class="gate-icon-line">
+                            <i class="bi bi-arrow-up-circle-fill"></i>
+                            <strong>입구</strong>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -252,17 +291,6 @@
                                     onclick="toggleGate('@b.GateCode')">
                                 <i class="bi @toggleIcon"></i> @toggleLabel (수동)
                             </button>
-
-                            <div class="d-flex gap-2 mt-2 gate-mini-btns">
-                                <button type="button" class="btn btn-sm btn-outline-success flex-fill"
-                                        onclick="controlGate('@b.GateCode', 'OPEN')">
-                                    <i class="bi bi-unlock"></i> OPEN
-                                </button>
-                                <button type="button" class="btn btn-sm btn-outline-danger flex-fill"
-                                        onclick="controlGate('@b.GateCode', 'CLOSE')">
-                                    <i class="bi bi-lock"></i> CLOSE
-                                </button>
-                            </div>
                         </div>
                     </div>
                 }
@@ -475,6 +503,25 @@
                           : g.status === 'Error' ? 'bi-exclamation-triangle-fill text-danger'
                           : 'bi-lock-fill text-danger';
                 pill.innerHTML = '<i class="bi ' + ic + '"></i> <strong>입구: ' + statusKo(g.status) + '</strong>';
+            }
+        }
+
+        // 출구 옆 게이트 표시도 동기화
+        if (g.gateCode === 'EXIT') {
+            const pill = document.querySelector('.gate-pill-exit');
+            if (pill) {
+                const isOpenP = g.status === 'Open';
+                const isMovingP = g.status === 'Opening' || g.status === 'Closing';
+                const sb = isOpenP ? 'bg-warning text-dark'
+                          : isMovingP ? 'bg-warning text-dark'
+                          : g.status === 'Error' ? 'bg-danger'
+                          : 'bg-secondary';
+                pill.className = 'gate-pill ' + sb + ' gate-pill-exit';
+                const ic = isOpenP ? 'bi-shield-fill-check text-warning'
+                          : isMovingP ? 'bi-arrow-repeat text-warning'
+                          : g.status === 'Error' ? 'bi-exclamation-triangle-fill text-danger'
+                          : 'bi-lock-fill text-secondary';
+                pill.innerHTML = '<i class="bi ' + ic + '"></i> <strong>출구: ' + statusKo(g.status) + '</strong>';
             }
         }
     }
