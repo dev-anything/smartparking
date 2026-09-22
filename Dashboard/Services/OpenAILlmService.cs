@@ -59,4 +59,44 @@ public class OpenAILlmService : ILLMService
 
         return vm;
     }
+
+    public async Task<string> AskSqlAsync(string prompt, CancellationToken ct = default)
+    {
+        var apiKey = _cfg["Llm:OpenApiKey"];
+        var model = _cfg["Llm:OpenModel"] ?? "gpt-4o-mini";
+
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            throw new InvalidOperationException("OpenAI API 키가 설정되지 않았습니다. (appsettings.json → Llm.OpenApiKey)");
+        }
+
+        ct.ThrowIfCancellationRequested();
+        try
+        {
+            var client = new ChatClient(model, new ApiKeyCredential(apiKey));
+            
+            var messages = new ChatMessage[]
+            {
+                new SystemChatMessage("당신은 SQLite SQL 쿼리 생성 전문가입니다. 오직 SELECT 쿼리만 생성하며, 다른 설명은 절대 추가하지 않습니다."),
+                new UserChatMessage(prompt)
+            };
+            var resp = await client.CompleteChatAsync(messages);
+            var rawSql = resp.Value.Content[0].Text.Trim();
+            
+            // 마크다운 문법 제거 (```sql ... ``` 등)
+            if (rawSql.StartsWith("```"))
+            {
+                var lines = rawSql.Split('\n');
+                if (lines.Length > 2)
+                    rawSql = string.Join('\n', lines.Skip(1).Take(lines.Length - 2)).Trim();
+            }
+            
+            return rawSql;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "OpenAI LLM SQL 쿼리 생성 실패");
+            throw new Exception("LLM SQL 생성 실패: " + ex.Message, ex);
+        }
+    }
 }

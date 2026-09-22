@@ -157,11 +157,19 @@ public class RuleBasedLlmService : ILLMService
 
     private static string? ExtractPlateNumber(string text)
     {
-        // 한국 차량번호 패턴: 12가3456, 12가 3456, 123가4567 등
-        var m = System.Text.RegularExpressions.Regex.Match(text, @"\d{2,3}\s?[가-힣]\s?\d{4}");
+        // 한국 차량번호 패턴: 12 가 3456, 12 가 3456, 123 가 4567 등
+        var m = System.Text.RegularExpressions.Regex.Match(text, @"\d{2,3}\s?[가 - 힣]\s?\d{4}");
         if (m.Success) return m.Value.Replace(" ", "");
-        // 단순히 4자리 이상 숫자가 있으면 그것도
-        var m2 = System.Text.RegularExpressions.Regex.Match(text, @"\d{2,}[가-힣A-Za-z]\d{3,4}");
+        // 단순히 4 자리 이상 숫자가 있으면 그것도
+        var m2 = System.Text.RegularExpressions.Regex.Match(text, @"\d{2,}[가 - 힣 A-Za-z]\d{3,4}");
         return m2.Success ? m2.Value.Replace(" ", "") : null;
+    }
+
+    public async Task<string> AskSqlAsync(string prompt, CancellationToken ct = default)
+    {
+        // 규칙 기반 서비스는 더미 SQL 반환
+        // OpenAILlmService 에서 실제 LLM 호출 구현
+        await Task.Delay(10, ct);
+        return "-- RuleBased 모드는 SQL 생성을 지원하지 않습니다. OpenAI 설정을 확인하세요.";
     }
 }

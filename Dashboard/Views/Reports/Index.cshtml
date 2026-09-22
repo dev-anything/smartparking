@@ -6,7 +6,7 @@
 <div class="row g-3">
     <div class="col-lg-4">
         <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white"><i class="bi bi-lightbulb"></i> 추천 질문 (클릭 或 음성으로)</div>
+            <div class="card-header bg-white"><i class="bi bi-lightbulb"></i> 추천 질문 (클릭 또는 음성으로)</div>
             <div class="card-body">
                 <div class="d-grid gap-2">
                     @foreach (var q in new[] {
@@ -19,13 +19,9 @@
                         "12가 3456 차량 정보"
                     })
                     {
-                        <form method="post" asp-controller="Reports" asp-action="Ask" class="m-0">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="question" value="@q" />
-                            <button type="submit" class="btn btn-outline-secondary text-start w-100">
-                                <i class="bi bi-chat-left-quote"></i> @q
-                            </button>
-                        </form>
+                        <button type="button" class="btn btn-outline-secondary text-start recommend-btn" data-question="@q">
+                            <i class="bi bi-chat-left-quote"></i> @q
+                        </button>
                     }
                 </div>
             </div>
@@ -45,7 +41,6 @@
     </div>
 
     <div class="col-lg-8">
-        <!-- 질문 입력 폼 (음성 지원) -->
         <div class="card border-0 shadow-sm mb-3">
             <div class="card-header bg-white d-flex justify-content-between align-items-center">
                 <span><i class="bi bi-chat-dots"></i> 질문하기</span>
@@ -55,93 +50,71 @@
                 </div>
             </div>
             <div class="card-body">
-                <form id="askForm" method="post" asp-controller="Reports" asp-action="Ask">
-                    @Html.AntiForgeryToken()
+                <form id="askForm">
                     <div class="input-group">
-                        <input type="text" name="question" id="questionInput" class="form-control"
+                        <input type="text" id="questionInput" class="form-control"
                                placeholder="키보드 또는 마이크로 질문 입력"
                                required autocomplete="off" />
-                        <!-- ★ 음성 인식 마이크 버튼 -->
                         <button type="button" id="micBtn" class="btn btn-danger px-3" title="음성으로 질문">
                             <i class="bi bi-mic-fill"></i>
                         </button>
-                        <button class="btn btn-primary" type="submit" title="질문 전송">
+                        <button type="submit" class="btn btn-primary" title="질문 전송">
                             <i class="bi bi-send"></i>
                         </button>
                     </div>
-                    <!-- 음성 인식 interim 텍스트 표시 영역 -->
                     <div id="interimBox" class="mt-2 small text-muted" style="display:none;">
                         <i class="bi bi-soundwave"></i>
                         <span id="interimText"></span>
                     </div>
                     <small class="text-muted mt-2 d-block">
-                        한국어 자연어를 분석해 DB 조회 후 답변을 생성합니다. (Rule-Based)
+                        한국어 자연어를 분석해 DB 조회 후 답변을 생성합니다.
                     </small>
                 </form>
             </div>
         </div>
 
-        @if (!string.IsNullOrEmpty(Model.Question))
-        {
-            <div class="card border-0 shadow-sm mb-3">
-                <div class="card-header bg-white d-flex justify-content-between">
-                    <span><i class="bi bi-person"></i> 질문</span>
-                    <small class="text-muted">@Model.AskedAt.ToString("yyyy-MM-dd HH:mm")</small>
+        <div id="resultArea">
+            @if (!string.IsNullOrEmpty(Model?.Question))
+            {
+                <div class="card border-0 shadow-sm mb-3" id="questionCard">
+                    <div class="card-header bg-white d-flex justify-content-between">
+                        <span><i class="bi bi-person"></i> 질문</span>
+                        <small class="text-muted">@Model.AskedAt.ToString("yyyy-MM-dd HH:mm")</small>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-0 fw-semibold">@Model.Question</p>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <p class="mb-0 fw-semibold">@Model.Question</p>
-                </div>
-            </div>
 
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                    <span><i class="bi bi-stars"></i> 답변</span>
-                    <!-- ★ 음성 출력 버튼 -->
-                    <button type="button" id="speakBtn" class="btn btn-sm btn-outline-warning" title="답변을 음성으로 듣기">
-                        <i class="bi bi-volume-up-fill"></i> 음성 듣기
-                    </button>
+                <div class="card border-0 shadow-sm" id="answerCard">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-stars"></i> 답변</span>
+                        <button type="button" id="speakBtn" class="btn btn-sm btn-outline-warning">
+                            <i class="bi bi-volume-up-fill"></i> 음성 듣기
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <pre id="answerText" class="answer-text"
+                             style="white-space: pre-wrap; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; border: 0; background: transparent;">@Model.Answer</pre>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <pre id="answerText" class="answer-text"
-                         style="white-space: pre-wrap;
-                                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-                                margin: 0; border: 0; background: transparent;">@Model.Answer</pre>
-
-                    @if (Model.Steps.Any())
-                    {
-                        <hr />
-                        <h6 class="text-muted">조회 데이터</h6>
-                        <table class="table table-sm">
-                            <thead><tr><th>항목</th><th>값</th></tr></thead>
-                            <tbody>
-                                @foreach (var s in Model.Steps)
-                                {
-                                    <tr>
-                                        <td>@s.Label</td>
-                                        <td>@(s.Value is System.Collections.IEnumerable e && !(s.Value is string)
-                                                ? string.Join(", ", ((System.Collections.IEnumerable)s.Value).Cast<object>())
-                                                : s.Value)</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    }
+            }
+            else
+            {
+                <div class="alert alert-info border-0 shadow-sm" id="guideMsg">
+                    <i class="bi bi-info-circle"></i>
+                    마이크 버튼을 누르고 질문하거나, 추천 질문을 클릭하거나, 직접 입력 후 <kbd>Enter</kbd>로 질문하세요.
                 </div>
-            </div>
-        }
-        else
-        {
-            <div class="alert alert-info border-0 shadow-sm">
-                <i class="bi bi-info-circle"></i>
-                마이크 버튼을 누르고 질문하거나, 추천 질문을 클릭하거나, 직접 입력 후 <kbd>Enter</kbd>로 질문하세요.
-            </div>
-        }
+            }
+        </div>
     </div>
 </div>
 
 @section Scripts {
 <script>
     (function () {
+        const LLM_API_URL = 'http://192.168.0.7:10001/api/llm-query';
+
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         const speechSynthesis = window.speechSynthesis;
 
@@ -150,37 +123,172 @@
         const interimText = document.getElementById('interimText');
         const questionInput = document.getElementById('questionInput');
         const askForm = document.getElementById('askForm');
-        const speakBtn = document.getElementById('speakBtn');
-        const answerText = document.getElementById('answerText');
         const autoSpeak = document.getElementById('autoSpeak');
+        const resultArea = document.getElementById('resultArea');
+        const guideMsg = document.getElementById('guideMsg');
 
-        // =============[ 음성 인식 ]=============
+        async function callLLM(question) {
+            console.log('LLM 요청:', question);
+            console.log('요청 URL:', LLM_API_URL);
+            try {
+                const response = await fetch(LLM_API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question: question })
+                });
+                console.log('응답 상태:', response.status, response.statusText);
+                if (!response.ok) {
+                    const txt = await response.text();
+                    throw new Error('서버 응답 오류: ' + response.status + ' ' + txt);
+                }
+                const data = await response.text();
+                console.log('LLM 응답:', data);
+                return data;
+            } catch (error) {
+                console.error('LLM API 오류:', error);
+                return null;
+            }
+        }
+
+        function showResult(question, answer) {
+            if (guideMsg) guideMsg.style.display = 'none';
+            var existing = resultArea.querySelectorAll('.card');
+            existing.forEach(function(el) { el.remove(); });
+
+            var now = new Date();
+            var timeStr = now.getFullYear() + '-' + 
+                          String(now.getMonth()+1).padStart(2,'0') + '-' + 
+                          String(now.getDate()).padStart(2,'0') + ' ' + 
+                          String(now.getHours()).padStart(2,'0') + ':' + 
+                          String(now.getMinutes()).padStart(2,'0');
+
+            var qHtml = '<div class="card border-0 shadow-sm mb-3">' +
+                '<div class="card-header bg-white d-flex justify-content-between">' +
+                '<span><i class="bi bi-person"></i> 질문</span>' +
+                '<small class="text-muted">' + timeStr + '</small>' +
+                '</div>' +
+                '<div class="card-body"><p class="mb-0 fw-semibold">' + escapeHtml(question) + '</p></div></div>';
+
+            var aHtml = '<div class="card border-0 shadow-sm">' +
+                '<div class="card-header bg-white d-flex justify-content-between align-items-center">' +
+                '<span><i class="bi bi-stars"></i> 답변</span>' +
+                '<button type="button" id="speakBtn" class="btn btn-sm btn-outline-warning">' +
+                '<i class="bi bi-volume-up-fill"></i> 음성 듣기</button>' +
+                '</div>' +
+                '<div class="card-body">' +
+                '<pre id="answerText" class="answer-text" style="white-space: pre-wrap; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', sans-serif; margin: 0; border: 0; background: transparent;">' + escapeHtml(answer) + '</pre>' +
+                '</div></div>';
+
+            resultArea.insertAdjacentHTML('beforeend', qHtml + aHtml);
+
+            document.getElementById('speakBtn').addEventListener('click', function() {
+                var txt = document.getElementById('answerText').textContent.trim();
+                speak(txt);
+                this.innerHTML = '<i class="bi bi-stop-fill"></i> 재생중';
+                var self = this;
+                speechSynthesis.onend = speechSynthesis.onerror = function() {
+                    self.innerHTML = '<i class="bi bi-volume-up-fill"></i> 음성 듣기';
+                };
+            });
+
+            if (autoSpeak && autoSpeak.checked) {
+                setTimeout(function() { speak(answer); }, 500);
+            }
+        }
+
+        function showError(question, errorMsg) {
+            if (guideMsg) guideMsg.style.display = 'none';
+            var existing = resultArea.querySelectorAll('.card');
+            existing.forEach(function(el) { el.remove(); });
+
+            var qHtml = '<div class="card border-0 shadow-sm mb-3">' +
+                '<div class="card-header bg-white"><span><i class="bi bi-person"></i> 질문</span></div>' +
+                '<div class="card-body"><p class="mb-0 fw-semibold">' + escapeHtml(question) + '</p></div></div>';
+
+            var aHtml = '<div class="card border-0 shadow-sm border-danger">' +
+                '<div class="card-header bg-danger text-white"><span><i class="bi bi-exclamation-triangle"></i> 오류</span></div>' +
+                '<div class="card-body"><pre style="white-space: pre-wrap; margin: 0; color: #dc3545;">' + escapeHtml(errorMsg) + '</pre></div></div>';
+
+            resultArea.insertAdjacentHTML('beforeend', qHtml + aHtml);
+        }
+
+        function escapeHtml(str) {
+            var div = document.createElement('div');
+            div.appendChild(document.createTextNode(str));
+            return div.innerHTML;
+        }
+
+        function speak(text) {
+            if (!speechSynthesis || !text) return;
+            speechSynthesis.cancel();
+            var utt = new SpeechSynthesisUtterance(text);
+            utt.lang = 'ko-KR';
+            var voices = speechSynthesis.getVoices();
+            var korean = voices.find(function(v) { return v.lang.startsWith('ko'); });
+            if (korean) utt.voice = korean;
+            speechSynthesis.speak(utt);
+        }
+
+        async function submitQuestion(question) {
+            if (!question || !question.trim()) return;
+            var submitBtn = askForm.querySelector('button[type="submit"]');
+            var orig = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+            submitBtn.disabled = true;
+
+            var result = await callLLM(question.trim());
+            submitBtn.innerHTML = orig;
+            submitBtn.disabled = false;
+
+            if (result !== null && typeof result === 'string') {
+                showResult(question.trim(), result);
+            } else if (result !== null && typeof result === 'object') {
+                var answer = result.answer || result.sql || JSON.stringify(result, null, 2);
+                showResult(question.trim(), answer);
+            } else {
+                showError(question.trim(), '서버에 연결할 수 없습니다.\n192.168.0.7:10001 서버 상태를 확인해주세요.');
+            }
+        }
+
+        askForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var q = questionInput.value.trim();
+            if (q) submitQuestion(q);
+        });
+
+        document.querySelectorAll('.recommend-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var q = btn.getAttribute('data-question');
+                questionInput.value = q;
+                submitQuestion(q);
+            });
+        });
+
         let recognition = null;
         let listening = false;
 
         if (!SpeechRecognition) {
             micBtn.disabled = true;
-            micBtn.title = "이 브라우저는 음성 인식을 지원하지 않습니다. (Chrome, Edge, Safari 권장)";
+            micBtn.title = "이 브라우저는 음성 인식을 지원하지 않습니다.";
             micBtn.innerHTML = '<i class="bi bi-mic-mute"></i>';
         } else {
             recognition = new SpeechRecognition();
             recognition.lang = 'ko-KR';
             recognition.continuous = false;
             recognition.interimResults = true;
-            recognition.maxAlternatives = 1;
 
-            recognition.onstart = () => {
+            recognition.onstart = function() {
                 listening = true;
-                micBtn.innerHTML = '<i class="bi bi-mic-fill"></i>聆听';
+                micBtn.innerHTML = '<i class="bi bi-mic-fill"></i> 인식중';
                 micBtn.classList.add('active-mic');
                 interimBox.style.display = 'block';
                 interimText.textContent = '음성 인식 중...';
             };
 
-            recognition.onresult = (event) => {
-                let interim = '', final = '';
-                for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    const text = event.results[i][0].transcript;
+            recognition.onresult = function(event) {
+                var interim = '', final = '';
+                for (var i = event.resultIndex; i < event.results.length; ++i) {
+                    var text = event.results[i][0].transcript;
                     if (event.results[i].isFinal) final += text;
                     else interim += text;
                 }
@@ -188,29 +296,22 @@
                 if (final) {
                     questionInput.value = final.trim();
                     interimText.textContent = '✓ 인식됨: ' + final;
-                    // 자동 제출
-                    setTimeout(() => askForm.submit(), 400);
+                    setTimeout(function() { submitQuestion(final.trim()); }, 400);
                 }
             };
 
-            recognition.onerror = (event) => {
+            recognition.onerror = function(event) {
                 interimText.textContent = '⚠ 음성 인식 오류: ' + event.error;
                 stopMic();
             };
 
-            recognition.onend = () => {
-                stopMic();
-            };
+            recognition.onend = function() { stopMic(); };
 
-            micBtn.addEventListener('click', () => {
-                if (listening) {
-                    recognition.stop();
-                } else {
-                    try {
-                        recognition.start();
-                    } catch (e) {
-                        interimText.textContent = '마이크 시작 오류: ' + e.message;
-                    }
+            micBtn.addEventListener('click', function() {
+                if (listening) recognition.stop();
+                else {
+                    try { recognition.start(); }
+                    catch (e) { interimText.textContent = '마이크 시작 오류: ' + e.message; }
                 }
             });
 
@@ -221,40 +322,8 @@
             }
         }
 
-        // =============[ 음성 출력 (TTS) ]=============
-        function speak(text) {
-            if (!speechSynthesis || !text) return;
-            speechSynthesis.cancel();
-            const utt = new SpeechSynthesisUtterance(text);
-            utt.lang = 'ko-KR';
-            utt.rate = 1.05;
-            utt.pitch = 1.0;
-            // 한국어 음성 우선 선택
-            const voices = speechSynthesis.getVoices();
-            const korean = voices.find(v => v.lang.startsWith('ko')) ||
-                           voices.find(v => v.lang.startsWith('ko-KR'));
-            if (korean) utt.voice = korean;
-            speechSynthesis.speak(utt);
-        }
-
-        // 음성 듣기 버튼
-        if (speakBtn) {
-            speakBtn.addEventListener('click', () => {
-                const txt = answerText ? answerText.textContent.trim() : '';
-                speak(txt);
-                speakBtn.innerHTML = '<i class="bi bi-stop-fill"></i> 멈춤';
-                if (speechSynthesis) {
-                    speechSynthesis.onend = speechSynthesis.onerror = () => {
-                        speakBtn.innerHTML = '<i class="bi bi-volume-up-fill"></i> 음성 듣기';
-                    };
-                }
-            });
-        }
-
-        // 자동 음성 출력 (체크박스 ON일 때)
-        if (autoSpeak && autoSpeak.checked && answerText && answerText.textContent.trim()) {
-            // 페이지 로드 후 약간 기다렸다가 자동 재생
-            setTimeout(() => speak(answerText.textContent.trim()), 800);
+        if (autoSpeak && autoSpeak.checked && document.getElementById('answerText')) {
+            setTimeout(function() { speak(document.getElementById('answerText').textContent.trim()); }, 800);
         }
     })();
 </script>

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ParkingDashboard.Data;
 using ParkingDashboard.Models;
+using ParkingDashboard.Services;
 
 namespace ParkingDashboard.Controllers;
 
@@ -20,12 +21,14 @@ public class ApiController : ControllerBase
     private readonly ApplicationDbContext _db;
     private readonly IConfiguration _cfg;
     private readonly ILogger<ApiController> _logger;
+    private readonly ILLMService _llmService;
 
-    public ApiController(ApplicationDbContext db, IConfiguration cfg, ILogger<ApiController> logger)
+    public ApiController(ApplicationDbContext db, IConfiguration cfg, ILogger<ApiController> logger, ILLMService llmService)
     {
         _db = db;
         _cfg = cfg;
         _logger = logger;
+        _llmService = llmService;
     }
 
     // ============= [Ping] =============
@@ -370,6 +373,70 @@ public class ApiController : ControllerBase
             PaymentMethod = dto.PaymentMethod
         });
 
+    // ============= [LLM Query] =============
+
+    private const string SCHEMA = @"
+vehicles(id, plate_number, owner_name, phone_number, vehicle_type, registered_at)
+entryexitrecords(id, plate_number, entry_time, exit_time, source, note)
+fees(id, plate_number, entry_exit_record_id, entry_time, exit_time, parked_minutes, amount, payment_method, paid_at, note)
+";
+
+    private const string FEWSHOT_EXAMPLES = @"
+Q: 오늘 입차한 차량 수
+A: SELECT COUNT(*) FROM entryexitrecords WHERE DATE(entry_time) = DATE('now')
+
+Q: 12 가 1234 차량의 총 납부 금액
+A: SELECT SUM(amount) FROM fees WHERE plate_number = '12 가 1234'
+";
+
+    /// <summary>
+    /// LLM 에 자연어 질문을 보내 SQL 쿼리 생성
+    /// POST /api/llm-query
+    /// Body: { "question": "오늘 입차한 차량 수 알려줘" }
+    /// Response: raw SQL string
+    /// </summary>
+    [HttpPost("llm-query")]
+    public async Task<IActionResult> LlmQuery([FromBody] LlmQueryDto dto)
+    {
+        if (dto == null || string.IsNullOrWhiteSpace(dto.Question))
+        {
+            return BadRequest(new { answer = "question 필드가 필요합니다." });
+        }
+
+        var question = dto.Question.Trim();
+        if (question.Length == 0)
+        {
+            return BadRequest(new { answer = "question 필드가 필요합니다." });
+        }
+
+        var prompt =
+            $"스키마: {SCHEMA}\n\n" +
+            $"위 스카마만 사용해서 SQLite SELECT 쿼리를 작성해.\n\n" +
+            $"규칙:\n" +
+            $"1. SELECT 만 사용. INSERT, UPDATE, DELETE, DROP 등은 절대 사용 금지.\n" +
+            $"2. 스키마에 없는 테이블이나 컬럼은 사용 금지.\n" +
+            $"3. 세미콜론으로 끝낼 것.\n" +
+            $"4. 답은 SQL 문장 그 자체만 출력. 다른 글자, 기호, 줄바꿈도 앞뒤에 절대 붙이지 마.\n" +
+            $"5. 출력 텍스트에 포함된 마크다운 문법은 모두 제거해.\n\n" +
+            $"6. COUNT, SUM 등 집계 함수와 일반 컬럼을 함께 SELECT 하지 마.\n" +
+            $"7. 집계 함수만 쓰거나, 일반 컬럼만 쓰는 쿼리를 작성해.\n" +
+            $"8. 입차 키워드는 entry_time 필드를 사용해.\n" +
+            $"9. 출차 키워드는 exit_time 필드를 사용해.\n" +
+            $"예시 출력:\n{FEWSHOT_EXAMPLES}\n\n" +
+            $"질문: {question}";
+
+        try
+        {
+            var result = await _llmService.AskSqlAsync(prompt);
+            return Content(result, "text/plain");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "LLM SQL 쿼리 생성 실패");
+            return StatusCode(500, new { answer = "LLM 호출에 실패했습니다: " + ex.Message });
+        }
+    }
+
     // ============= [내부 헬퍼 + DTO] =============
 
     private static decimal CalcFee(int minutes)
@@ -433,5 +500,10 @@ public class ApiController : ControllerBase
     {
         public string GateCode { get; set; } = string.Empty;
         public string Action { get; set; } = string.Empty;     // OPEN / CLOSE / OPENING / CLOSING
+    }
+
+    public class LlmQueryDto
+    {
+        public string Question { get; set; } = string.Empty;
     }
 }

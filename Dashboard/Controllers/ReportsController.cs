@@ -5,10 +5,6 @@ using ParkingDashboard.ViewModels;
 
 namespace ParkingDashboard.Controllers;
 
-/// <summary>
-/// LLM 기반 데이터 조회 (관리자 전용)
-/// - 자연어 질문을 분석해서 데이터베이스 조회 결과를 자연스러운 한국어로 반환.
-/// </summary>
 [Authorize]
 public class ReportsController : Controller
 {
