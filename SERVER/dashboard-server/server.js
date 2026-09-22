@@ -1,5 +1,7 @@
 const express = require('express');
+const cors = require('cors');
 const mysql = require('mysql2/promise');
+const fetch = require('node-fetch');
 require('dotenv').config();
 
 const app = express();
@@ -9,27 +11,40 @@ const PORT = 10001;
 const LLM_API_URL = "http://localhost:10002/v1/chat/completions";
 
 
+const RULE =
+  `1. SELECT만 사용. INSERT, UPDATE, DELETE, DROP 등은 절대 사용 금지.\n` +
+  `2. 스키마에 없는 테이블이나 컬럼은 사용 금지.\n` +
+  `3. 세미콜론으로 끝낼 것.\n` +
+  `4. 답은 SQL 문장 그 자체만 출력. 다른 글자, 기호, 줄바꿈도 앞뒤에 절대 붙이지 마.\n` +
+  `5. 출력 텍스트에 포함된 마크다운 문법은 모두 제거해.\n\n` +
+  `6. COUNT, SUM 등 집계 함수와 일반 컬럼을 함께 SELECT하지 마.\n` +
+  `7. 집계 함수만 쓰거나, 일반 컬럼만 쓰는 쿼리를 작성해.\n` +
+  `8. 입차 키워드는 entry_time 필드를 사용해.\n` +
+  `9. 출차 키워드는 exit_time 필드를 사용해.\n`
+
 const SCHEMA =
   "1. records TABLE (id INT PK NOT NULL, car_number CHAR(30) NOT NULL, entry_time DATETIME NOT NULL, exit_time DATETIME NULL)\n" +
-  "- 필드 정보\n"
-  "id: 자동 증가하는 기본키\n"
-  "car_number: 차량번호\n"
-  "entry_time: 주차장 입차 시각\n"
+  "- 테이블 정보: 차량의 입차/출차 시간이 기록된 테이블\n" +
+  "- 필드 정보\n" +
+  "id: 자동 증가하는 기본키\n" +
+  "car_number: 차량번호\n" +
+  "entry_time: 주차장 입차 시각\n" +
   "exit_time: 주차장 출차 시각(미출차시 NULL)\n"
   "\n" +
   "2. parked_status TABLE (id INT PK, record_time DATETIME, area_1 TINYINT(1) DEFAULT 0, area_2 TINYINT(1) DEFAULT 0, area_3 TINYINT(1) DEFAULT 0, area_4 TINYINT(1) DEFAULT 0, area_5 TINYINT(1) DEFAULT 0, area_6 TINYINT(1) DEFAULT 0)\n" +
-  "- 필드 정보\n"
-  "id: 자동 증가하는 기본키\n"
-  "record_time: 기록 시각\n"
-  "area_1: 해당 구역 주차 여부 판단(0: 주차 안됨 / 1: 주차됨\n"
-  "area_2: 해당 구역 주차 여부 판단(0: 주차 안됨 / 1: 주차됨\n"
-  "area_3: 해당 구역 주차 여부 판단(0: 주차 안됨 / 1: 주차됨\n"
-  "area_4: 해당 구역 주차 여부 판단(0: 주차 안됨 / 1: 주차됨\n"
-  "area_5: 해당 구역 주차 여부 판단(0: 주차 안됨 / 1: 주차됨\n"
+  "- 테이블 정보: 주차장 각 칸의 주차 여부를 기록하는 테이블(0: 주차 안됨 / 1: 주차됨)\n" +
+  "- 필드 정보\n" +
+  "id: 자동 증가하는 기본키\n" +
+  "record_time: 기록 시각\n" +
+  "area_1: 해당 구역 주차 여부 판단(0: 주차 안됨 / 1: 주차됨\n" +
+  "area_2: 해당 구역 주차 여부 판단(0: 주차 안됨 / 1: 주차됨\n" +
+  "area_3: 해당 구역 주차 여부 판단(0: 주차 안됨 / 1: 주차됨\n" +
+  "area_4: 해당 구역 주차 여부 판단(0: 주차 안됨 / 1: 주차됨\n" +
+  "area_5: 해당 구역 주차 여부 판단(0: 주차 안됨 / 1: 주차됨\n" +
   "area_6: 해당 구역 주차 여부 판단(0: 주차 안됨 / 1: 주차됨\n"
 
 const FEWSHOT_EXAMPLES =
-    "SELECT * FROM parked_status;\n"
+    "SELECT * FROM parked_status;\n" +
     "SELECT car_number FROM records WHERE exit_time IS NULL;\n\n";
 
     
@@ -37,6 +52,7 @@ const FEWSHOT_EXAMPLES =
 
 // JSON 요청 바디 파싱
 app.use(express.json());
+app.use(cors());
 
 const pool = mysql.createPool({
   host: process.env.MYSQL_HOST,
@@ -56,13 +72,14 @@ const callLLM = async (systemMsg, userPrompt) => {
     messages.push({ role: "system", content: systemMsg});
   }
 
-  message.push({ role: "user", content: userPrompt });
+  messages.push({ role: "user", content: userPrompt });
 
   const body = {
-    message,
+    messages,
     temperature: 0.2
   };
-
+  console.log("POST 요청 headers, body 완성. LLM 요청 시작.");
+  console.log(body);
   let res;
 
   try {
@@ -76,7 +93,7 @@ const callLLM = async (systemMsg, userPrompt) => {
     console.error("LLM 요청 실패: ", err.message);
     return null;
   }
-
+  console.log("LLM 요청 처리 완료.");
   if (!res.ok)
   {
     console.error(`LLM 서버 오류 응답 반환: ${res.status}`);
@@ -132,9 +149,10 @@ app.get('/api/entry-exit-records', async (req, res) => {
 
 // LLM 호출 요청 API
 app.post("/api/llm-query", async (req, res) => {
+  console.log("요청 들어옴.");
   const question = req.body?.question;
 
-  if (typeof question !== 'string' || question.trim() === ' ')
+  if (typeof question !== 'string' || question.trim() === '')
   {
     return res.status(400).json({ answer: "question 필드가 필요합니다." });
   }
@@ -143,21 +161,13 @@ app.post("/api/llm-query", async (req, res) => {
     `스키마: ${SCHEMA}\n\n` +
     `위 스카마만 사용해서 MySQL SELECT 쿼리를 작성해.\n\n` +
     `규칙:\n` +
-    `1. SELECT만 사용. INSERT, UPDATE, DELETE, DROP 등은 절대 사용 금지.\n` +
-    `2. 스키마에 없는 테이블이나 컬럼은 사용 금지.\n` +
-    `3. 세미콜론으로 끝낼 것.\n` +
-    `4. 답은 SQL 문장 그 자체만 출력. 다른 글자, 기호, 줄바꿈도 앞뒤에 절대 붙이지 마.\n` +
-    `5. 출력 텍스트에 포함된 마크다운 문법은 모두 제거해.\n\n` +
-    `6. COUNT, SUM 등 집계 함수와 일반 컬럼을 함께 SELECT하지 마.\n` +
-    `7. 집계 함수만 쓰거나, 일반 컬럼만 쓰는 쿼리를 작성해.\n` +
-    `8. 입차 키워드는 entry_time 필드를 사용해.\n` +
-    `9. 출차 키워드는 exit_time 필드를 사용해.\n` +
+    RULE +
     `예시 출력:\n${FEWSHOT_EXAMPLES}\n\n` +
     `질문: ${question}`;
 
   const rawSql = await callLLM(null, prompt);
 
-  res.send(rawSql);
+  return res.status(200).json(rawSql);
 });
 
 
