@@ -11,6 +11,16 @@ builder.WebHost.UseUrls("http://0.0.0.0:10001", "http://localhost:10001");
 // ----- Services -----
 builder.Services.AddControllersWithViews();
 
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
 // EF Core + SQLite
 var conn = builder.Configuration.GetConnectionString("DefaultConnection")
             ?? "Data Source=parking.db";
@@ -49,6 +59,7 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseStaticFiles();
+app.UseCors();
 app.UseRouting();
 
 app.UseAuthentication();
