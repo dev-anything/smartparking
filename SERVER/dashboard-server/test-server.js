@@ -290,6 +290,29 @@ app.post("/api/llm-query", async (req, res) => {
   return res.status(200).json(answer);
 });
 
+app.post('/api/login', async (req, res) => {
+  const { id, password } = req.body;
+
+  if (!id || !password) {
+    return res.status(400).json({ success: false, message: 'id, password 필드가 필요합니다.' });
+  }
+
+  try {
+    const [rows] = await pool.query(
+      'SELECT * FROM users WHERE id = ? AND password = ?',
+      [id, password]
+    );
+
+    if (rows.length > 0) {
+      return res.status(200).json({ success: true });
+    } else {
+      return res.status(401).json({ success: false, message: '아이디 또는 비밀번호가 일치하지 않습니다.' });
+    }
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`서버 실행 중: http://0.0.0.0:${PORT}`);
   console.log(`  - REST: /api/parked-status, /api/entry-exit-records, /api/llm-query`);
