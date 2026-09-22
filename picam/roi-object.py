@@ -5,9 +5,9 @@ FRAME_HEIGHT = 720
 
 ROI = (
     int(FRAME_WIDTH * 0.25),
-    int(FRAME_HEIGHT * 0.4),
-    int(FRAME_WIDTH * 0.3),
-    int(FRAME_WIDTH * 0.3),
+    int(FRAME_HEIGHT * 0.25),
+    int(FRAME_WIDTH * 0.2),
+    int(FRAME_WIDTH * 0.2),
 )
 
 MIN_OBJECT_AREA = 1500   # 너무 작은 노이즈성 컨투어 무시
@@ -19,7 +19,7 @@ def gstreamer_pipeline(
     capture_height=720,
     display_width=1280,
     display_height=720,
-    framerate=30,
+    framerate=10,
     flip_method=0,
 ):
     return (
@@ -86,12 +86,14 @@ def is_inside_roi(box, roi):
 def draw_objects(frame, boxes, roi):
     for box in boxes:
         x, y, w, h = box
+        color = (0, 255, 0)
+        label = "Inside ROI"
         if is_inside_roi(box, roi):
             color = (0, 255, 0)      # 초록: ROI 안 -> 인식 대상
             label = "인식됨"
-        else:
-            color = (0, 0, 255)      # 빨강: ROI 밖 -> 무시 대상
-            label = "ROI 밖"
+        #else:
+        #    color = (0, 0, 255)      # 빨강: ROI 밖 -> 무시 대상
+        #    label = "ROI 밖"
 
         cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
         cv2.putText(
@@ -102,7 +104,7 @@ def draw_objects(frame, boxes, roi):
 
 
 def show_camera():
-    pipeline = gstreamer_pipeline(flip_method=0)
+    pipeline = gstreamer_pipeline(flip_method=2)
     print("GStreamer 파이프라인:", pipeline)
 
     cap = cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)
@@ -125,10 +127,11 @@ if __name__ == "__main__":
             if not ret:
                 print("프레임을 읽을 수 없습니다.")
                 break
+            
 
-            boxes = detect_objects(frame)
-            frame = draw_objects(frame, boxes, ROI)
-            frame = draw_roi(frame, ROI)
+            #boxes = detect_objects(frame)
+            #frame = draw_objects(frame, boxes, ROI)
+            #frame = draw_roi(frame, ROI)
 
             cv2.imshow(window_name, frame)
 

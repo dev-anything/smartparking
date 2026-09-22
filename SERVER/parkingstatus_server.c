@@ -20,7 +20,8 @@
 #define MYSQL_USER "server"
 #define MYSQL_PASSWORD "server"
 #define MYSQL_DB "smartparking"
-#define MYSQL_TABLE "records"
+#define MYSQL_TABLE_records "records"
+#define MYSQL_TABLE_parked_status "parked_status"
 
 #define MOTOR_ESP_IP "192.168.0.100"
 
@@ -178,7 +179,7 @@ void* receive_data(void* arg)
             
             while (token != NULL)
             {
-                printf("Count: %d", idx + 1);
+                //printf("Count: %d", idx + 1);
                 status[idx] = atoi(token);
 
                 token = strtok(NULL, delim);
@@ -187,9 +188,10 @@ void* receive_data(void* arg)
 
             sprintf(
                 query_buffer,
-                "INSERT INTO status "
-                "VALUES (null, curtime(), %d, %d, %d, %d);",
-                status[0], status[1], status[2], status[3]
+                "INSERT INTO %s "
+                "VALUES (null, curtime(), %d, %d, %d, %d, %d, %d);",
+                MYSQL_TABLE_parked_status,
+                status[0], status[1], status[2], status[3], status[4], status[5]
             );
 
             response = mysql_query(

@@ -11,5 +11,5 @@ WORKDIR /llama.cpp
 RUN cmake -B build -DCMAKE_BUILD_TYPE=Release
 RUN cmake --build build --config Release -j$(nproc)
 
-EXPOSE 10001
+EXPOSE 10002
 ENTRYPOINT ["./build/bin/llama-server"]
