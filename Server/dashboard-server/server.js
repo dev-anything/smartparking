@@ -14,9 +14,10 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws' });
 
 
-const PORT = 10001;
+const SERVER_PORT = 10001;
 const LLM_API_URL = "http://localhost:10002/v1/chat/completions";
-
+const PARKED_STATUS_POLL_MS = 1000;
+const RECORDS_POLL_MS = 3000;
 
 const RULE =
   `1. SELECT만 사용. INSERT, UPDATE, DELETE, DROP 등은 절대 사용 금지.\n` +
@@ -58,7 +59,7 @@ const FEWSHOT_EXAMPLES =
 
 const pool = mysql.createPool({
   host: process.env.MYSQL_HOST,
-  port: process.env.MYSQL_PORT,
+  port: process.env.MYSQL_SERVER_PORT,
   user: process.env.MYSQL_USER,
   password: process.env.MYSQL_PASSWORD,
   database: process.env.MYSQL_DB,
@@ -66,6 +67,8 @@ const pool = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0
 });
+
+const forbidden = ['DROP', 'DELETE', 'UPDATE', 'INSERT', 'ALTER', 'TRUNCATE', 'GRANT', 'EXEC', '--', '/*'];
 
 const callLLM = async (systemMsg, userPrompt) => {
   const messages = [];
@@ -115,7 +118,6 @@ const callLLM = async (systemMsg, userPrompt) => {
   console.log("Query: ", queryResult);
 
   return queryResult;
-
 };
 
 const runQuery = async (sql) => {
@@ -144,7 +146,54 @@ const runQuery = async (sql) => {
     lines.push(values.join(", "));
   }
 
-  return { text: lines.join('\n', rows)};
+  return { text: lines.join('\n')};
+};
+
+// 백틱 및 중간 개행문자 제거
+const stripCodeFence = (raw) => {
+  let text = raw;
+
+  const fenceIdx = text.indexOf('```');
+  if (fenceIdx !== -1)
+  {
+    text = text.slice(fenceIdx + 3);
+
+    const newlineIdx = text.indexOf('\n');
+
+    if (newlineIdx !== -1)
+    {
+      text = text.slice(newlineIdx + 1);
+    }
+  }
+
+  text = text.replace(/^[\s]+/, '');
+
+  const endIdx = text.indexOf('```');
+  if (endIdx !== -1)
+  {
+    text = text.slice(0, endIdx);
+  }
+
+  return text.replace(/[\s]+$/, '');
+};
+
+// SQL 안전성 검증: SELECT만 허용
+const isSafeSql = (sql) => {
+  if (!sql) return false;
+
+  const trimmed = sql.trim();
+
+  if (!/^SELECT/i.test(trimmed)) return false;
+
+  const upper = trimmed.toUpperCase();
+
+  if (forbidden.some((word) => upper.includes(word))) return false;
+
+  const semiCount = (trimmed.match(/;/g) || []).length;
+
+  if (semiCount > 1) return false;
+
+  return true;
 };
 
 // 테스트 API
@@ -200,6 +249,20 @@ app.post("/api/llm-query", async (req, res) => {
 
   const rawSql = await callLLM(null, prompt);
 
+  if (!rawSql) return res.status(502).json({ answer: "LLM 서버에 연결할 수 없습니다." });
+
+  // 백틱, 기타 문자열 제거
+  rawSql = stripCodeFence(rawSql);
+
+  if (!isSafeSql(rawSql))
+  {
+    return res.status(400).json({
+      answer: "죄송합니다. 처리할 수 없는 요청입니다.",
+      rawSql,
+    });
+  }
+
+
   const { text: resultText, error } = await runQuery(rawSql);
 
   if (error)
@@ -226,6 +289,152 @@ app.post("/api/llm-query", async (req, res) => {
   return res.status(200).json(answer);
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`서버 실행 중: http://0.0.0.0:${PORT}`);
+// 로그인 요청 API
+app.post("/api/login", async (req, res) => {
+  const { id, password } = req.body;
+
+  if (!id || !password)
+  {
+    return res.status(400).json({
+      success: false,
+      message: "id, password가 필요합니다."
+    });
+  }
+
+
+  try {
+    const [rows] = await pool.query(
+      "SELECT * FROM users WHERE id=? AND password=?",
+      [id, password]
+    );
+
+    if (rows.length > 0)
+    {
+      return res.status(200).json({ success: true });
+    }
+    else
+    {
+      return res.status(401).json({
+        success: false,
+        message: "아이디 또는 비밀번호가 일치하지 않습니다."
+      });
+    }
+  } catch (err) {
+    console.error("로그인 처리 오류", err.message);
+    return res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
 });
+
+
+// 웹소켓 설정
+
+wss.on("connection", ws => {
+  console.log("[WS] 클라이언트 연결됨. 연결 수: ", wss.clielt.size);
+
+  ws.on("close", () => {
+    console.log("[WS] 클라이언트 연결 종료. 연결 수: ", wss.client.size);
+  });
+
+  ws.on("error", (err) => {
+    console.error("[WS] 클라이언트 오류: ", err.message);
+  });
+});
+
+const broadcast = (payload) => {
+  const message = JSON.stringify(payload);
+
+  for (const client of wss.clients)
+  {
+    if (client.readyState === WebSocket.OPEN)
+    {
+      client.send(message);
+    }
+  }
+};
+
+// 웹소켓 설정
+
+
+// /api/parked_status / 웹소켓 전환
+
+let lastParkedStatudId = null;
+
+const pollParkedStatus = async () => {
+  try {
+    const [rows] = await pool.query(
+      "SELECT * FROM parked_status ORDER BY record_time DESC LIMIT 1;"
+    );
+
+    if (rows.length === 0) return;
+
+    const latest = rows[0];
+
+    if (lastParkedStatudId !== null && lastParkedStatudId !== latest.id)
+    {
+      console.log("[변경 감지] parked_status 갱신됨. 브로드캐스트합니다.");
+      broadcast({
+        type: "parked_status_updated",
+        data: rows
+      });
+    }
+
+    lastParkedStatudId = latest.id;
+
+  } catch (err) {
+    console.error("parked_status 폴링 오류: ", err.message);
+  }
+};
+
+// /api/parked_status / 웹소켓 전환
+
+// /api/entry-exit-records / 웹소켓 전환
+
+let lastRecordsUpdatedAt = null;
+
+const pollRecords = async () => {
+  try {
+    const tableName = process.env.MYSQL_TABLE_records;
+
+    const [rows] = await pool.query(
+      `SELECT COALESCE(MAX(updated_at), '') AS lastUpdatedAt FROM ${tableName};`
+    );
+
+    const current = rows[0].lastUpdatedAt;
+
+
+    if (lastRecordsUpdatedAt !== null && lastRecordsUpdatedAt !== current)
+    {
+      const [records] = await pool.query(
+        `SELECT * FROM ${tableName} ORDER BY id DESC;`
+      );
+
+      broadcast({
+        type: "entry_exit_records_updated",
+        data: records
+      });
+    }
+
+    lastRecordsUpdatedAt = current;
+  } catch (err) {
+    console.error("records 폴링 오류: ", err.message);
+  }
+};
+
+// /api/entry-exit-records / 웹소켓 전환
+
+setInterval(pollParkedStatus, PARKED_STATUS_POLL_MS);
+setInterval(pollRecords, RECORDS_POLL_MS);
+
+// app.listen -> server.listen
+server.listen(SERVER_PORT, '0.0.0.0', () => {
+  console.log(`서버(API / 웹소켓) 실행 중: http://0.0.0.0:${SERVER_PORT}`);
+  console.log(`  - REST: /api/parked-status, /api/entry-exit-records, /api/llm-query, /api/login`);
+  console.log(`  - WebSocket: ws://0.0.0.0:${SERVER_PORT}/ws`);
+});
+
+//app.listen(PORT, '0.0.0.0', () => {
+//  console.log(`서버 실행 중: http://0.0.0.0:${PORT}`);
+//});

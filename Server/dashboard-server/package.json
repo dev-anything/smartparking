@@ -2,10 +2,10 @@
   "name": "dashboard-server",
   "version": "1.0.0",
   "description": "",
-  "main": "test-server.js",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon test-server.js"
+    "dev": "nodemon server.js"
   },
   "author": "",
   "license": "ISC",
