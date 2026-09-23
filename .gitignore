@@ -16,5 +16,5 @@ llama/llama-models
 mysql8/
 
 # Server
-SERVER/socket-server/build
+Server/socket-server/build
 node_modules/
