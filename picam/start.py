@@ -66,7 +66,7 @@ def detect_objects(frame):
     
     
 
-def draw_box(frame, boxes):
+def draw_objects(frame, boxes):
     for box in boxes:
         x, y, w, h = box
         color = (0, 255, 0)
@@ -91,7 +91,6 @@ if __name__ == "__main__":
     cap = set_camera()
     
     
-    
     try:
         while True:
             ret, frame = cap.read()
@@ -104,7 +103,7 @@ if __name__ == "__main__":
             #frame = cv2.flip(frame, 1)
             frame = draw_roi_box(frame, ROI)
             boxes = detect_objects(frame)
-            frame = draw_box(frame, boxes)
+            frame = draw_objects(frame, boxes)
             cv2.imshow(WINDOW_NAME, frame)
             keyCode = cv2.waitKey(10) & 0xFF   # <- 이 줄 추가 (필수)
             if keyCode == ord('q'):

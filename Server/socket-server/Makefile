@@ -4,9 +4,9 @@ LIBS = -lmysqlclient -lcurl -ljson-c -lmicrohttpd -lpthread
 
 OUTPUT_DIR = build
 
-TARGET = $(DIRS)llmserver
-OBJS = $(DIRS)/llmserver.o
-RAW = llmserver.c
+TARGET = server
+OBJS = server.o
+RAW = server.c
 
 .PHONY: compile out run clean build
 
