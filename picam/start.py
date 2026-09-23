@@ -64,9 +64,11 @@ def detect_objects(frame):
     boxes = []
     
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    #cv2.imshow("GRAY SCALE", gray)
     blurred = cv2.bilateralFilter(gray, 11, 17, 17)
+    #cv2.imshow("BLURRED", blurred)
     edged = cv2.Canny(blurred, 30, 200)
-    
+    cv2.imshow("EDGED", edged)
     contours, _ = cv2.findContours(edged, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     
     for c in contours:
