@@ -27,8 +27,8 @@ const RULE =
   `5. 출력 텍스트에 포함된 마크다운 문법은 모두 제거해.\n\n` +
   `6. COUNT, SUM 등 집계 함수와 일반 컬럼을 함께 SELECT하지 마.\n` +
   `7. 집계 함수만 쓰거나, 일반 컬럼만 쓰는 쿼리를 작성해.\n` +
-  `8. 입차 키워드는 entry_time 필드를 사용해.\n` +
-  `9. 출차 키워드는 exit_time 필드를 사용해.\n`;
+  `8. 입차/출차 관련 조회는 records 테이블을 사용해.(입차 관련 키워드는 entry_time 필드, 출차 관련 키워드는 exit_time 필드)\n` +
+  `9. 주차장 현황 관련 조회는 parked_status 테이블을 사용해.(0 - 주차 안됨, 1 - 주차됨)\n`;
 
 const SCHEMA =
   "1. records TABLE (id INT PK NOT NULL, car_number CHAR(30) NOT NULL, entry_time DATETIME NOT NULL, exit_time DATETIME NULL)\n" +
@@ -247,7 +247,7 @@ app.post("/api/llm-query", async (req, res) => {
     `예시 출력:\n${FEWSHOT_EXAMPLES}\n\n` +
     `질문: ${question}`;
 
-  const rawSql = await callLLM(null, prompt);
+  let rawSql = await callLLM(null, prompt);
 
   if (!rawSql) return res.status(502).json({ answer: "LLM 서버에 연결할 수 없습니다." });
 
@@ -332,10 +332,10 @@ app.post("/api/login", async (req, res) => {
 // 웹소켓 설정
 
 wss.on("connection", ws => {
-  console.log("[WS] 클라이언트 연결됨. 연결 수: ", wss.clielt.size);
+  console.log("[WS] 클라이언트 연결됨. 연결 수: ", wss.clients.size);
 
   ws.on("close", () => {
-    console.log("[WS] 클라이언트 연결 종료. 연결 수: ", wss.client.size);
+    console.log("[WS] 클라이언트 연결 종료. 연결 수: ", wss.clients.size);
   });
 
   ws.on("error", (err) => {

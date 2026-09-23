@@ -3,7 +3,7 @@ import cv2
 CAM_INDEX = 0
 FRAME_WIDTH = 1280
 FRAME_HEIGHT = 720
-MIN_OBJECT_AREA = 50000
+MIN_OBJECT_AREA = 10000
 WINDOW_NAME = "USB Camera"
 
 ROI = (
@@ -47,6 +47,19 @@ def draw_roi_box(frame, roi, color=(255, 0, 0), thickness=2):
     return frame
 
 
+def is_inside_roi(box, roi):
+    bx, by, bw, bh = box
+    rx, ry, rw, rh = roi
+    cx, cy = bx + by // 2, by + bh // 2
+    
+    cw = rx <= cx <= rx + rw
+    ch = ry <= cy <= ry + rh
+    
+    return cw and ch
+    
+    
+
+
 def detect_objects(frame):
     boxes = []
     
@@ -68,20 +81,21 @@ def detect_objects(frame):
 
 def draw_objects(frame, boxes):
     for box in boxes:
-        x, y, w, h = box
-        color = (0, 255, 0)
-        label = "DETECTED"
-        
-        cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
-        cv2.putText(
-            frame,
-            label,
-            (x, max(y - 8, 15)),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.5,
-            color,
-            2
-        )
+        if (is_inside_roi(box, ROI)):
+            x, y, w, h = box
+            color = (0, 255, 0)
+            label = "DETECTED"
+            
+            cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
+            cv2.putText(
+                frame,
+                label,
+                (x, max(y - 8, 15)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5,
+                color,
+                2
+            )
 
     return frame
     
