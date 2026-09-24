@@ -3,11 +3,11 @@ __pycache__
 *.pyc
 .env
 .env*
+*venv*
 
 
 # Image Processing
-numberplate/*venv*
-picam/images
+IP/picam/images
 
 # LLM
 llama/llama-models

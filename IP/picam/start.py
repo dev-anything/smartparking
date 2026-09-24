@@ -7,6 +7,7 @@ FRAME_WIDTH = 1280
 FRAME_HEIGHT = 720
 MIN_OBJECT_AREA = 10000
 WINDOW_NAME = "USB Camera"
+MIN_CONFIDENCE = 60
 PLATE_PATTERN = re.compile(r'\d{2,3}[가-힣]\d{4}')  # 한국 번호판 형식
 
 ROI = (
@@ -153,15 +154,13 @@ def roi_capture(frame, roi):
     
     return frame[y : y + h, x : x + w]
 
-def preprocess(frame):
-    captured = frame
-    
-    captured = cv2.cvtColor(captured, cv2.COLOR_BGR2GRAY)
-    captured = cv2.GaussianBlur(captured, (5, 5), 0)
-    captured = cv2.Canny(captured, 100, 100)
-    _, captured = _, thresh = cv2.threshold(captured, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    
-    return captured
+def preprocess(plate_img):
+    """OCR용: 흑백 + 확대 + 이진화 (글자가 채워진 상태로 유지)"""
+    gray = cv2.cvtColor(plate_img, cv2.COLOR_BGR2GRAY)
+    gray = cv2.resize(gray, None, fx=3, fy=3, interpolation=cv2.INTER_CUBIC)
+    gray = cv2.GaussianBlur(gray, (3, 3), 0)
+    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    return thresh
 
 def save_captured(frame):
     cv2.imwrite("images/captured.png", frame)
@@ -186,7 +185,7 @@ def find_plate_candidates(frame):
 def draw_candidates(frame, candidates, color=(255, 255, 255), thickness=2):
     for c in candidates:
         x, y, w, h = c
-        print(c)
+        #print(c)
         
         cv2.rectangle(frame, (x, y), (x + w, y + h), color, thickness)
         cv2.putText(
@@ -201,11 +200,13 @@ def draw_candidates(frame, candidates, color=(255, 255, 255), thickness=2):
     
     return frame
     
-def ocr(frame, candidates):
+def ocr(roi_img, candidates):
     for c in candidates:
         x, y, w, h = c
         
-        plate_img = frame[y : y + h, x : x + w]
+        plate_img = roi_img
+        
+        processed = preprocess(plate_img)
         
         data = pytesseract.image_to_data(
             plate_img,
@@ -214,9 +215,36 @@ def ocr(frame, candidates):
             output_type=pytesseract.Output.DICT
         )
         
+        texts = []
+        confs = []
+        
+        for i, conf in enumerate(data["conf"]):
+
+            try:
+                conf = float(conf)
+            except (ValueError, TypeError):
+                conf = -1
+            
+            text = data["text"][i].strip()
+            
+            
+            if conf > 0 and text:
+                texts.append(text)
+                confs.append(conf)
+        
+        if not texts:
+            continue
+
+        full_text = "".join(texts)
+        avg_conf = sum(confs) / len(confs)
         
         
-    return "hello"
+        if full_text and avg_conf >= MIN_CONFIDENCE:
+            cleaned = full_text.replace(" ", "")
+            if PLATE_PATTERN.match(cleaned):
+                return cleaned
+        
+        
 
 
 if __name__ == "__main__":
@@ -232,11 +260,13 @@ if __name__ == "__main__":
                 print("프레임을 읽을 수 없습니다.")
                 break
             
-            frame = roi_capture(frame, ROI)
+            roi_img = roi_capture(frame, ROI)
             frame = preprocess(frame)
             candidates = find_plate_candidates(frame)
-            frame = draw_candidates(frame, candidates)
-            plate_text = ocr(frame, candidates)
+            #frame = draw_candidates(frame, candidates)
+            plate_text = ocr(roi_img, candidates)
+            
+            print(plate_text)
             
             #frame = detect_objects(frame)
             
