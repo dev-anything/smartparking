@@ -131,13 +131,22 @@ if __name__ == "__main__":
             
             # 번호판 후보 리스트업
             candidates = find_plate_candidates(edged)
+            print("후보 수: ", len(candidates))
+            for idx, c in enumerate(candidates):
+                x, y, w, h = c
+                
+                img = roi_captured[y : y + h, x : x + w]
+                
+                cv2.imwrite(f"images/plate_00{idx}.png", img)
+                
+            break
             
             # OCR - 번호판 추출
-            plate_text = ocr(roi_captured, candidates)
+            #plate_text = ocr(roi_captured, candidates)
             
-            # 추출된 번호판 출력
-            if plate_text:
-                print(f"[추출 완료] {plate_text}")
+            ## 추출된 번호판 출력
+            #if plate_text:
+            #    print(f"[추출 완료] {plate_text}")
             
             cv2.imshow(WINDOW_NAME, roi_captured)
             keyCode = cv2.waitKey(10) & 0xFF

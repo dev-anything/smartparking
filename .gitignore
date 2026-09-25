@@ -1,4 +1,5 @@
 .git
+.vscode
 __pycache__
 *.pyc
 .env
@@ -11,8 +12,16 @@ IP/picam/images
 *.jpg
 *.png
 
-# LLM
-llama/llama-models
+# AI Models
+Models/llama/llama-models
+models/
+wheels/
+*.gguf
+*.whl
+*.onnx
+*.pt
+*.engine
+*.tar
 
 # DB
 mysql8/
