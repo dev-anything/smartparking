@@ -8,6 +8,7 @@ FRAME_HEIGHT = 720
 MIN_CONFIDENCE = 60
 WINDOW_NAME = "USB Camera"
 PLATE_PATTERN = re.compile(r'\d{2,3}[가-힣]\d{4}')  # 한국 번호판 형식
+VALID_HANGUL = "가나다라마거너더러머버서어저고노도로모보소오조구누두루무부수우주아바사자허하호배"
 
 ROI = (
     int(FRAME_WIDTH * 0.4),
