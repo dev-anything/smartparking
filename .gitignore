@@ -9,6 +9,7 @@ __pycache__
 
 # Image Processing
 IP/picam/images
+example/
 *.jpg
 *.png
 
