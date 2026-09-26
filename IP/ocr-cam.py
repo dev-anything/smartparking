@@ -54,7 +54,7 @@ MIN_HANGUL_PROB = 0.05  # 구조 보정 시 한글 자리 후보의 최소 확�
 # 번호판 후보 검출 방식
 #   "color" : 번호판 바탕색 + 사각형 모양 + 글자 개수로 찾고, 정면으로 펴서 전달 (권장)
 #   "canny" : 기존 엣지 방식 (번호판 일부나 차체가 잘못 잡히는 경우가 있음)
-DETECT_METHOD = "color"
+DETECT_METHOD = "canny"
 
 # 번호판 바탕색별 HSV 범위: (H 최소, S 최소, V 최소), (H 최대, S 최대, V 최대)
 #   OpenCV의 H(색상)는 0~180 범위 (빨강 0, 노랑 30, 초록 60, 파랑 120)
@@ -179,30 +179,58 @@ def warp_plate(img, contour):
     return warped, corners.astype(int), ratio
 
 
-def count_chars(plate):
-    """
-    펴진 번호판 안의 글자 크기 덩어리 개수.
-    대부분은 검은 글자지만 구형 초록 번호판은 흰 글자라서, 두 경우를 모두 세고 큰 값 사용
-    (글자가 아닌 쪽은 바탕 전체가 한 덩어리로 가장자리에 붙어 거의 세어지지 않음)
-    """
-    gray = cv2.cvtColor(plate, cv2.COLOR_BGR2GRAY)
-    return max(count_blobs(gray, cv2.THRESH_BINARY_INV),    # 검은 글자
-               count_blobs(gray, cv2.THRESH_BINARY))        # 흰 글자
-
-
-def count_blobs(gray, mode):
-    """이진화 후 글자 크기 덩어리 개수"""
+def char_boxes(gray, mode):
+    """이진화 후 글자 크기 덩어리들의 박스 [(x, y, w, h), ...]"""
     _, th = cv2.threshold(gray, 0, 255, mode + cv2.THRESH_OTSU)
     H, W = th.shape
-    contours = cv2.findContours(th, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[-2]
-    n = 0
-    for c in contours:
+    boxes = []
+    for c in cv2.findContours(th, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[-2]:
         x, y, w, h = cv2.boundingRect(c)
         if x <= 1 or y <= 1 or x + w >= W - 1 or y + h >= H - 1:
             continue                        # 가장자리에 붙은 테두리 조각
         if H * 0.35 <= h <= H * 0.95 and w <= W * 0.25:
-            n += 1
-    return n
+            boxes.append((x, y, w, h))
+    return boxes
+
+
+def plate_char_boxes(plate):
+    """
+    번호판 안의 글자 박스.
+    대부분은 검은 글자지만 구형 초록 번호판은 흰 글자라서, 두 경우를 모두 찾고 많은 쪽 사용
+    (글자가 아닌 쪽은 바탕 전체가 한 덩어리로 가장자리에 붙어 거의 잡히지 않음)
+    """
+    gray = cv2.cvtColor(plate, cv2.COLOR_BGR2GRAY)
+    return max(char_boxes(gray, cv2.THRESH_BINARY_INV),     # 검은 글자
+               char_boxes(gray, cv2.THRESH_BINARY),         # 흰 글자
+               key=len)
+
+
+def count_chars(plate):
+    """번호판 안의 글자 크기 덩어리 개수"""
+    return len(plate_char_boxes(plate))
+
+
+def crop_to_text(plate):
+    """
+    번호판 테두리와 여백을 잘라내고 글자 줄만 남김.
+    인식 모델은 입력 높이를 항상 48픽셀로 줄이기 때문에,
+    테두리와 여백이 빠질수록 그 48픽셀 안에서 글자가 크게 보임 (한글 획이 덜 뭉개짐)
+    글자를 4개 미만으로 찾으면 판단이 불확실하므로 원본 그대로 반환
+    """
+    boxes = plate_char_boxes(plate)
+    if len(boxes) < 4:
+        return plate
+
+    H, W = plate.shape[:2]
+    x0 = min(b[0] for b in boxes)
+    x1 = max(b[0] + b[2] for b in boxes)
+    y0 = min(b[1] for b in boxes)
+    y1 = max(b[1] + b[3] for b in boxes)
+
+    pad_y = int((y1 - y0) * 0.12)                               # 위아래 약간의 여유
+    pad_x = int(np.median([b[2] for b in boxes]) * 0.3)         # 좌우는 글자 폭의 30%
+    return plate[max(0, y0 - pad_y):min(H, y1 + pad_y),
+                 max(0, x0 - pad_x):min(W, x1 + pad_x)]
 
 
 def color_mask(img, color):
@@ -285,17 +313,43 @@ def debug_colors(img):
 
 
 def find_canny_plates(img):
-    """기존 Canny 방식 후보를 같은 형식 [(후보 이미지, 꼭짓점 4개), ...]으로 변환"""
+    """
+    기존 Canny 방식 후보 (조건은 find_plate_candidates와 동일).
+    사각형 박스로 자르는 대신, 윤곽선의 꼭짓점으로 번호판을 정면으로 펴서 반환
+    반환: [(펴진 후보 이미지, 꼭짓점 4개), ...]
+    """
+    edged = preprocess_for_detect(img)
+    contours = cv2.findContours(edged, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[-2]
+    contours = sorted(contours, key=cv2.contourArea, reverse=True)[: 10]
+
     result = []
-    for x, y, w, h in find_plate_candidates(preprocess_for_detect(img)):
-        corners = np.array([[x, y], [x + w, y], [x + w, y + h], [x, y + h]])
-        result.append((img[y: y + h, x: x + w], corners))
+    for c in contours:
+        x, y, w, h = cv2.boundingRect(c)
+        aspect_ratio = w / float(h) if h > 0 else 0
+        if not (2.0 <= aspect_ratio <= 5.5 and w * h > 1500):
+            continue
+
+        warped = warp_plate(img, c)
+        if warped is not None and 2.0 <= warped[2] <= 6.0:
+            plate, corners = warped[0], warped[1]              # 정면으로 편 번호판
+        else:
+            corners = np.array([[x, y], [x + w, y], [x + w, y + h], [x, y + h]])
+            plate = img[y: y + h, x: x + w]                    # 펴기 실패 시 기존처럼 박스
+
+        # 번호판 테두리의 안쪽/바깥쪽 윤곽선이 같은 번호판으로 여러 번 잡히므로 하나만 남김
+        # (같은 번호판을 여러 번 인식하면 그만큼 느려짐)
+        if not is_duplicate(corners, [k for _, k in result]):
+            result.append((plate, corners))
     return result
 
 
 def detect_plates(img):
-    """설정(DETECT_METHOD)에 따라 번호판 후보 검출"""
-    return find_color_plates(img) if DETECT_METHOD == "color" else find_canny_plates(img)
+    """
+    설정(DETECT_METHOD)에 따라 번호판 후보 검출 후, 테두리와 여백을 잘라 글자 줄만 남김
+    (화면 표시용 꼭짓점은 번호판 전체 기준 그대로)
+    """
+    plates = find_color_plates(img) if DETECT_METHOD == "color" else find_canny_plates(img)
+    return [(crop_to_text(plate), corners) for plate, corners in plates]
 
 
 # =========================================================
