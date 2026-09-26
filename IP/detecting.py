@@ -1,18 +1,21 @@
+import os
 import cv2
 
 CAM_INDEX = 0
 FRAME_WIDTH = 1280
 FRAME_HEIGHT = 720
-MIN_OBJECT_AREA = 500
+MIN_OBJECT_AREA = 1000
 WINDOW_NAME = "USB Camera"
 
 ROI = (
     int(FRAME_WIDTH * 0.25),
-    int(FRAME_HEIGHT * 0.25),
+    int(FRAME_HEIGHT * 0.6),
     int(FRAME_WIDTH * 0.5),
-    int(FRAME_HEIGHT * 0.5)
+    int(FRAME_HEIGHT * 0.4)
 )
 
+
+SAVE_DIR = "images"
 
 
 
@@ -55,7 +58,7 @@ def draw_roi(frame, roi, color=(255, 0, 0), thickness=2):
 def preprocessing(frame):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (0, 0), 1)
-    edged = cv2.Canny(blurred, 60, 150)
+    edged = cv2.Canny(blurred, 60, 60)
     
     return edged
 
@@ -119,9 +122,15 @@ def find_plate_candidates(frame, boxes):
     return candidates
     
     
-
+def save_images(color_roi_capture, index_list):
+    for i, index in enumerate(index_list):
+        x, y, w, h = index
+        img = color_roi_capture[y : y + h, x : x + w]
+        
+        cv2.imwrite(f"{SAVE_DIR}/captured_00{i}.png", img)
 
 if __name__ == "__main__":
+    os.makedirs(SAVE_DIR, exist_ok=True)
     cap = set_camera()
     
     try:
@@ -132,11 +141,16 @@ if __name__ == "__main__":
                 print("Cannot read frame...")
                 break
             
+            # DEBUG - ROI 박스 위치 표시용
+            #frame = draw_roi(frame, ROI)
+            
+            color_roi_capture = capture_roi(frame, ROI)
             frame = capture_roi(frame, ROI)
             frame = preprocessing(frame)
             boxes = detect_object(frame)
-            
             candidates = find_plate_candidates(frame, boxes)
+            
+            save_images(color_roi_capture, candidates)
             
             cv2.imshow(WINDOW_NAME, frame)
             keyCode = cv2.waitKey(10) & 0xFF
