@@ -60,10 +60,12 @@ def set_camera():
     
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
+    fps = cap.set(cv2.CAP_PROP_FPS, 20)
     
     actual_w = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
     actual_h = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
     print(f"카메라 해상도: {int(actual_w)}x{int(actual_h)}")
+    print(f"카메라 FPS: {fps}")
     
     cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
     
@@ -132,11 +134,9 @@ def find_plate_candidates(frame, boxes):
         aspect_ratio = w / float(h) if h > 0 else 0
         area = w * h
         
-        if w > 200 and area > 1500:
-            candidates.append((x, y, w, h))
         
-        #if 2.0 <= aspect_ratio <= 5.5 and area > 1500:
-        #    candidates.append((x, y, w, h))
+        if 2.0 <= aspect_ratio <= 5.5 and area > 1500:
+            candidates.append((x, y, w, h))
     
     # DEBUG - 박스 그리기
     for c in candidates:
