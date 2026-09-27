@@ -19,8 +19,8 @@
     -> 결과 출력 + 단계별 이미지 저장 (debug_1_rotated.png, debug_2_line.png, debug_3_input.png)
 
 필요 파일:
-    ~/smartparking/Models/paddleocr/models/rec.onnx
-    ~/smartparking/Models/paddleocr/models/korean_dict.txt
+    ~/smartparking/Models/paddleocr/models_v5/rec.onnx          (PP-OCRv5 한국어)
+    ~/smartparking/Models/paddleocr/models_v5/korean_dict.txt   (v5 전용 사전)
     (다른 위치면 MODEL_DIR 수정 또는 환경변수 PLATE_MODEL_DIR 지정)
 
 ※ Python 3.6 호환 (Jetson Nano JetPack 4.6)
@@ -42,7 +42,7 @@ import numpy as np
 # =========================================================
 
 MODEL_DIR = os.environ.get("PLATE_MODEL_DIR",
-                           os.path.expanduser("~/smartparking/Models/paddleocr/models"))
+                           os.path.expanduser("~/smartparking/Models/paddleocr/models_v5"))
 MODEL_PATH = os.path.join(MODEL_DIR, "rec.onnx")
 DICT_PATH = os.path.join(MODEL_DIR, "korean_dict.txt")
 
@@ -73,9 +73,21 @@ BLANK = 0   # CTC에서 "글자 없음"을 뜻하는 번호
 # =========================================================
 
 def components(gray, mode):
-    """이진화 후 덩어리 박스 [(x, y, w, h), ...] (이미지 가장자리에 붙은 테두리 조각 제외)"""
-    _, th = cv2.threshold(gray, 0, 255, mode + cv2.THRESH_OTSU)
-    H, W = th.shape
+    """
+    이진화 후 덩어리 박스 [(x, y, w, h), ...] (이미지 가장자리에 붙은 테두리 조각 제외)
+
+    이진화는 "지역 적응형" 방식: 이미지 전체에 기준값 하나를 쓰는 대신(Otsu),
+    주변 영역마다 밝기 기준을 따로 정함.
+    번호판 한쪽에 그림자가 지면 전체 기준으로는 그늘진 글자가 그림자와 한 덩어리로 붙어버리지만,
+    지역 기준으로는 그늘 속에서도 글자만 분리됨
+        블록 크기: 이미지 높이의 40% (글자보다 약간 큰 범위를 보고 판단)
+        C = 10  : 주변 평균보다 10 이상 어두워야 글자로 봄 (종이 질감 같은 잔잡음 제외)
+    """
+    H, W = gray.shape
+    block = max(11, int(H * 0.4) | 1)                  # 홀수여야 함
+    blurred = cv2.GaussianBlur(gray, (3, 3), 0)
+    th = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, mode, block, 10)
+
     boxes = []
     for c in cv2.findContours(th, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[-2]:
         x, y, w, h = cv2.boundingRect(c)
@@ -87,9 +99,12 @@ def components(gray, mode):
 
 def find_chars(img, char_h=None):
     """
-    글자 박스 찾기.
-        char_h가 없으면: 이미지 높이의 35~95%인 덩어리 (처음 찾을 때)
-        char_h가 있으면: 그 글자 높이의 70~130%인 덩어리 (회전 후 다시 찾을 때)
+    글자 박스 찾기. 반환: [(x, y, w, h), ...]
+        char_h가 없으면 (처음 찾을 때):
+            이미지 높이의 20~95%인 덩어리 중에서 "높이가 서로 비슷한 가장 큰 무리"
+            (번호판 글자들은 높이가 거의 같고, 잡음과 테두리 조각은 제각각이라는 점을 이용)
+        char_h가 있으면 (회전 후 다시 찾을 때):
+            그 글자 높이의 70~130%인 덩어리
     검은 글자와 흰 글자(구형 초록 번호판) 둘 다 찾아서 많이 나온 쪽 사용
     """
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -98,12 +113,29 @@ def find_chars(img, char_h=None):
     def is_char(b):
         _, _, w, h = b
         if char_h is None:
-            return H * 0.35 <= h <= H * 0.95 and w <= W * 0.25
+            return H * 0.2 <= h <= H * 0.95 and w <= W * 0.25
         return 0.7 * char_h <= h <= 1.3 * char_h and w <= 1.2 * char_h
 
-    candidates = [[b for b in components(gray, mode) if is_char(b)]
-                  for mode in (cv2.THRESH_BINARY_INV, cv2.THRESH_BINARY)]
+    candidates = []
+    for mode in (cv2.THRESH_BINARY_INV, cv2.THRESH_BINARY):
+        chars = [b for b in components(gray, mode) if is_char(b)]
+        if char_h is None:
+            chars = similar_height_group(chars)
+        candidates.append(chars)
     return max(candidates, key=len)
+
+
+def similar_height_group(boxes, tol=0.25):
+    """
+    높이가 서로 비슷한(기준 높이의 ±25%) 박스들 중 가장 큰 무리.
+    예: 높이 [38, 40, 41, 42, 43, 44, 12, 90] -> 38~44인 6개 (12는 잡음, 90은 테두리 조각)
+    """
+    best = []
+    for _, _, _, ref in boxes:
+        group = [b for b in boxes if (1 - tol) * ref <= b[3] <= (1 + tol) * ref]
+        if len(group) > len(best):
+            best = group
+    return best
 
 
 def deskew(img, boxes):
@@ -115,7 +147,14 @@ def deskew(img, boxes):
         return img, 0.0
     xs = np.array([x + w / 2.0 for x, _, w, _ in boxes])
     ys = np.array([y + h / 2.0 for _, y, _, h in boxes])
-    angle = float(np.degrees(np.arctan(np.polyfit(xs, ys, 1)[0])))
+    slope, icpt = np.polyfit(xs, ys, 1)
+
+    # 직선에서 크게 벗어난 점(글자 줄 밖의 잡음 덩어리)을 빼고 한 번 더 맞춤
+    char_h = np.median([h for _, _, _, h in boxes])
+    keep = np.abs(ys - (slope * xs + icpt)) <= char_h * 0.35
+    if keep.sum() >= 4:
+        slope, _ = np.polyfit(xs[keep], ys[keep], 1)
+    angle = float(np.degrees(np.arctan(slope)))
     if abs(angle) < 1.0 or abs(angle) > 30:      # 거의 수평이거나 이상한 값이면 그대로
         return img, 0.0
 
