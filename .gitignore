@@ -15,7 +15,7 @@ example/
 
 # AI Models
 Models/llama/llama-models
-models/
+models*/
 wheels/
 *.gguf
 *.whl
@@ -23,6 +23,7 @@ wheels/
 *.pt
 *.engine
 *.tar
+*.zip
 
 # DB
 mysql8/
