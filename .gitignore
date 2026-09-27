@@ -8,7 +8,7 @@ __pycache__
 
 
 # Image Processing
-IP/images
+IP/main/images
 example/
 *.jpg
 *.png
