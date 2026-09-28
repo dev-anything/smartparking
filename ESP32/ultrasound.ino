@@ -13,8 +13,12 @@ IPAddress primaryDNS(8, 8, 8, 8);
 const char* serverIP = "192.168.0.7"; 
 const int serverPort = 10000;          
 
+// 지속 연결을 위한 전역 소켓 객체
+WiFiClient client;
+bool isServerAuthenticated = false; // 서버 OK 응답 인증 여부
+
 // 초음파 센서 6개 핀 (Trig, Echo)
-const int TRIG_PINS[6] = {4, 16, 18, 21, 23, 26};
+const int TRIG_PINS[6] = {4, 16, 18, 21, 23, 32};
 const int ECHO_PINS[6] = {5, 17, 19, 22, 25, 27};
 
 // 주차 상태 관리
@@ -24,8 +28,8 @@ int lastStatus[6]      = {-1, -1, -1, -1, -1, -1};
 // 5초 타이머 관련 변수
 unsigned long timerStartTime[6] = {0, 0, 0, 0, 0, 0};
 bool isWaitingTimer[6]          = {false, false, false, false, false, false};
-int waitingTargetStatus[6]      = {0, 0, 0, 0, 0, 0}; // 대기 중인 목표 상태 (1: 입차대기, 0: 출차대기)
-unsigned long lastLogTime[6]       = {0, 0, 0, 0, 0, 0};
+int waitingTargetStatus[6]      = {0, 0, 0, 0, 0, 0}; 
+unsigned long lastLogTime[6]    = {0, 0, 0, 0, 0, 0};
 
 long readDistance(int index) {
   long total = 0;
@@ -38,7 +42,7 @@ long readDistance(int index) {
     delayMicroseconds(10);
     digitalWrite(TRIG_PINS[index], LOW);
 
-    long duration = pulseIn(ECHO_PINS[index], HIGH, 25000); 
+    long duration = pulseIn(ECHO_PINS[index], HIGH, 15000); 
     if (duration > 0) {
       total += (duration * 0.034 / 2);
       validReadings++;
@@ -50,23 +54,67 @@ long readDistance(int index) {
   return total / validReadings;
 }
 
-bool sendStatusToServer(String payload) {
-  WiFiClient client;
-  Serial.print("  └─ [주차 현황] " + payload);
+// 서버 연결 및 ID 인증 (최초 1회 또는 끊겼을 때 재연결)
+bool connectAndAuthenticateServer() {
+  if (client.connected() && isServerAuthenticated) {
+    return true; // 이미 연결 및 인증 완료 상태
+  }
 
-  if (client.connect(serverIP, serverPort)) {
-    client.println(payload);
-    client.flush();
-    client.stop();
-    Serial.println(" -> 성공!");
-    return true;
-  } else {
-    Serial.println(" -> 실패 (서버 미연결)");
+  Serial.println("\n[C 서버 접속 시도] " + String(serverIP) + ":" + String(serverPort));
+  client.stop(); // 기존 잔여 연결 정리
+
+  if (!client.connect(serverIP, serverPort, 2000)) {
+    Serial.println(" -> 서버 연결 실패!");
+    isServerAuthenticated = false;
     return false;
   }
+
+  // 1) 클라이언트 ID 송신 ("ID:S\n")
+  client.print("ID:S\n");
+  Serial.println(" -> 1. 클라이언트 ID 송신 완료 (ID:S)");
+
+  // 2) 서버 확인 응답("OK") 대기 (최대 3초)
+  unsigned long timeout = millis();
+  isServerAuthenticated = false;
+
+  while (millis() - timeout < 3000) {
+    if (client.available()) {
+      String response = client.readStringUntil('\n');
+      response.trim(); // 개행문자 및 공백 제거
+      
+      if (response == "OK") {
+        isServerAuthenticated = true;
+        Serial.println(" -> 2. 서버 인증 성공 (OK 수신)! 이제 소켓을 계속 유지합니다.");
+        break;
+      }
+    }
+    delay(10);
+  }
+
+  if (!isServerAuthenticated) {
+    Serial.println(" -> 서버 OK 응답 없음. 접속 종료.");
+    client.stop();
+  }
+
+  return isServerAuthenticated;
 }
 
-// 6개 구역 현황판 출력
+// 지속 유지되고 있는 소켓으로 메인 데이터 전송
+bool sendStatusData(String payload) {
+  // 연결이 끊겨있다면 재접속 및 인증 시도
+  if (!client.connected() || !isServerAuthenticated) {
+    if (!connectAndAuthenticateServer()) {
+      return false;
+    }
+  }
+
+  // 3) 유지 중인 소켓으로 메인 데이터 송신 (끝에 \n 필수)
+  client.print(payload + "\n");
+  client.flush();
+  Serial.println(" -> [데이터 전송 성공] " + payload);
+  return true;
+}
+
 void printDashboard() {
   Serial.print("\n[현재 주차 현황판] [ ");
   for (int i = 0; i < 6; i++) {
@@ -95,10 +143,13 @@ void setup() {
   }
 
   Serial.println("\n=========================================");
-  Serial.print("★ 주차 감지 시스템 준비 완료 (IP: ");
+  Serial.print("★ 초음파 주차 감지 노드 준비 완료 (IP: ");
   Serial.print(WiFi.localIP());
   Serial.println(")");
   Serial.println("=========================================");
+
+  // 부팅 직후 서버 연결 및 OK 인증 시도
+  connectAndAuthenticateServer();
 }
 
 void loop() {
@@ -109,16 +160,20 @@ void loop() {
     return;
   }
 
+  // 서버 연결이 끊어졌다면 재연결 지속 시도
+  if (!client.connected()) {
+    isServerAuthenticated = false;
+    connectAndAuthenticateServer();
+  }
+
   unsigned long currentMillis = millis();
 
   for (int i = 0; i < 6; i++) {
     long dist = readDistance(i);
-    bool isDetected = (dist > 0 && dist <= 10); // 10cm 이하 감지
+    bool isDetected = (dist > 0 && dist <= 10);
     int currentDetectedState = isDetected ? 1 : 0;
 
-    // 현재 감지 상태가 이미 확정된 상태와 다를 때 (입차 또는 출차 조건 발생)
     if (currentDetectedState != confirmedStatus[i]) {
-      // 새로운 대기 타이머 시작 조건
       if (!isWaitingTimer[i] || waitingTargetStatus[i] != currentDetectedState) {
         isWaitingTimer[i] = true;
         waitingTargetStatus[i] = currentDetectedState;
@@ -126,45 +181,33 @@ void loop() {
         lastLogTime[i] = currentMillis;
 
         if (currentDetectedState == 1) {
-          Serial.printf("[%d번 자리] 차량 진입 감지! (입차 5초 카운트 시작)\n", i + 1);
+          Serial.printf("[%d번 자리] 차량 진입 감지! (5초 카운트 시작)\n", i + 1);
         } else {
-          Serial.printf("[%d번 자리] 차량 이동/출차 감지! (출차 5초 카운트 시작)\n", i + 1);
+          Serial.printf("[%d번 자리] 차량 이동 감지! (5초 카운트 시작)\n", i + 1);
         }
       } else {
-        // 이미 대기 중인 경우 1초 간격으로 로그 출력
         if (currentMillis - lastLogTime[i] >= 1000) {
           int elapsedSec = (currentMillis - timerStartTime[i]) / 1000;
-          if (currentDetectedState == 1) {
-            Serial.printf("[%d번 자리] 입차 대기 중... (%d초 / 5초)\n", i + 1, elapsedSec);
-          } else {
-            Serial.printf("[%d번 자리] 출차 대기 중... (%d초 / 5초)\n", i + 1, elapsedSec);
-          }
+          Serial.printf("[%d번 자리] 상태 변경 대기 중... (%d초 / 5초)\n", i + 1, elapsedSec);
           lastLogTime[i] = currentMillis;
         }
 
-        // 5초(5000ms) 경과 시 상태 확정
         if (currentMillis - timerStartTime[i] >= 5000) {
           confirmedStatus[i] = currentDetectedState;
           isWaitingTimer[i] = false;
-
-          if (currentDetectedState == 1) {
-            Serial.printf("★ [%d번 자리] 5초 유지 완료 -> 주차 확정(1)\n", i + 1);
-          } else {
-            Serial.printf("★ [%d번 자리] 5초 유지 완료 -> 빈자리 확정(0)\n", i + 1);
-          }
+          Serial.printf("★ [%d번 자리] 상태 확정 -> %d\n", i + 1, confirmedStatus[i]);
           printDashboard();
         }
       }
     } else {
-      // 감지 상태가 확정 상태와 같아지면 (예: 5초 채우기 전 원래 상태로 돌아감) 타이머 취소
       if (isWaitingTimer[i]) {
         isWaitingTimer[i] = false;
-        Serial.printf("[%d번 자리] 5초를 채우지 못해 상태 변경 취소됨\n", i + 1);
+        Serial.printf("[%d번 자리] 상태 감지 취소\n", i + 1);
       }
     }
   }
 
-  // 상태 변동 발생 시 C 서버로 1회 전송
+  // 상태 변동이 발생했을 때만 기존 연결로 데이터 전송
   bool isChanged = false;
   for (int i = 0; i < 6; i++) {
     if (confirmedStatus[i] != lastStatus[i]) {
@@ -181,7 +224,7 @@ void loop() {
                      String(confirmedStatus[4]) + ":" +
                      String(confirmedStatus[5]);
 
-    if (sendStatusToServer(payload)) {
+    if (sendStatusData(payload)) {
       for (int i = 0; i < 6; i++) {
         lastStatus[i] = confirmedStatus[i];
       }
@@ -190,7 +233,6 @@ void loop() {
 
   delay(200); 
 }
-
   //  1초 간격 모니터링
   delay(1000);
 }
