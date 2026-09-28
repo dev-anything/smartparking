@@ -1,20 +1,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
+#include <errno.h>
+// #include <ctype.h>
 #include <unistd.h>
-#include <microhttpd.h>
+// #include <microhttpd.h>
 #include <pthread.h>
-#include <curl/curl.h>
-#include <json-c/json.h>
+// #include <curl/curl.h>
+// #include <json-c/json.h>
 #include <mysql/mysql.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 
 #define SERVER_PORT 10000
 #define BUFFER_SIZE 1024
-
-#define LLM_API_URL "http://localhost:10001/v1/chat/completions"
 
 #define MYSQL_HOST "127.0.0.1"
 #define MYSQL_USER "server"
@@ -25,6 +24,8 @@
 
 #define DELIM ":"
 
+#define HANDSHAKE "OK\n"
+
 #define MOTOR_ESP_IP "192.168.0.100"
 
 // 클라이언트 정보 구조체
@@ -34,8 +35,11 @@ typedef struct
     struct sockaddr_in client_addr;
 } client_info;
 
+int read_line(int fd, char *buf, size_t size);
+void send_ok(int fd);
 void *handle_client(void *arg);
-void *receive_data(void *arg);
+void receive_sensor_data(client_info *arg);
+void receive_plate_number(client_info *arg);
 
 int main()
 {
@@ -128,82 +132,53 @@ int main()
     return 0;
 }
 
-void *receive_data(void *arg)
+int read_line(int fd, char *buf, size_t size)
 {
-    MYSQL *conn;
-    //MYSQL_RES *res;
-    //MYSQL_ROW rows;
-    client_info *info = (client_info *)arg;
-    char buffer[BUFFER_SIZE];
-    char query_buffer[BUFFER_SIZE];
-    char *delim = ":";
-    int status[4] = {0};
-    int idx = 0;
-    int response;
-
-    conn = mysql_init(NULL);
-    if (!(mysql_real_connect(conn, MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DB, 3306, NULL, 0)))
-    {
-        fprintf(stderr, "err: %s[%d]\n", mysql_error(conn), mysql_errno(conn));
-        exit(1);
-    }
-    printf("MySQL Connected!\n\n");
+    char current = '\0';
+    int buffer_idx = 0;
+    ssize_t n = 0;
 
     while (1)
     {
-        // printf("While...");
-        idx = 0;
-        memset(buffer, 0, BUFFER_SIZE);
-        memset(status, 0, sizeof(status));
-        ssize_t n = read(info->client_fd, buffer, BUFFER_SIZE - 1);
-        if (n > 0)
+        // 버퍼에서 1글자씩 읽기
+        n = read(fd, &current, 1);
+
+        if (n < 0 && errno == EINTR)
+            continue;
+
+        // 연결 종료 or 오류 or 타임아웃
+        if (n <= 0 || buffer_idx >= size - 1)
+            break;
+
+        if (current == '\n')
         {
-            printf("수신: %s\n", buffer);
+            if (buffer_idx > 0 && buf[buffer_idx - 1] == '\r')
+                buffer_idx--;
 
-            char *token = strtok(buffer, delim);
-
-            while (token != NULL)
-            {
-                // printf("Count: %d", idx + 1);
-                status[idx] = atoi(token);
-
-                token = strtok(NULL, delim);
-                idx++;
-            }
-
-            sprintf(
-                query_buffer,
-                "INSERT INTO %s "
-                "VALUES (null, curtime(), %d, %d, %d, %d, %d, %d);",
-                MYSQL_TABLE_parked_status,
-                status[0], status[1], status[2], status[3], status[4], status[5]);
-
-            response = mysql_query(
-                conn,
-                query_buffer);
-
-            if (!response)
-            {
-                printf("INSERTED %lu ROWS\n", (unsigned long)mysql_affected_rows(conn));
-            }
-            else
-            {
-                fprintf(stderr, "insert error %s[%d]\n", mysql_error(conn), mysql_errno(conn));
-            }
-
-            // printf("저장: %d %d %d %d\n", status[0], status[1], status[2], status[3]);
+            buf[buffer_idx] = '\0';
+            return 1;
         }
+
+        buf[buffer_idx++] = current;
     }
 
-    close(info->client_fd);
+    buf[buffer_idx] = '\0';
+    return 0;
+}
+
+void send_ok(int fd)
+{
+    send(fd, HANDSHAKE, strlen(HANDSHAKE), MSG_NOSIGNAL);
 }
 
 void *handle_client(void *arg)
 {
     client_info *info = (client_info *)arg;
     char buffer[BUFFER_SIZE];
-    char* token = NULL;
-    
+    char current = '\0';
+    char *token = NULL;
+    char *save_token = NULL;
+    int read_status = 0;
 
     // 클라이언트 IP를 문자열로 변환
     char client_ip[INET_ADDRSTRLEN];
@@ -216,32 +191,187 @@ void *handle_client(void *arg)
 
     // 최초 수신 값으로 클라이언트 판정
     memset(buffer, 0, BUFFER_SIZE);
-    ssize_t n = read(info->client_fd, buffer, BUFFER_SIZE - 1);
+    read_status = read_line(info->client_fd, buffer, BUFFER_SIZE);
 
-    if (n > 0)
+    if (read_status)
     {
         printf("[RECEIVED] (fd=%d) %s\n", info->client_fd, buffer);
-        token = strtok(buffer, DELIM);
+        token = strtok_r(buffer, DELIM, &save_token);
 
         if (strcmp(token, "ID") == 0)
         {
-            
-            token = strtok(NULL, DELIM);
-            printf("STRTOK start. %s\n\n", token);
+            token = strtok_r(NULL, DELIM, &save_token);
+
             if (strcmp(token, "P") == 0)
             {
                 printf("[CONFIRMED] IP client confirmed.\n");
+                receive_plate_number(info);
             }
-
+            else if (strcmp(token, "S") == 0)
+            {
+                printf("[CONFIRMED] Sensor client confirmed.\n");
+                receive_sensor_data(info);
+            }
+            else
+            {
+                printf("[REFUSED] Unexpected client.\n");
+            }
         }
         else
         {
             printf("[ERROR] (fd=%d) Unexpected init ID.\n", info->client_fd);
-            return NULL;
         }
-
     }
-    printf("[ERROR] Initializing needed.\n");
+    else
+    {
+        printf("[ERROR] Initializing needed.\n");
+    }
+
+    close(info->client_fd);
+    free(info);
     return NULL;
-    
+}
+
+void receive_sensor_data(client_info *arg)
+{
+    MYSQL *conn;
+    // MYSQL_RES *res;
+    // MYSQL_ROW rows;
+    client_info *info = arg;
+    char *token = NULL;
+    char *next_token = NULL;
+    char buffer[BUFFER_SIZE];
+    char query_buffer[BUFFER_SIZE];
+    int status[6] = {0};
+    int idx = 0;
+    int response;
+
+    conn = mysql_init(NULL);
+    if (!(mysql_real_connect(conn, MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DB, 3306, NULL, 0)))
+    {
+        fprintf(stderr, "err: %s[%d]\n", mysql_error(conn), mysql_errno(conn));
+        return;
+    }
+    printf("MySQL Connected!\n\n");
+
+    // 연결 확인 handshake 송신
+    send_ok(info->client_fd);
+
+    while (1)
+    {
+        idx = 0;
+        memset(buffer, 0, BUFFER_SIZE);
+        memset(status, 0, sizeof(status));
+        ssize_t n = read(info->client_fd, buffer, BUFFER_SIZE - 1);
+        if (n > 0)
+        {
+            printf("수신: %s\n", buffer);
+
+            token = strtok_r(buffer, DELIM, &next_token);
+
+            while (token != NULL && idx < 6)
+            {
+                // printf("Count: %d", idx + 1);
+                status[idx] = atoi(token);
+                token = strtok_r(NULL, DELIM, &next_token);
+                idx++;
+            }
+
+            sprintf(
+                query_buffer,
+                "INSERT INTO %s "
+                "VALUES (null, curtime(), %d, %d, %d, %d, %d, %d);",
+                MYSQL_TABLE_parked_status,
+                status[0], status[1], status[2], status[3], status[4], status[5]);
+
+            response = mysql_query(conn, query_buffer);
+
+            if (!response)
+                printf("INSERTED %lu ROWS\n", (unsigned long)mysql_affected_rows(conn));
+            else
+                fprintf(stderr, "insert error %s[%d]\n", mysql_error(conn), mysql_errno(conn));
+        }
+        else if (n == 0)
+        {
+            printf("[-] (fd=%d) Disconnect sensor client.\n", info->client_fd);
+            break;
+        }
+        else
+        {
+            perror("[FAIL] Cannot read data.");
+            break;
+        }
+    }
+    mysql_close(conn);
+}
+
+void receive_plate_number(client_info *arg)
+{
+    MYSQL *conn;
+    // MYSQL_RES *res;
+    // MYSQL_ROW rows;
+    client_info *info = arg;
+    char *token = NULL;
+    char *next_token = NULL;
+    char buffer[BUFFER_SIZE];
+    char query_buffer[BUFFER_SIZE];
+    int idx = 0;
+    int response;
+    int read_status = 0;
+
+    conn = mysql_init(NULL);
+    if (!(mysql_real_connect(conn, MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DB, 3306, NULL, 0)))
+    {
+        fprintf(stderr, "err: %s[%d]\n", mysql_error(conn), mysql_errno(conn));
+        return;
+    }
+    printf("MySQL Connected!\n\n");
+
+    // 연결 확인 handshake 송신
+    send_ok(info->client_fd);
+
+    while (1)
+    {
+        idx = 0;
+        memset(buffer, 0, BUFFER_SIZE);
+        read_status = read_line(info->client_fd, buffer, BUFFER_SIZE);
+
+        if (read_status)
+        {
+            printf("수신: %s\n", buffer);
+
+            // token = strtok_r(buffer, DELIM, &next_token);
+
+            // while (token != NULL && idx < 6)
+            //{
+            //     // printf("Count: %d", idx + 1);
+            //     status[idx] = atoi(token);
+            //     token = strtok_r(NULL, DELIM, &next_token);
+            //     idx++;
+            // }
+
+            // sprintf(
+            //     query_buffer,
+            //     "INSERT INTO %s "
+            //     "VALUES (null, curtime(), %d, %d, %d, %d, %d, %d);",
+            //     MYSQL_TABLE_parked_status,
+            //     status[0], status[1], status[2], status[3], status[4], status[5]);
+
+            // response = mysql_query(conn, query_buffer);
+
+            // if (!response) printf("INSERTED %lu ROWS\n", (unsigned long)mysql_affected_rows(conn));
+            // else fprintf(stderr, "insert error %s[%d]\n", mysql_error(conn), mysql_errno(conn));
+        }
+        else if (read_status == 0)
+        {
+            printf("[-] (fd=%d) Disconnect sensor client.\n", info->client_fd);
+            break;
+        }
+        else
+        {
+            perror("[FAIL] Cannot read data.");
+            break;
+        }
+    }
+    mysql_close(conn);
 }

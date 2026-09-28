@@ -15,13 +15,28 @@ def create_socket():
 
 def server_connect(client_socket, server_ip, server_port, init_id):
     try:
+        # 클라이언트 ID 송신
         client_socket.connect((server_ip, server_port))
-        client_socket.sendall(init_id.encode("utf-8"))
+        client_socket.sendall(f"{init_id}\n".encode("utf-8"))
         print("[SUCCESS] Data sent.")
+        
+        # 핸드셰이크 수신
+        f = client_socket.makefile('r', encoding="utf-8")
+        packet = f.readline()
+        handshake = packet.rstrip('\n')
+        
+        print(f"[RECEIVED] handshake: {handshake}")
+        
+        if (handshake == "OK"):
+            return True
+        else:
+            return False
+        
     except:
         client_socket.close()
         return False
     
     return True
 
-    
+def send_packet(client_socket, plate_number):
+    client_socket.sendall(f"{plate_number}\n".encode("utf-8"))

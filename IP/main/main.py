@@ -131,7 +131,7 @@ def main():
     print("인식 모델 불러오는 중...")
     model = recognizer.load_model()                 # recognizer.RecModel
     
-    # 소켓 서버 연결 및 최초 ID 송신
+    # 소켓 서버 연결 및 최초 ID 송신, 핸드셰이크
     client_socket = client.create_socket()
     is_connected = client.server_connect(client_socket, config.SERVER_IP, config.SERVER_PORT, config.INIT_ID)
     if not is_connected:
@@ -202,6 +202,12 @@ def main():
                     if kind == "confirmed":
                         # ★ 새 차량 번호 확정: 여기에서 DB 저장, 차단기 제어 등을 연결
                         print("[확정] {}  (투표 {})".format(value, list(state.votes)))
+                        
+                        
+                        client.send_packet(client_socket, value)
+                        
+                        
+                        
                     elif kind == "duplicate":
                         print("[중복] {}  최근 {}초 안에 이미 처리한 번호 -> 무시".format(
                             value, config.COOLDOWN_SEC))
