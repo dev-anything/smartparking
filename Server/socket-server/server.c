@@ -202,7 +202,7 @@ void send_ok(int fd)
 
 static int parse_plate_data(const char* buf, char* gate, char* action, char** plate)
 {
-    if (buf[0] != 'E' && buf[0] != 'X' && buf[2] != 'O' && buf[2] != 'C' && buf[4] != '\0') return 0;
+    if (buf[0] != 'E' || buf[0] != 'X' || buf[2] != 'O' || buf[2] != 'C' || buf[4] == '\0') return 0;
 
     *gate = buf[0];
     *action = buf[2];
@@ -216,7 +216,6 @@ void *handle_client(void *arg)
 {
     client_info *info = (client_info *)arg;
     char buffer[BUFFER_SIZE];
-    char current = '\0';
     char *token = NULL;
     char *save_token = NULL;
     int read_status = 0;
@@ -290,6 +289,7 @@ void sensor_data_thread(client_info *info)
     int status[6] = {0};
     int idx = 0;
     int response;
+    int read_status;
 
     conn = mysql_init(NULL);
     if (!(mysql_real_connect(conn, MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DB, 3306, NULL, 0)))
@@ -307,8 +307,8 @@ void sensor_data_thread(client_info *info)
         idx = 0;
         memset(buffer, 0, BUFFER_SIZE);
         memset(status, 0, sizeof(status));
-        ssize_t n = read(info->client_fd, buffer, BUFFER_SIZE - 1);
-        if (n > 0)
+        read_status = read_line(info->client_fd, buffer, BUFFER_SIZE);
+        if (read_status)
         {
             printf("수신: %s\n", buffer);
 
@@ -336,7 +336,7 @@ void sensor_data_thread(client_info *info)
             else
                 fprintf(stderr, "insert error %s[%d]\n", mysql_error(conn), mysql_errno(conn));
         }
-        else if (n == 0)
+        else if (read_status == 0)
         {
             printf("[-] (fd=%d) Disconnect sensor client.\n", info->client_fd);
             break;
@@ -408,10 +408,10 @@ void plate_number_thread(client_info *info)
             if (!response)
             {
                 printf("INSERTED %lu ROWS\n", (unsigned long)mysql_affected_rows(conn));
-                //if (!request_motor_command(gate, action))
-                //{
-                //    fprintf(stderr, "[PLATE] 모터 명령 요청 실패 (%c:%c): 모터 미접속 또는 큐 가득 참\n", gate, action);
-                //}
+                if (!push_motor_command(gate, action))
+                {
+                    fprintf(stderr, "[PLATE] 모터 명령 요청 실패 (%c:%c): 모터 미접속 또는 큐 가득 참\n", gate, action);
+                }
             }
             else fprintf(stderr, "insert error %s[%d]\n", mysql_error(conn), mysql_errno(conn));
         }
@@ -514,7 +514,7 @@ void motor_control_thread(client_info *info)
                 motor_cmd_q_count--;                                                     // 개수 감소
             }
 
-            pthread_mutex_lock(&g_motor_lock);
+            pthread_mutex_unlock(&g_motor_lock);
             // 뮤텍스 독점 해제
 
 
@@ -528,28 +528,43 @@ void motor_control_thread(client_info *info)
             // POLLHUP: 연결이 끊김
             // POLLERR: 소켓 오류
             // POLLHUP과 POLLERR은 poll이 항상 알려줌(뭔소린지 모르겠지만 일단 써)
-            if (fds[0].revents & (POLLIN | POLLHUP | POLLERR))
-            {
-                // buffer 최대크기 - 1 만큼 읽는다
-                ssize_t n = read(fd, buffer, sizeof(buffer) - 1);
-
-
-                // n 반환값 해석 및 처리하기
-                // 양수: 읽은 바이트 수 -> 아래에서 터미널 출력
-                // 0: 클라이언트가 연결 정상 종료함 (EOF)
-                // -1: 오류
-                if (n <= 0) break;
-
-                // 로그가 깔끔하도록 \r, \n 같은 문자들을 지운다
-                while (n > 0 && (buffer[n - 1] == '\n' || buffer[n - 1] == '\r')) n--;
-
-                buffer[n] = '\0';
-
-                printf("[MOTOR] (fd=%d) 회신: %s\n", fd, buffer);
-            }
+            
         }
+        if (fds[0].revents & (POLLIN | POLLHUP | POLLERR))
+        {
+            // buffer 최대크기 - 1 만큼 읽는다
+            ssize_t n = read(fd, buffer, sizeof(buffer) - 1);
 
+
+            // n 반환값 해석 및 처리하기
+            // 양수: 읽은 바이트 수 -> 아래에서 터미널 출력
+            // 0: 클라이언트가 연결 정상 종료함 (EOF)
+            // -1: 오류
+            if (n <= 0) break;
+
+            // 로그가 깔끔하도록 \r, \n 같은 문자들을 지운다
+            while (n > 0 && (buffer[n - 1] == '\n' || buffer[n - 1] == '\r')) n--;
+
+            buffer[n] = '\0';
+
+            printf("[MOTOR] (fd=%d) 회신: %s\n", fd, buffer);
+        }
     }
+
+    // 5. 등록 해제 -> eventfd 닫기 (순서가 중요: 먼저 -1로 돌려놓고, 그 다음에 닫는다)
+    //    락을 잡고 해제하므로, 요청 중인 request_motor_command가 끝날 때까지 여기서 기다린다.
+    //    (== efd 검사: 이 연결이 끊기는 사이 ESP가 재접속해 새 연결이 이미 등록됐다면,
+    //     그 등록과 큐까지 지워 버리지 않기 위해서다)
+    pthread_mutex_lock(&g_motor_lock);
+    if (g_motor_efd == efd)
+    {
+        g_motor_efd = -1;
+        motor_cmd_q_front = motor_cmd_q_rear = motor_cmd_q_count = 0;      // 보내지 못한 명령은 버린다
+    }
+    pthread_mutex_unlock(&g_motor_lock);
+ 
+    close(efd);
+    printf("[MOTOR] (fd=%d) 모터 클라이언트 종료\n", fd);
 
 }
 
@@ -559,7 +574,6 @@ int send_motor_control(motor_cmd_t* cmd_q, int size, int fd)
     for (int i = 0; i < size; i++)
     {
         // 명령어 구조체에 저장된 gate, action을 :과 다시 조합
-        memset(packet, 0, size);
 
         // len == 버퍼에 쓴 글자 수(== 4, {gate, :, action, \n})
         int len = snprintf(packet, sizeof(packet), "%c:%c\n", cmd_q[i].gate, cmd_q[i].action);
@@ -573,6 +587,7 @@ int send_motor_control(motor_cmd_t* cmd_q, int size, int fd)
 
         printf("[MOTOR] (fd=%d) 전송: %c:%c\n", fd, cmd_q[i].gate, cmd_q[i].action);
     }
+    return 1;
 }
 
 
