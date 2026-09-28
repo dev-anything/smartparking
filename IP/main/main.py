@@ -185,7 +185,8 @@ def main():
 
                 # 4-2. 캡쳐 저장 -> 4-3. 불러오기
                 #   path : str 또는 None,  img : np.ndarray 또는 None
-                path = camera.save_capture(plate_img, config.SAVE_DIR, now)
+                path = camera.save_capture([frame, plate_img], config.SAVE_DIR, now)
+                #original = camera.save_capture(frame, config.SAVE_DIR, now)
                 img = camera.load_capture(path)
                 if img is None:
                     print("[캡쳐] 저장 또는 불러오기 실패 -> 메모리의 이미지로 인식")

@@ -129,7 +129,7 @@ def capture_name(now):
     return "{}_{:03d}.png".format(time.strftime("%Y%m%d_%H%M%S", time.localtime(now)), ms)
 
 
-def save_capture(img, save_dir, now):
+def save_capture(img_list, save_dir, now):
     """
     번호판 이미지를 캡쳐 시각 이름으로 저장.
 
@@ -145,9 +145,16 @@ def save_capture(img, save_dir, now):
         JPG는 압축하면서 글자 경계가 뭉개지는데, 이 파일을 다시 불러와 인식하므로
         원본 화질 그대로 저장해야 인식 정확도가 떨어지지 않음
     """
-    os.makedirs(save_dir, exist_ok=True)                            # 폴더가 이미 있으면 그대로
-    path = os.path.join(save_dir, capture_name(now))                # str: 저장 경로
-    ok = cv2.imwrite(path, img)                                     # bool: 저장 성공 여부
+    new_save_dir = f"{save_dir}/folder_{now}"
+    os.makedirs(new_save_dir, exist_ok=True)          # 폴더가 이미 있으면 그대로
+    
+    
+    path = os.path.join(new_save_dir, f"original_{capture_name(now)}")      # str: 저장 경로
+    ok = cv2.imwrite(path, img_list[0])                                     # bool: 저장 성공 여부
+    
+    path = os.path.join(new_save_dir, f"crop_{capture_name(now)}")      # str: 저장 경로
+    ok = cv2.imwrite(path, img_list[1])                                     # bool: 저장 성공 여부
+    
     return path if ok else None
 
 

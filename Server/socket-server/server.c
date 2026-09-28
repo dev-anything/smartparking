@@ -40,6 +40,7 @@ void send_ok(int fd);
 void *handle_client(void *arg);
 void receive_sensor_data(client_info *arg);
 void receive_plate_number(client_info *arg);
+void send_motor_control(client_info *arg);
 
 int main()
 {
@@ -212,6 +213,11 @@ void *handle_client(void *arg)
                 printf("[CONFIRMED] Sensor client confirmed.\n");
                 receive_sensor_data(info);
             }
+            else if (strcmp(token, "M") == 0)
+            {
+                printf("[CONFIRMED] Motor client confirmed.\n");
+                send_motor_control(info);
+            }
             else
             {
                 printf("[REFUSED] Unexpected client.\n");
@@ -232,12 +238,11 @@ void *handle_client(void *arg)
     return NULL;
 }
 
-void receive_sensor_data(client_info *arg)
+void receive_sensor_data(client_info *info)
 {
     MYSQL *conn;
     // MYSQL_RES *res;
     // MYSQL_ROW rows;
-    client_info *info = arg;
     char *token = NULL;
     char *next_token = NULL;
     char buffer[BUFFER_SIZE];
@@ -305,12 +310,11 @@ void receive_sensor_data(client_info *arg)
     mysql_close(conn);
 }
 
-void receive_plate_number(client_info *arg)
+void receive_plate_number(client_info *info)
 {
     MYSQL *conn;
     // MYSQL_RES *res;
     // MYSQL_ROW rows;
-    client_info *info = arg;
     char *token = NULL;
     char *next_token = NULL;
     char buffer[BUFFER_SIZE];
@@ -340,27 +344,18 @@ void receive_plate_number(client_info *arg)
         {
             printf("수신: %s\n", buffer);
 
-            // token = strtok_r(buffer, DELIM, &next_token);
+            sprintf(
+                query_buffer,
+                "INSERT INTO %s (id, car_number, entry_time, exit_time, updated_at)"
+                "VALUES (null, '%s', curtime(), null, curtime());",
+                MYSQL_TABLE_records,
+                buffer
+            );
 
-            // while (token != NULL && idx < 6)
-            //{
-            //     // printf("Count: %d", idx + 1);
-            //     status[idx] = atoi(token);
-            //     token = strtok_r(NULL, DELIM, &next_token);
-            //     idx++;
-            // }
+            response = mysql_query(conn, query_buffer);
 
-            // sprintf(
-            //     query_buffer,
-            //     "INSERT INTO %s "
-            //     "VALUES (null, curtime(), %d, %d, %d, %d, %d, %d);",
-            //     MYSQL_TABLE_parked_status,
-            //     status[0], status[1], status[2], status[3], status[4], status[5]);
-
-            // response = mysql_query(conn, query_buffer);
-
-            // if (!response) printf("INSERTED %lu ROWS\n", (unsigned long)mysql_affected_rows(conn));
-            // else fprintf(stderr, "insert error %s[%d]\n", mysql_error(conn), mysql_errno(conn));
+            if (!response) printf("INSERTED %lu ROWS\n", (unsigned long)mysql_affected_rows(conn));
+            else fprintf(stderr, "insert error %s[%d]\n", mysql_error(conn), mysql_errno(conn));
         }
         else if (read_status == 0)
         {
@@ -374,4 +369,13 @@ void receive_plate_number(client_info *arg)
         }
     }
     mysql_close(conn);
+}
+
+void send_motor_control(client_info *info)
+{
+    send_ok(info->client_fd);
+    while (1)
+    {
+        sleep(1);
+    }
 }
