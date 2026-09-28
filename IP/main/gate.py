@@ -17,8 +17,12 @@ gate.py : 진입 판정 / 재인식 방지
 
     IDLE     : 번호판 등장 대기                           (인식 안 함)
     TRACKING : 번호판 위치를 따라가며 멈추는지 확인        (인식 안 함)
-    READING  : 매 프레임 인식해서 결과를 모음              (인식 함)
+    READING  : 인식해서 결과를 모음                        (번호판이 읽을 수 있는 상태인 프레임에만 인식)
     DONE     : 결과 확정. 같은 차가 서 있는 동안 대기      (인식 안 함)
+
+    ※ 검출이 프레임 사이에 잠깐 끊겨도(LOST_FRAMES 미만) 단계는 유지됨 (차가 그대로 서 있으므로)
+       -> 그래서 "단계가 READING이다"와 "이번 프레임에 번호판이 있다"는 서로 다른 조건.
+          인식은 should_read()로 두 조건을 모두 확인한 뒤에만 할 것
 
 [진입 판정 조건] 모두 만족해야 "들어왔다"
     1. 번호판(글자 줄)이 검출됨
@@ -155,7 +159,8 @@ def track(state, corners, roi_shape):
         roi_shape - tuple, ROI 프레임의 shape
     반환:
         GateState, 새 상태
-        반환된 상태의 phase가 "READING"이면 이번 프레임에서 인식을 해야 함
+        인식 여부는 반환된 phase만으로 판단하지 말고 should_read()로 확인할 것
+        (READING 단계는 검출이 잠깐 끊겨도 유지되어, 이번 프레임에 번호판이 없을 수 있음)
     """
     ready = is_ready(corners, roi_shape)            # bool: 진입 조건 1~3
     center = plate_center(corners) if ready else None
@@ -192,6 +197,24 @@ def track(state, corners, roi_shape):
     if moved > config.MOVE_TOL * 3:
         return state._replace(phase="TRACKING", center=center, stable=1, absent=0, votes=())
     return state._replace(center=center, absent=0)
+
+
+def should_read(state, corners, roi_shape):
+    """
+    이번 프레임에서 인식을 해야 하는지.
+
+    READING 단계는 검출이 잠깐(LOST_FRAMES 미만) 끊겨도 유지되므로,
+    단계만 보고 인식하면 이번 프레임에 번호판이 없는데(corners가 None) 인식을 시도하게 됨.
+    그래서 "READING 단계이고, 이번 프레임의 번호판이 읽을 수 있는 상태"일 때만 True
+
+    인자:
+        state     - GateState, track()이 반환한 이번 프레임의 상태
+        corners   - np.ndarray (4, 2) 또는 None, 이번 프레임의 번호판 꼭짓점 (ROI 기준)
+        roi_shape - tuple, ROI 프레임의 shape
+    반환:
+        bool. True면 corners로 번호판을 잘라내 인식해도 됨 (corners는 None이 아님이 보장됨)
+    """
+    return state.phase == "READING" and is_ready(corners, roi_shape)
 
 
 # =========================================================

@@ -23,6 +23,8 @@
 #define MYSQL_TABLE_records "records"
 #define MYSQL_TABLE_parked_status "parked_status"
 
+#define DELIM ":"
+
 #define MOTOR_ESP_IP "192.168.0.100"
 
 // 클라이언트 정보 구조체
@@ -32,28 +34,15 @@ typedef struct
     struct sockaddr_in client_addr;
 } client_info;
 
-
-void* print_client_info(void* arg);
-void* receive_data(void* arg);
+void *handle_client(void *arg);
+void *receive_data(void *arg);
 
 int main()
 {
-    // MySQL 관련 변수
-    
-
     // 소켓 통신 관련 변수
     int server_fd;
     int opt;
     struct sockaddr_in server_addr;
-
-    // MySQL 초기화 및 연결 확인
-    //conn = mysql_init(NULL);
-    //if (!(mysql_real_connect(conn, MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DB, 3306, NULL, 0)))
-    //{
-    //    fprintf(stderr, "err: %s[%d]\n", mysql_error(conn), mysql_errno(conn));
-    //    exit(1);
-    //}
-    //printf("MySQL Connected!\n\n");
 
     // Listening 전용 소켓 생성
     server_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -74,7 +63,7 @@ int main()
     server_addr.sin_port = htons(SERVER_PORT); // 포트 번호를 빅엔디언 바이트 순서로 변환해서 저장
 
     // 소켓에 정보를 실제 등록(bind)
-    if (bind(server_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0)
+    if (bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
     {
         perror("bind 실패");
         close(server_fd);
@@ -95,7 +84,7 @@ int main()
     while (1)
     {
         // 클라이언트 정보를 힙 영역에 할당
-        client_info* info = (client_info*)malloc(sizeof(client_info));
+        client_info *info = (client_info *)malloc(sizeof(client_info));
 
         // malloc이 실패할 경우 예외처리
         if (info == NULL)
@@ -104,12 +93,11 @@ int main()
             continue;
         }
 
-
         // accept()가 클라이언트 정보를 채워 넣을 구조체 크기를 미리 알려줘야 함
         socklen_t client_len = sizeof(info->client_addr);
 
         // 대기 큐에서 연결 요청 꺼내기
-        info->client_fd = accept(server_fd, (struct sockaddr*)&info->client_addr, &client_len);
+        info->client_fd = accept(server_fd, (struct sockaddr *)&info->client_addr, &client_len);
 
         // accept 실패 시 메모리 반환
         if (info->client_fd < 0)
@@ -118,12 +106,12 @@ int main()
             free(info);
             continue;
         }
-        
+
         // accept 성공 시 진행
         pthread_t tid;
 
         // 스레드 생성 실패 시
-        if (pthread_create(&tid, NULL, receive_data, info) != 0)
+        if (pthread_create(&tid, NULL, handle_client, info) != 0)
         {
             perror("스레드 생성 실패");
             close(info->client_fd);
@@ -140,21 +128,18 @@ int main()
     return 0;
 }
 
-
-
-void* receive_data(void* arg)
+void *receive_data(void *arg)
 {
     MYSQL *conn;
-    MYSQL_RES *res;
-    MYSQL_ROW rows;
-    client_info* info = (client_info*)arg;
+    //MYSQL_RES *res;
+    //MYSQL_ROW rows;
+    client_info *info = (client_info *)arg;
     char buffer[BUFFER_SIZE];
     char query_buffer[BUFFER_SIZE];
-    char* delim = ":";
+    char *delim = ":";
     int status[4] = {0};
     int idx = 0;
     int response;
-    //char* delim = ':';
 
     conn = mysql_init(NULL);
     if (!(mysql_real_connect(conn, MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DB, 3306, NULL, 0)))
@@ -163,10 +148,10 @@ void* receive_data(void* arg)
         exit(1);
     }
     printf("MySQL Connected!\n\n");
-    
+
     while (1)
     {
-        //printf("While...");
+        // printf("While...");
         idx = 0;
         memset(buffer, 0, BUFFER_SIZE);
         memset(status, 0, sizeof(status));
@@ -174,12 +159,12 @@ void* receive_data(void* arg)
         if (n > 0)
         {
             printf("수신: %s\n", buffer);
-            
-            char* token = strtok(buffer, delim);
-            
+
+            char *token = strtok(buffer, delim);
+
             while (token != NULL)
             {
-                //printf("Count: %d", idx + 1);
+                // printf("Count: %d", idx + 1);
                 status[idx] = atoi(token);
 
                 token = strtok(NULL, delim);
@@ -191,14 +176,12 @@ void* receive_data(void* arg)
                 "INSERT INTO %s "
                 "VALUES (null, curtime(), %d, %d, %d, %d, %d, %d);",
                 MYSQL_TABLE_parked_status,
-                status[0], status[1], status[2], status[3], status[4], status[5]
-            );
+                status[0], status[1], status[2], status[3], status[4], status[5]);
 
             response = mysql_query(
                 conn,
-                query_buffer
-            );
-            
+                query_buffer);
+
             if (!response)
             {
                 printf("INSERTED %lu ROWS\n", (unsigned long)mysql_affected_rows(conn));
@@ -208,35 +191,57 @@ void* receive_data(void* arg)
                 fprintf(stderr, "insert error %s[%d]\n", mysql_error(conn), mysql_errno(conn));
             }
 
-
-            //printf("저장: %d %d %d %d\n", status[0], status[1], status[2], status[3]);
-
+            // printf("저장: %d %d %d %d\n", status[0], status[1], status[2], status[3]);
         }
-
-        
     }
 
     close(info->client_fd);
 }
 
-void* print_client_info(void* arg)
+void *handle_client(void *arg)
 {
-    client_info* info = (client_info*)arg;
+    client_info *info = (client_info *)arg;
+    char buffer[BUFFER_SIZE];
+    char* token = NULL;
+    
 
     // 클라이언트 IP를 문자열로 변환
     char client_ip[INET_ADDRSTRLEN];
-    inet_ntop(AF_INET, &info->client_addr.sin_addr, client_ip, sizeof(client_ip));
     int client_port = ntohs(info->client_addr.sin_port);
 
+    inet_ntop(AF_INET, &info->client_addr.sin_addr, client_ip, sizeof(client_ip));
+
     // 연결된 클라이언트 정보 출력 (스레드 시작 시 한 번만)
-    printf("[+] 연결된 클라이언트: %s:%d (fd=%d)\n",
-           client_ip, client_port, info->client_fd);
+    printf("[+] 연결된 클라이언트: %s:%d (fd=%d)\n", client_ip, client_port, info->client_fd);
 
-    // 이 스레드가 종료되지 않도록 무한 대기
-    // sleep(1): 1초씩 쉬었다가 다시 반복 -> CPU를 거의 쓰지 않고 계속 살아있음
-    while (1) {
-        sleep(1);
+    // 최초 수신 값으로 클라이언트 판정
+    memset(buffer, 0, BUFFER_SIZE);
+    ssize_t n = read(info->client_fd, buffer, BUFFER_SIZE - 1);
+
+    if (n > 0)
+    {
+        printf("[RECEIVED] (fd=%d) %s\n", info->client_fd, buffer);
+        token = strtok(buffer, DELIM);
+
+        if (strcmp(token, "ID") == 0)
+        {
+            
+            token = strtok(NULL, DELIM);
+            printf("STRTOK start. %s\n\n", token);
+            if (strcmp(token, "P") == 0)
+            {
+                printf("[CONFIRMED] IP client confirmed.\n");
+            }
+
+        }
+        else
+        {
+            printf("[ERROR] (fd=%d) Unexpected init ID.\n", info->client_fd);
+            return NULL;
+        }
+
     }
-
-    return NULL;   // while(1)이 무한 루프라 사실상 도달하지 않음
+    printf("[ERROR] Initializing needed.\n");
+    return NULL;
+    
 }

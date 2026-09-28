@@ -13,7 +13,7 @@ main.py : 스마트 주차 번호판 인식 메인 루프
     1. 프레임 읽기 -> ROI로 자르기                       camera
     2. 번호판 글자 줄 검출 -> 꼭짓점 또는 None           detector      (가벼움, 매 프레임)
     3. 진입 판정: 들어와서 멈췄는가?                      gate.track    (가벼움, 매 프레임)
-    4. READING 단계일 때만:                                              (무거움, 조건 충족 시에만)
+    4. READING 단계이고 이번 프레임에 읽을 수 있는 번호판이 있을 때만:  (무거움, 조건 충족 시에만)
          4-1. 글자 줄을 정면으로 펴서 잘라내기            detector
          4-2. 캡쳐 저장 (파일명: 캡쳐 시각)                camera
          4-3. 저장한 캡쳐 불러오기                         camera
@@ -41,6 +41,7 @@ import config
 import detector
 import gate
 import recognizer
+import client
 
 
 # =========================================================
@@ -129,6 +130,14 @@ def main():
     # 인식 모델은 무겁기 때문에 루프 밖에서 한 번만 불러옴 (첫 GPU 준비에 수십 초 걸릴 수 있음)
     print("인식 모델 불러오는 중...")
     model = recognizer.load_model()                 # recognizer.RecModel
+    
+    # 소켓 서버 연결 및 최초 ID 송신
+    client_socket = client.create_socket()
+    is_connected = client.server_connect(client_socket, config.SERVER_IP, config.SERVER_PORT, config.INIT_ID)
+    if not is_connected:
+        print("[ERROR] Cannot connect to server.")
+        return 1
+    
 
     # cap : cv2.VideoCapture 또는 None
     cap = camera.open_camera(config.CAM_INDEX, config.FRAME_WIDTH, config.FRAME_HEIGHT,
@@ -165,8 +174,10 @@ def main():
             if state.phase != prev_phase:
                 print("[게이트] {} -> {}".format(prev_phase, state.phase))
 
-            # ----- 4. READING 단계일 때만 인식 -----
-            if state.phase == "READING":
+            # ----- 4. READING 단계이고, 이번 프레임에 읽을 수 있는 번호판이 있을 때만 인식 -----
+            # 단계만 확인하면 안 됨: READING은 검출이 잠깐 끊겨도 유지되므로
+            # 이번 프레임의 corners가 None일 수 있음 (그 프레임은 건너뛰고 다음 프레임에 이어서 읽음)
+            if gate.should_read(state, corners, frame.shape):
                 now = time.time()                   # float: 캡쳐 시각 (파일 이름, 재인식 방지에 사용)
 
                 # 4-1. 글자 줄을 정면으로 펴서 잘라내기 (np.ndarray (높이, 폭, 3))
