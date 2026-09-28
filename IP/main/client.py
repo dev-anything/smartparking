@@ -38,5 +38,5 @@ def server_connect(client_socket, server_ip, server_port, init_id):
     
     return True
 
-def send_packet(client_socket, plate_number):
-    client_socket.sendall(f"{plate_number}\n".encode("utf-8"))
+def send_plate_text(client_socket, gate, action, plate_number):
+    client_socket.sendall(f"{gate}:{action}:{plate_number}\n".encode("utf-8"))

@@ -205,7 +205,7 @@ def main():
                         print("[확정] {}  (투표 {})".format(value, list(state.votes)))
                         
                         
-                        client.send_packet(client_socket, value)
+                        client.send_plate_text(client_socket, 'E', 'O', value)
                         
                         
                         
