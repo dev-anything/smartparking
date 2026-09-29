@@ -141,12 +141,12 @@ def main():
     # 스레드 설정 -----------
     stop_event = threading.Event()
     
-    entry_framebox = FrameBox("entry", config.GATE_ENTRY)
-    exit_framebox = FrameBox("exit", config.GATE_EXIT)
+    entry_framebox = camera.FrameBox("entry", config.GATE_ENTRY)
+    exit_framebox = camera.FrameBox("exit", config.GATE_EXIT)
     
     
     entry_cam_thread = threading.Thread(
-        target=run_camera,
+        target=camera.run_camera,
         args=(
             config.ENTRY_CAM_INDEX,
             config.FRAME_WIDTH,
@@ -160,7 +160,7 @@ def main():
     )
     
     exit_cam_thread = threading.Thread(
-        target=run_camera,
+        target=camera.run_camera,
         args=(
             config.EXIT_CAM_INDEX,
             config.FRAME_WIDTH,
@@ -228,10 +228,10 @@ def main():
                 if not snap.connected:      # 연결 안 되어 있다면
                     continue                # 다음으로
                 
-                if not framebox.is_new(last_seen_id[name]):     # 마지막 처리 프레임과 같은 프레임이라면
+                if not framebox.is_new(last_seen_ids[name]):     # 마지막 처리 프레임과 같은 프레임이라면
                     continue                                    # 다음으로
                 
-                
+                current_plate = current_plates[name]    # 현재 framebox의 마지막 번호판 텍스트 저장(끝에서 업데이트)
                 
                 
                 # ----- 1. 프레임을 roi로 자르기 -----
@@ -272,11 +272,11 @@ def main():
                     print_result(path, result)
 
                     # 4-5. 투표 (event : None 또는 tuple(str, ...))                  
-                    current_plate = current_plates[name]    # 현재 framebox의 마지막 번호판 텍스트 저장(끝에서 업데이트)
+                    
                     state, event = gate.vote(state, result.plate, now)
                     if event is not None:
                         kind, value = event
-                        current_plates = value
+                        current_plate = value
                         if kind == "confirmed":
                             # ★ 새 차량 번호 확정: 여기에서 DB 저장, 차단기 제어 등을 연결
                             print("[확정] {}  (투표 {})".format(value, list(state.votes)))
@@ -300,7 +300,7 @@ def main():
                     cv2.imshow(config.WINDOW_NAME, draw(frame, corners, state))
                     # waitKey(1) : 1ms 키 입력 대기 + 화면 갱신. & 0xFF : 하위 8비트만 사용
                     if cv2.waitKey(1) & 0xFF == ord('q'):
-                        break
+                        return
                 
                 
                 # 차단기 닫기 명령 전송 로직 - 번호판 이탈 감지 후 3초 유지
@@ -319,19 +319,18 @@ def main():
                     else:
                         if (absent_since is not None) and (time.time() - absent_since >= config.CLOSE_DELAY):
                             print(f"[PLATE] CURRENT PLATE: {current_plate}")
-                            client.send_plate_text(client_socket, config.GATE_ENTRY, config.GATE_CLOSE, current_plate)
+                            client.send_plate_text(client_socket, framebox.gate, config.GATE_CLOSE, current_plate)
                             current_plate = None
                             absent_since = None
                     
                 
-                # 상태값 대입
-                last_corners = corners
+                
                 
                 # 마지막에 딕셔너리 일괄 업데이트
                 gate_states[name] = state
                 last_seen_ids[name] = snap.frame_id
                 current_plates[name] = current_plate
-                last_corners[name] = last_corner
+                last_corners[name] = corners
                 absent_sinces[name] = absent_since
                 
 
@@ -345,7 +344,7 @@ def main():
         print("\n종료합니다.")
     finally:
         # 정상 종료, 오류, Ctrl+C 어떤 경우든 카메라와 창을 정리
-        camera.close_camera(cap)
+        stop_event.set()
         cv2.destroyAllWindows()
 
     return exit_code
