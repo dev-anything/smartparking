@@ -136,7 +136,7 @@ def main():
     is_connected = client.server_connect(client_socket, config.SERVER_IP, config.SERVER_PORT, config.INIT_ID)
     if not is_connected:
         print("[ERROR] Cannot connect to server.")
-        return 1
+        #return 1
 
     # 스레드 설정 -----------
     stop_event = threading.Event()
@@ -297,7 +297,7 @@ def main():
 
                 # ----- 5. 화면 표시 -----
                 if config.SHOW_WINDOW:
-                    cv2.imshow(config.WINDOW_NAME, draw(frame, corners, state))
+                    cv2.imshow(config.WINDOW_NAME + "_" + name, draw(frame, corners, state))
                     # waitKey(1) : 1ms 키 입력 대기 + 화면 갱신. & 0xFF : 하위 8비트만 사용
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         return
@@ -345,6 +345,8 @@ def main():
     finally:
         # 정상 종료, 오류, Ctrl+C 어떤 경우든 카메라와 창을 정리
         stop_event.set()
+        entry_cam_thread.join(timeout=2.0)
+        exit_cam_thread.join(timeout=2.0)
         cv2.destroyAllWindows()
 
     return exit_code
