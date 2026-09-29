@@ -17,8 +17,11 @@ camera.py : 카메라 입출력
 
 import os
 import time
+import threading
+from typing import NamedTuple, Optional
 
 import cv2
+import numpy as np
 
 # snapshot() 반환값 묶음
 class FrameBoxSnapshot(NamedTuple):
@@ -52,7 +55,7 @@ class FrameBox:
     
     def snapshot(self):     # 메인 스레드가 사용 - 4개 값 한 번에 꺼내기
         with self._lock:
-            return CameraSnapshot(self._frame, self._frame_id, self._timestamp, self._connected)
+            return FrameBoxSnapshot(self._frame, self._frame_id, self._timestamp, self._connected)
 
     def is_new(self, last_seen_id):     # 메인 스레드가 사용 - 최신 값인지 점검
         with self._lock:
