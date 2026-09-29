@@ -29,5 +29,5 @@ wheels/
 mysql8/
 
 # Server
-Server/socket-server/build
+build/
 node_modules/

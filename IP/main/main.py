@@ -140,8 +140,13 @@ def main():
     
 
     # cap : cv2.VideoCapture 또는 None
-    cap = camera.open_camera(config.CAM_INDEX, config.FRAME_WIDTH, config.FRAME_HEIGHT,
-                             config.TARGET_FPS)
+    cap = camera.open_camera(
+        config.CAM_INDEX,
+        config.FRAME_WIDTH,
+        config.FRAME_HEIGHT,
+        config.TARGET_FPS
+    )
+    
     if cap is None:
         return 1
     print("ROI: {} -> 처리 프레임 {}x{}".format(config.ROI, config.ROI[2], config.ROI[3]))
@@ -149,6 +154,8 @@ def main():
     state = gate.initial_state()                    # gate.GateState
     period = 1.0 / config.TARGET_FPS                # float: 프레임 1장에 쓸 시간 (초)   예) 0.1
     exit_code = 0
+    
+    open_time = 0   # 차단기 열린 시각
 
     try:
         while True:
@@ -205,7 +212,9 @@ def main():
                         print("[확정] {}  (투표 {})".format(value, list(state.votes)))
                         
                         
-                        client.send_plate_text(client_socket, 'E', 'O', value)
+                        #client.send_plate_text(client_socket, config.GATE_ENTRY, config.GATE_OPEN, value)
+                        
+                        client.send_plate_text(client_socket, config.GATE_EXIT, config.GATE_OPEN, value)
                         
                         
                         

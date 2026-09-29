@@ -135,3 +135,8 @@ COOLDOWN_SEC = 300      # int: 최근 이 시간(초) 안에 확정한 번호는
 SERVER_IP = "localhost"
 SERVER_PORT = 10000
 INIT_ID = "ID:P"
+
+GATE_ENTRY = 'E'
+GATE_EXIT = 'X'
+GATE_OPEN = 'O'
+GATE_CLOSE = 'C'

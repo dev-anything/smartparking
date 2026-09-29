@@ -25,8 +25,13 @@
 
 #define HANDSHAKE "OK\n"
 
-#define MOTOR_ESP_IP "192.168.0.100"
 #define MOTOR_COMMAND_QUEUE_SIZE 16
+
+// 모터 게이트와 열기/닫기 명령값
+#define GATE_ENTRY 'E'
+#define GATE_EXIT 'X'
+#define GATE_OPEN 'O'
+#define GATE_CLOSE 'C'
 
 
 // 클라이언트 정보 구조체
@@ -70,6 +75,9 @@ void motor_control_thread(client_info *arg);      // 스레드 실행 함수 3. 
 int push_motor_command(char gate, char action); // 모터 명령어 큐에 명령어 삽입 + 연결 관리
 
 
+int mysql_insert_parked_status(MYSQL* conn, int* status, const char* table);    // 주차 현황 insert 함수
+int mysql_insert_records(MYSQL* conn, char gate, char action, const char* plate_number, const char* table); // 차량 진출입 insert(update) 함수
+
 int main()
 {
     // 소켓 통신 관련 변수
@@ -77,7 +85,7 @@ int main()
     int opt;
     struct sockaddr_in server_addr;
 
-    // Listening 전용 소켓 생성
+    // 소켓 생성
     server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0)
     {
@@ -284,6 +292,21 @@ void *handle_client(void *arg)
     return NULL;
 }
 
+int mysql_insert_parked_status(MYSQL* conn, int* status, const char* table)
+{
+    char query_buffer[BUFFER_SIZE] = {0};
+
+    sprintf(
+        query_buffer,
+        "INSERT INTO %s (id, record_time, area_1, area_2, area_3, area_4, area_5, area_6) "
+        "VALUES (null, curtime(), %d, %d, %d, %d, %d, %d);",
+        MYSQL_TABLE_parked_status,
+        status[0], status[1], status[2], status[3], status[4], status[5]
+    );
+
+    return (mysql_query(conn, query_buffer));
+}
+
 void sensor_data_thread(client_info *info)
 {
     MYSQL *conn;
@@ -292,7 +315,6 @@ void sensor_data_thread(client_info *info)
     char *token = NULL;
     char *next_token = NULL;
     char buffer[BUFFER_SIZE];
-    char query_buffer[BUFFER_SIZE];
     int status[6] = {0};
     int idx = 0;
     int response;
@@ -304,6 +326,7 @@ void sensor_data_thread(client_info *info)
         fprintf(stderr, "err: %s[%d]\n", mysql_error(conn), mysql_errno(conn));
         return;
     }
+    mysql_set_character_set(conn, "utf8mb4");
     printf("MySQL Connected!\n\n");
 
     // 연결 확인 handshake 송신
@@ -329,19 +352,20 @@ void sensor_data_thread(client_info *info)
                 idx++;
             }
 
-            sprintf(
-                query_buffer,
-                "INSERT INTO %s "
-                "VALUES (null, curtime(), %d, %d, %d, %d, %d, %d);",
-                MYSQL_TABLE_parked_status,
-                status[0], status[1], status[2], status[3], status[4], status[5]);
+            //sprintf(
+            //    query_buffer,
+            //    "INSERT INTO %s "
+            //    "VALUES (null, curtime(), %d, %d, %d, %d, %d, %d);",
+            //    MYSQL_TABLE_parked_status,
+            //    status[0], status[1], status[2], status[3], status[4], status[5]);
 
-            response = mysql_query(conn, query_buffer);
 
-            if (!response)
-                printf("INSERTED %lu ROWS\n", (unsigned long)mysql_affected_rows(conn));
-            else
-                fprintf(stderr, "insert error %s[%d]\n", mysql_error(conn), mysql_errno(conn));
+            
+            response = mysql_insert_parked_status(conn, status, MYSQL_TABLE_parked_status);
+            //response = mysql_query(conn, query_buffer);
+
+            if (!response) printf("INSERTED %lu ROWS\n", (unsigned long)mysql_affected_rows(conn));
+            else fprintf(stderr, "insert error %s[%d]\n", mysql_error(conn), mysql_errno(conn));
         }
         else if (read_status == 0)
         {
@@ -357,12 +381,61 @@ void sensor_data_thread(client_info *info)
     mysql_close(conn);
 }
 
+int mysql_insert_records(MYSQL* conn, char gate, char action, const char* plate_number, const char* table)
+{
+    char query_buffer[BUFFER_SIZE] = {0};
+    printf("[TRY01] Insert plate number.\n");
+    // 입구
+    if (gate == 'E')
+    {
+        
+        // 차단기 열림
+        if (action == 'O')
+        {
+            
+            sprintf(
+                query_buffer,
+                "INSERT INTO %s (id, car_number, entry_time, exit_time, updated_at)"
+                "VALUES (null, '%s', curtime(), null, curtime());",
+                MYSQL_TABLE_records,
+                plate_number
+            );
+        }
+    }
+    // 출구
+    else if (gate == 'X')
+    {
+        printf("[TRY02] Update plate number.\n");
+        // 차단기 열림
+        if (action == 'O')
+        {
+            printf("[TRY03] Update plate number.\n");
+            sprintf(
+                query_buffer,
+                "UPDATE %s "
+                "SET exit_time = curtime(), updated_at = curtime() "
+                "WHERE car_number = '%s' AND exit_time IS NULL "
+                "ORDER BY updated_at DESC LIMIT 1;",
+                MYSQL_TABLE_records,
+                plate_number
+            );
+        }
+    }
+    // 잘못된 명령어 처리
+    else
+    {
+
+    }
+
+    return (mysql_query(conn, query_buffer));
+}
+
+
 void plate_number_thread(client_info *info)
 {
     MYSQL *conn;
     
     char buffer[BUFFER_SIZE];       // 수신 버퍼
-    char query_buffer[BUFFER_SIZE]; // DB 쿼리 버퍼
 
     char gate = '\0';               // 입구 / 출구 구분
     char action = '\0';             // 열기 / 닫기 구분
@@ -377,6 +450,9 @@ void plate_number_thread(client_info *info)
         fprintf(stderr, "err: %s[%d]\n", mysql_error(conn), mysql_errno(conn));
         return;
     }
+
+    mysql_set_character_set(conn, "utf8mb4");
+
     printf("MySQL Connected!\n\n");
 
     // 연결 확인 handshake 송신
@@ -397,16 +473,7 @@ void plate_number_thread(client_info *info)
                 mysql_close(conn);
                 return;
             }
-
-            sprintf(
-                query_buffer,
-                "INSERT INTO %s (id, car_number, entry_time, exit_time, updated_at)"
-                "VALUES (null, '%s', curtime(), null, curtime());",
-                MYSQL_TABLE_records,
-                plate
-            );
-
-            response = mysql_query(conn, query_buffer);
+            response = mysql_insert_records(conn, gate, action, plate, MYSQL_TABLE_records);
 
             if (!response)
             {
@@ -578,7 +645,7 @@ int send_motor_control(motor_cmd_t* cmd_q, int size, int fd)
         // 명령어 구조체에 저장된 gate, action을 :과 다시 조합
 
         // len == 버퍼에 쓴 글자 수(== 4, {gate, :, action, \n})
-        int len = snprintf(packet, sizeof(packet), "%c%c%c\n", cmd_q[i].gate, DELIM, cmd_q[i].action);
+        int len = snprintf(packet, sizeof(packet), "%c%s%c\n", cmd_q[i].gate, DELIM, cmd_q[i].action);
 
         // 패킷 전체를 한 번에 송신하고, 반환값과 len을 비교한다
         // MSG_NOSIGNAL: 이미 끊긴 소켓에 보내도 SIGPIPE로 프로세스가 죽지 않는다
@@ -587,7 +654,7 @@ int send_motor_control(motor_cmd_t* cmd_q, int size, int fd)
             return 0;   // 송신 실패
         }
 
-        printf("[MOTOR] (fd=%d) 전송: %c%c%c\n", fd, cmd_q[i].gate, DELIM, cmd_q[i].action);
+        printf("[MOTOR] (fd=%d) 전송: %c%s%c\n", fd, cmd_q[i].gate, DELIM, cmd_q[i].action);
     }
     return 1;
 }
