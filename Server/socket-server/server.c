@@ -48,9 +48,9 @@ static int g_motor_efd = -1;    // 접속 중인 모터 스레드의 eventfd 번
 
 
 static motor_cmd_t motor_cmd_q[MOTOR_COMMAND_QUEUE_SIZE]; // 모터 명령 저장 큐
-static int motor_cmd_q_front = 0;
-static int motor_cmd_q_rear = 0;
-static int motor_cmd_q_count = 0;
+static int motor_cmd_q_front = 0;                         // 큐 헤드
+static int motor_cmd_q_rear = 0;                          // 큐 꼬리
+static int motor_cmd_q_count = 0;                         // 큐 데이터 수
 
 
 // 뮤텍스 선언
@@ -202,7 +202,14 @@ void send_ok(int fd)
 
 static int parse_plate_data(const char* buf, char* gate, char* action, char** plate)
 {
-    if (buf[0] != 'E' || buf[0] != 'X' || buf[2] != 'O' || buf[2] != 'C' || buf[4] == '\0') return 0;
+    // 유효한 게이트인지 점검
+    if (buf[0] != 'E' && buf[0] != 'X') return 0;
+
+    // 유효한 명령인지 점검
+    if (buf[2] != 'O' && buf[2] != 'C') return 0;
+
+    // 번호판 텍스트가 최소 존재하는지 점검
+    if (buf[4] == '\0') return 0;
 
     *gate = buf[0];
     *action = buf[2];
