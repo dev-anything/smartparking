@@ -360,10 +360,6 @@ void sensor_data_thread(client_info *info)
 void plate_number_thread(client_info *info)
 {
     MYSQL *conn;
-    // MYSQL_RES *res;
-    // MYSQL_ROW rows;
-    //char *token = NULL;
-    //char *next_token = NULL;
     
     char buffer[BUFFER_SIZE];       // 수신 버퍼
     char query_buffer[BUFFER_SIZE]; // DB 쿼리 버퍼
@@ -454,7 +450,6 @@ void motor_control_thread(client_info *info)
     send_ok(fd);
 
     // 뮤텍스 독점 시작
-    // 등록
     pthread_mutex_lock(&g_motor_lock);
 
     g_motor_efd = efd;  // 현재 스레드의 fd 번호를 등록
@@ -583,7 +578,7 @@ int send_motor_control(motor_cmd_t* cmd_q, int size, int fd)
         // 명령어 구조체에 저장된 gate, action을 :과 다시 조합
 
         // len == 버퍼에 쓴 글자 수(== 4, {gate, :, action, \n})
-        int len = snprintf(packet, sizeof(packet), "%c:%c\n", cmd_q[i].gate, cmd_q[i].action);
+        int len = snprintf(packet, sizeof(packet), "%c%c%c\n", cmd_q[i].gate, DELIM, cmd_q[i].action);
 
         // 패킷 전체를 한 번에 송신하고, 반환값과 len을 비교한다
         // MSG_NOSIGNAL: 이미 끊긴 소켓에 보내도 SIGPIPE로 프로세스가 죽지 않는다
@@ -592,7 +587,7 @@ int send_motor_control(motor_cmd_t* cmd_q, int size, int fd)
             return 0;   // 송신 실패
         }
 
-        printf("[MOTOR] (fd=%d) 전송: %c:%c\n", fd, cmd_q[i].gate, cmd_q[i].action);
+        printf("[MOTOR] (fd=%d) 전송: %c%c%c\n", fd, cmd_q[i].gate, DELIM, cmd_q[i].action);
     }
     return 1;
 }
