@@ -29,8 +29,9 @@ class FrameBoxSnapshot(NamedTuple):
 
 # 카메라 <-> 메인 스레드 공유 인스턴스
 class FrameBox:
-    def __init__(self, name):
+    def __init__(self, name, gate):
         self.name = name              # 인스턴스 이름
+        self.gate = gate              # 카메라가 설치된 게이트 정보('E': 입구 / 'X': 출구)
         self._lock = threading.Lock() # 이하 4개 필드를 독점 보호
         self._frame = None            # 카메라 캡쳐 프레임
         self._frame_id = 0            # 프레임 ID
