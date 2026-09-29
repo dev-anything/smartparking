@@ -156,10 +156,14 @@ def main():
     exit_code = 0
     
     open_time = 0   # 차단기 열린 시각
+    last_corners = None    # 마지막 번호판 인식 여부 -> 현재 상태와 마지막 상태 비교해서 차단기 닫기
+    absent_since = None    # 번호판 이탈 시작 시각
+    current_plate = None   # 마지막 저장된 번호판 텍스트
 
     try:
         while True:
             start = time.time()                     # float: 이번 프레임 시작 시각
+            
 
             # ----- 1. 프레임 읽기 -> ROI로 자르기 -----
             # ok : bool,  frame : np.ndarray (720, 1280, 3) 또는 None
@@ -207,16 +211,13 @@ def main():
                 state, event = gate.vote(state, result.plate, now)
                 if event is not None:
                     kind, value = event
+                    current_plate = value
                     if kind == "confirmed":
                         # ★ 새 차량 번호 확정: 여기에서 DB 저장, 차단기 제어 등을 연결
                         print("[확정] {}  (투표 {})".format(value, list(state.votes)))
                         
                         
-                        #client.send_plate_text(client_socket, config.GATE_ENTRY, config.GATE_OPEN, value)
-                        
-                        client.send_plate_text(client_socket, config.GATE_EXIT, config.GATE_OPEN, value)
-                        
-                        
+                        client.send_plate_text(client_socket, config.GATE_ENTRY, config.GATE_OPEN, value)
                         
                     elif kind == "duplicate":
                         print("[중복] {}  최근 {}초 안에 이미 처리한 번호 -> 무시".format(
@@ -235,6 +236,29 @@ def main():
                 # waitKey(1) : 1ms 키 입력 대기 + 화면 갱신. & 0xFF : 하위 8비트만 사용
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
+            
+            
+            # 차단기 닫기 명령 전송 로직 - 번호판 이탈 감지 후 3초 유지
+            # 이번 프레임에 번호판이 감지되었다면
+            if corners is not None:
+                absent_since = None
+            # 이번 프레임에 번호판이 이탈했다면
+            else:
+                # 직전 프레임에 번호판이 감지되었다면
+                if last_corners is not None:
+                    if absent_since is None:
+                        absent_since = time.time()
+                    # 3초 이상 이탈이 유지된다면 명령 송신
+                else:
+                    if (absent_since is not None) and (time.time() - absent_since >= config.CLOSE_DELAY):
+                        print(f"[PLATE] CURRENT PLATE: {current_plate}")
+                        client.send_plate_text(client_socket, config.GATE_ENTRY, config.GATE_CLOSE, current_plate)
+                        current_plate = None
+                        absent_since = None
+                
+            
+            # 상태값 대입
+            last_corners = corners
 
             # 10FPS 맞추기: 처리가 0.1초보다 빨리 끝나면 남은 시간만큼 대기
             # (인식하는 프레임은 0.1초를 넘길 수 있음 -> 그 프레임만 느려지고 대기 없이 다음으로)

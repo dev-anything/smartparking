@@ -388,7 +388,6 @@ int mysql_insert_records(MYSQL* conn, char gate, char action, const char* plate_
     // 입구
     if (gate == 'E')
     {
-        
         // 차단기 열림
         if (action == 'O')
         {
@@ -400,6 +399,12 @@ int mysql_insert_records(MYSQL* conn, char gate, char action, const char* plate_
                 MYSQL_TABLE_records,
                 plate_number
             );
+        }
+        // 차단기 닫힘
+        else if (action == 'C')
+        {
+            // MySQL 쿼리 실행 필요 없음
+            return 0;
         }
     }
     // 출구
