@@ -28,45 +28,12 @@ EXIT_CAM_INDEX = 1
 FRAME_WIDTH = 1280
 FRAME_HEIGHT = 720
 
-# snapshot() 반환값 묶음
-class CameraSnapshot(NamedTuple):
-    frame: Optional[np.ndarray]     # 프레임 정보
-    frame_id: int                   # 프레임 ID
-    timestamp: float                # 프레임 기록 시각
-    connected: bool                 # 연결 상태
 
 
-# 카메라 <-> 메인 스레드 공유 인스턴스
-class SharedCamera:
-    def __init__(self, name):
-        self.name = name              # 인스턴스 이름
-        self._lock = threading.Lock() # 이하 4개 필드를 독점 보호
-        self._frame = None            # 카메라 캡쳐 프레임
-        self._frame_id = 0            # 프레임 ID
-        self._timestamp = 0.0         # 프레임 기록 시간
-        self._connected = False       # 스레드 연결 상태
-        
-    def update(self, frame):                # 캡쳐 스레드가 사용 - 인스턴스 변수 업데이트
-        with self._lock:                    # 독점 상태로 실행
-            self._frame = frame             # 새 프레임 캡쳐
-            self._frame_id += 1             # 프레임 ID 1 증가
-            self._timestamp = time.time()   # 프레임 기록 시간
-            self._connected = True          # 연결 상태
-    
-    def mark_disconnected(self):      # 캡쳐 스레드가 사용
-        with self._lock:              # 독점 상태로 실행
-            self._connected = False   # 연결 초기화 - 메소드 호출 후 재연결 로직 필요
-    
-    
-    def snapshot(self):     # 메인 스레드가 사용 - 4개 값 한 번에 꺼내기
-        with self._lock:
-            return CameraSnapshot(self._frame, self._frame_id, self._timestamp, self._connected)
 
-    def is_new(self, last_seen_id):     # 메인 스레드가 사용 - 최신 값인지 점검
-        with self._lock:
-            return (self._frame is not None) and (self._frame_id != last_seen_id)
+
     
-stop_event = threading.Event()
+
 
 
 def run_camera(index, width, height, fps):

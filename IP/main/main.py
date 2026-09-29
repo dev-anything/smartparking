@@ -33,8 +33,8 @@ main.py : 스마트 주차 번호판 인식 메인 루프
 
 import sys
 import time
-
 import cv2
+import threading
 
 import camera
 import config
@@ -137,6 +137,44 @@ def main():
     if not is_connected:
         print("[ERROR] Cannot connect to server.")
         return 1
+
+    # 스레드 설정 -----------
+    stop_event = threading.Event()
+    
+    entry_framebox = FrameBox("ENTRY")
+    exit_framebox = FrameBox("EXIT")
+    
+    
+    entry_cam_thread = threading.Thread(
+        target=run_camera,
+        args=(
+            config.ENTRY_CAM_INDEX,
+            config.FRAME_WIDTH,
+            config.FRAME_HEIGHT,
+            config.TARGET_FPS,
+            entry_framebox,
+            stop_event
+        ),
+        name="Entry Camera Thread",
+        daemon=True
+    )
+    
+    exit_cam_thread = threading.Thread(
+        target=run_camera,
+        args=(
+            config.EXIT_CAM_INDEX,
+            config.FRAME_WIDTH,
+            config.FRAME_HEIGHT,
+            config.TARGET_FPS,
+            exit_framebox,
+            stop_event
+        ),
+        name="Exit Camera Thread",
+        daemon=True
+    )
+    
+    entry_cam_thread.start()
+    exit_cam_thread.start()
     
 
     # cap : cv2.VideoCapture 또는 None

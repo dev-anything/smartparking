@@ -24,6 +24,8 @@ import re
 # =========================================================
 
 CAM_INDEX = 0                   # int: 카메라 장치 번호 (/dev/video0). ls /dev/video* 로 확인
+ENTRY_CAM_INDEX = 0             # 입구 카메라 장치 번호
+EXIT_CAM_INDEX = 1              # 출구 카메라 장치 번호
 FRAME_WIDTH = 1280              # int: 요청 해상도 가로 (카메라가 지원하지 않으면 다른 값으로 열릴 수 있음)
 FRAME_HEIGHT = 720              # int: 요청 해상도 세로
 TARGET_FPS = 10                 # int: 초당 처리할 프레임 수
