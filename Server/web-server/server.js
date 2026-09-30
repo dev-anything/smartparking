@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const mysql = require('mysql2/promise');
 const fetch = require('node-fetch');
+const axios = require('axios');
 const http = require('http');
 const { WebSocketServer, WebSocket } = require('ws');
 require('dotenv').config();
@@ -335,9 +336,69 @@ app.post("/api/login", async (req, res) => {
 
 // process.env.TOSS_SECRET_KEY
 // 토스페이먼츠 authKey, customerKey 저장 요청 API
-app.post("/api/billing/issue", (req, res) => {
-  res.send("Confirmed!");
+app.post("/api/billing/issue", async (req, res) => {
+  //res.send("Confirmed!");
+
+  // 프론트엔드에서 받은 값 저장(authKey, customerKey, 차량번호)
   const { tossAuthKey, tossCustomerKey, carNumber } = req.body;
+  // 시크릿 키 인코딩
+  const encodedKey = Buffer.from(process.env.TOSS_SECRET_KEY + ':').toString("base64");
+
+  // 빌링키 발급 시도 및 처리
+  try {
+    const tossRes = await axios.post(
+      process.env.TOSS_POST_URL,
+      {
+        authKey: tossAuthKey,
+        customerKey: tossCustomerKey
+      },
+      {
+        headers: {
+          "Authorization": `Basic ${encodedKey}`,
+          "Content-Type": "application/json",
+        }
+      },
+    );
+
+    console.log(JSON.stringify(tossRes.data, null, 2));
+
+    const billingKey = tossRes.data.billingKey;     // 빌링키
+    const cardNumber = tossRes.data.card.number;    // 카드번호
+    const cardCompany = tossRes.data.cardCompany;  // 카드회사
+
+    console.log(`[SUCCESS] ${carNumber} 차량의 빌링키 발급 완료: ${billingKey}`);
+    console.log(`[SUCCESS] 카드번호: ${cardNumber} / 카드회사: ${cardCompany}`);
+
+    // DB 저장 구현
+
+      // C 서버한테 보내서 C 서버가 저장하게 하던가
+      // 그냥 여기서 DB에 넣어버리던가
+      // 지금까지 역할상 DB 조작은 C 서버가 하는 게 맞긴 해
+
+    // DB 저장 구현
+
+    // 프론트엔드에게 성공 메시지 보내기
+    res.status(200).json({
+      success: true,
+      message: "빌링키 발급 완료!"
+    });
+
+
+
+
+  } catch (err) {
+    console.error("[실패] 빌링키 발급 중 오류 발생");
+    if (err.response) {
+      console.error("[토스 응답]", err.response.status, err.response.data);
+    } else {
+      console.error("[에러]", err.code, err.message);   // 네트워크 에러 또는 코드 에러
+      console.error(err.stack);                          // 몇 번째 줄인지 확인
+    }
+  } finally {
+    console.log("[DONE] 빌링키 발급 프로세스 종료.");
+  }
+
+
 })
 
 
