@@ -19,6 +19,7 @@ const LLM_API_URL = "http://localhost:10002/v1/chat/completions";
 const PARKED_STATUS_POLL_MS = 1000;
 const RECORDS_POLL_MS = 3000;
 
+
 const RULE =
   `1. SELECT만 사용. INSERT, UPDATE, DELETE, DROP 등은 절대 사용 금지.\n` +
   `2. 스키마에 없는 테이블이나 컬럼은 사용 금지.\n` +
@@ -196,6 +197,10 @@ const isSafeSql = (sql) => {
   return true;
 };
 
+
+// =========== API 엔드포인트 =============
+
+
 // 테스트 API
 app.get('/', (req, res) => {
   res.send('Hello from Jetson Express Server!');
@@ -327,6 +332,13 @@ app.post("/api/login", async (req, res) => {
     });
   }
 });
+
+// process.env.TOSS_SECRET_KEY
+// 토스페이먼츠 authKey, customerKey 저장 요청 API
+app.post("/api/billing/issue", (req, res) => {
+  res.send("Confirmed!");
+  const { tossAuthKey, tossCustomerKey, carNumber } = req.body;
+})
 
 
 // 웹소켓 설정

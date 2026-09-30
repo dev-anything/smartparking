@@ -223,6 +223,7 @@ static int parse_plate_data(const char* buf, char* gate, char* action, char** pl
     *action = buf[2];
     *plate = buf + 4;
 
+    
     return 1;
 }
 
@@ -351,15 +352,6 @@ void sensor_data_thread(client_info *info)
                 token = strtok_r(NULL, DELIM, &next_token);
                 idx++;
             }
-
-            //sprintf(
-            //    query_buffer,
-            //    "INSERT INTO %s "
-            //    "VALUES (null, curtime(), %d, %d, %d, %d, %d, %d);",
-            //    MYSQL_TABLE_parked_status,
-            //    status[0], status[1], status[2], status[3], status[4], status[5]);
-
-
             
             response = mysql_insert_parked_status(conn, status, MYSQL_TABLE_parked_status);
             //response = mysql_query(conn, query_buffer);
@@ -384,13 +376,20 @@ void sensor_data_thread(client_info *info)
 int mysql_insert_records(MYSQL* conn, char gate, char action, const char* plate_number, const char* table)
 {
     char query_buffer[BUFFER_SIZE] = {0};
-    printf("[TRY01] Insert plate number.\n");
     // 입구
     if (gate == 'E')
     {
         // 차단기 열림
         if (action == 'O')
         {
+            printf("차량번호 파싱 결과: %s\n", plate_number);
+
+            for (int i = 0; i < strlen(plate_number); i++)
+            {
+                printf("%02X ", (unsigned char)plate_number[i]);
+            }
+            printf("\n");
+
             
             sprintf(
                 query_buffer,
@@ -410,11 +409,9 @@ int mysql_insert_records(MYSQL* conn, char gate, char action, const char* plate_
     // 출구
     else if (gate == 'X')
     {
-        printf("[TRY02] Update plate number.\n");
         // 차단기 열림
         if (action == 'O')
         {
-            printf("[TRY03] Update plate number.\n");
             sprintf(
                 query_buffer,
                 "UPDATE %s "
@@ -424,6 +421,12 @@ int mysql_insert_records(MYSQL* conn, char gate, char action, const char* plate_
                 MYSQL_TABLE_records,
                 plate_number
             );
+        }
+        // 차단기 닫힘
+        else if (action == 'C')
+        {
+            // MySQL 쿼리 실행 필요 없음
+            return 0;
         }
     }
     // 잘못된 명령어 처리
