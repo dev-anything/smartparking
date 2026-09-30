@@ -1,10 +1,12 @@
 #include <WiFi.h>
 #include <ESP32Servo.h>
+#include <SPI.h>
+#include <MFRC522.h>
 
+// 네트워크 설정
 const char* ssid = "iptime222";
 const char* password = "12345678";
 
-// 고정 IP 및 네트워크 설정
 IPAddress local_IP(192, 168, 0, 100);
 IPAddress gateway(192, 168, 0, 1);
 IPAddress subnet(255, 255, 255, 0);
@@ -14,9 +16,15 @@ IPAddress primaryDNS(8, 8, 8, 8);
 const char* serverIP = "192.168.0.7"; 
 const int serverPort = 10000;
 
+// 서보모터 핀
 #define SERVO_ENTRY_PIN 13
 #define SERVO_EXIT_PIN  14
 
+// RFID RC522 핀 (SPI)
+#define SS_PIN  5
+#define RST_PIN 22
+
+MFRC522 rfrc522(SS_PIN, RST_PIN); 
 Servo entryGate;
 Servo exitGate;
 
@@ -27,20 +35,19 @@ int targetExitAngle = 0;
 
 unsigned long lastEntryMoveTime = 0;
 unsigned long lastExitMoveTime = 0;
-const int MOVE_INTERVAL = 20; // 모터 회전 속도 (ms)
+const int MOVE_INTERVAL = 20; // 모터 속도 (ms)
 
-// 지속 연결을 위한 소켓 객체 및 인증 상태
 WiFiClient client;
 bool isServerAuthenticated = false;
 
-// C 서버 접속 및 모터 클라이언트 인증(ID:M)
+// 1. C 서버 접속 및 핸드쉐이크 (ID:M 전송 및 OK 대기)
 bool connectAndAuthenticateServer() {
   if (client.connected() && isServerAuthenticated) {
     return true; 
   }
 
   Serial.println("\n[C 서버 접속 시도] " + String(serverIP) + ":" + String(serverPort));
-  client.stop(); // 기존 잔여 연결 정리
+  client.stop(); 
 
   if (!client.connect(serverIP, serverPort, 2000)) {
     Serial.println(" -> 서버 연결 실패!");
@@ -48,22 +55,22 @@ bool connectAndAuthenticateServer() {
     return false;
   }
 
-  // 1) 모터 클라이언트 ID 송신 ("ID:M\n")
+  // 클라이언트 ID 송신 ("ID:M\n")
   client.print("ID:M\n");
   Serial.println(" -> 1. 모터 클라이언트 ID 송신 완료 (ID:M)");
 
-  // 2) 서버 확인 응답("OK") 대기 (최대 3초)
+  // 서버 확인 응답("OK") 대기 (최대 3초)
   unsigned long timeout = millis();
   isServerAuthenticated = false;
 
   while (millis() - timeout < 3000) {
     if (client.available()) {
       String response = client.readStringUntil('\n');
-      response.trim(); // 개행문자 및 공백 제거
+      response.trim(); 
       
-      if (response == "OK") {
+      if (response == "OK" || response.indexOf("OK") != -1) {
         isServerAuthenticated = true;
-        Serial.println(" -> 2. 서버 인증 성공 (OK 수신)! 모터 제어 명령 대기 시작.");
+        Serial.println(" -> 2. 서버 인증 성공 (OK 수신)! 제어 명령 대기 시작.");
         break;
       }
     }
@@ -78,11 +85,11 @@ bool connectAndAuthenticateServer() {
   return isServerAuthenticated;
 }
 
-// 서보모터 부드러운 이동 함수 (non-blocking)
+// 2. 서보모터 부드러운 회전 제어 (Non-blocking)
 void updateServos() {
   unsigned long currentMillis = millis();
 
-  // 입구 차단기 제어
+  // 입구 차단기
   if (currentEntryAngle != targetEntryAngle) {
     if (currentMillis - lastEntryMoveTime >= MOVE_INTERVAL) {
       lastEntryMoveTime = currentMillis;
@@ -92,7 +99,7 @@ void updateServos() {
     }
   }
 
-  // 출구 차단기 제어
+  // 출구 차단기
   if (currentExitAngle != targetExitAngle) {
     if (currentMillis - lastExitMoveTime >= MOVE_INTERVAL) {
       lastExitMoveTime = currentMillis;
@@ -103,14 +110,40 @@ void updateServos() {
   }
 }
 
-// 서버로부터 수신된 단일 명령어 처리
+// 3. RFID 카드 태그 감지 및 UID 전송
+void checkRFID() {
+  if (!rfrc522.PICC_IsNewCardPresent() || !rfrc522.PICC_ReadCardSerial()) {
+    return;
+  }
+
+  String tagID = "";
+  for (byte i = 0; i < rfrc522.uid.size; i++) {
+    tagID += String(rfrc522.uid.uidByte[i] < 0x10 ? "0" : "");
+    tagID += String(rfrc522.uid.uidByte[i], HEX);
+    if (i < rfrc522.uid.size - 1) tagID += ":";
+  }
+  tagID.toUpperCase();
+
+  Serial.println("\n★ [RFID 태그 감지]: " + tagID);
+
+  // C 서버로 미등록 차량 수동 결제용 UID 전송
+  if (client.connected() && isServerAuthenticated) {
+    client.print("RFID:" + tagID + "\n");
+    client.flush();
+    Serial.println(" -> 서버로 결제 카드 UID 전송 완료: " + tagID);
+  }
+
+  rfrc522.PICC_HaltA();
+  rfrc522.PCD_StopCrypto1();
+}
+
+// 4. C 서버 수신 명령어 해석 (E:O, E:C, X:O, X:C)
 void processSingleCommand(String cmd) {
   cmd.trim();
   if (cmd.length() == 0) return;
 
   Serial.println("[명령어 수신]: " + cmd);
 
-  // 회의록 데이터 프로토콜 적용 (E:O, E:C, X:O, X:C)
   if (cmd == "E:O") {
     targetEntryAngle = 90;
     Serial.println(" -> [입구 차단기] 열림 (90도)");
@@ -131,6 +164,12 @@ void processSingleCommand(String cmd) {
 void setup() {
   Serial.begin(115200);
 
+  // SPI 및 RFID 리더기 초기화
+  SPI.begin(); 
+  rfrc522.PCD_Init();
+  Serial.println("★ RFID (RC522) 리더기 준비 완료");
+
+  // 서보모터 초기화 (0도 설정)
   entryGate.setPeriodHertz(50);
   exitGate.setPeriodHertz(50);
   entryGate.attach(SERVO_ENTRY_PIN, 500, 2400);
@@ -138,6 +177,7 @@ void setup() {
   entryGate.write(0);
   exitGate.write(0);
 
+  // Wi-Fi 고정 IP 설정 및 접속
   if (!WiFi.config(local_IP, gateway, subnet, primaryDNS)) {
     Serial.println("고정 IP 설정 실패!");
   }
@@ -149,20 +189,22 @@ void setup() {
   }
 
   Serial.println("\n=========================================");
-  Serial.print("★ 모터 제어 클라이언트 준비 완료 (IP: ");
+  Serial.print("★ C 서버 완벽 동기화 모터&RFID 노드 준비 완료 (IP: ");
   Serial.print(WiFi.localIP());
   Serial.println(")");
   Serial.println("=========================================");
 
-  // 부팅 직후 서버 접속 및 ID 인증
   connectAndAuthenticateServer();
 }
 
 void loop() {
-  // 1. 모터 각도 업데이트 (delay 없이 실시간 연속 작동)
+  // 1. 모터 위치 제어 (delay 없이 실시간 작동)
   updateServos();
 
-  // 2. Wi-Fi 연결 확인 및 재연결
+  // 2. RFID 카드 태그 감지
+  checkRFID();
+
+  // 3. Wi-Fi 및 C 서버 소켓 유지 확인
   if (WiFi.status() != WL_CONNECTED) {
     WiFi.disconnect();
     WiFi.reconnect();
@@ -170,20 +212,18 @@ void loop() {
     return;
   }
 
-  // 3. C 서버 소켓 끊김 감지 시 자동 재접속
   if (!client.connected()) {
     isServerAuthenticated = false;
     connectAndAuthenticateServer();
     return;
   }
 
-  // 4. 서버로부터 모터 제어 명령어 수신
+  // 4. C 서버로부터 내려오는 명령어 처리
   if (client.available()) {
     String rawData = client.readStringUntil('\n');
     rawData.trim();
 
     if (rawData.length() > 0) {
-      // 혹시 여러 명령어가 콤마(,)로 연속 들어올 경우 분할 처리
       int commaIndex = 0;
       while ((commaIndex = rawData.indexOf(',')) != -1) {
         String singleCmd = rawData.substring(0, commaIndex);
