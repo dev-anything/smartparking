@@ -70,7 +70,7 @@ static int motor_cmd_q_rear = 0;                          // 큐 꼬리
 static int motor_cmd_q_count = 0;                         // 큐 데이터 수
 
 
-static int g_payment_efd = -1;                   // 웹서버 통신 스레드를 깨울 eventfd 번호
+static int g_payment_efd = -1;                     // 웹서버 통신 스레드를 깨울 eventfd 번호
 static int payment_req_q[PAYMENT_REQ_QUEUE_SIZE];  // 결제 요청 id 저장 큐
 static int payment_req_q_front = 0;                // 큐 헤드
 static int payment_req_q_rear = 0;                 // 큐 꼬리
@@ -95,6 +95,7 @@ void motor_control_thread(client_info *info);   // 스레드 실행 함수 3. �
 void web_server_thread(client_info* info);      // 스레드 실행 함수 4. 웹서버 통신
 
 int push_motor_command(char gate, char action); // 모터 명령어 큐에 명령어 삽입 + 연결 관리
+int push_payment_id(int id);                    // 결제 요청 큐에 id 삽입
 
 
 int mysql_insert_parked_status(MYSQL* conn, int* status, const char* table);    // 주차 현황 insert 함수
@@ -339,8 +340,6 @@ int mysql_insert_parked_status(MYSQL* conn, int* status, const char* table)
 void sensor_data_thread(client_info *info)
 {
     MYSQL *conn;
-    // MYSQL_RES *res;
-    // MYSQL_ROW rows;
     char *token = NULL;
     char *next_token = NULL;
     char buffer[BUFFER_SIZE];
@@ -407,10 +406,10 @@ int mysql_handle_records(MYSQL* conn, MYSQL_RES* res_ptr, MYSQL_ROW sql_row, cha
     int response;
 
     // 입구
-    if (gate == 'E')
+    if (gate == GATE_ENTRY)
     {
         // 차단기 열림
-        if (action == 'O')
+        if (action == GATE_OPEN)
         {
             printf("차량번호 파싱 결과: %s\n", plate_number);
 
@@ -433,17 +432,17 @@ int mysql_handle_records(MYSQL* conn, MYSQL_RES* res_ptr, MYSQL_ROW sql_row, cha
 
         }
         // 차단기 닫힘
-        else if (action == 'C')
+        else if (action == GATE_CLOSE)
         {
             // MySQL 쿼리 실행 필요 없음
             return 0;
         }
     }
     // 출구
-    else if (gate == 'X')
+    else if (gate == GATE_EXIT)
     {
         // 차단기 열림
-        if (action == 'O')
+        if (action == GATE_OPEN)
         {
             
 
@@ -493,7 +492,7 @@ int mysql_handle_records(MYSQL* conn, MYSQL_RES* res_ptr, MYSQL_ROW sql_row, cha
 
         }
         // 차단기 닫힘
-        else if (action == 'C')
+        else if (action == GATE_CLOSE)
         {
             // MySQL 쿼리 실행 필요 없음
             return 0;
@@ -519,7 +518,7 @@ void plate_number_thread(client_info *info)
 
     char gate = '\0';               // 입구 / 출구 구분
     char action = '\0';             // 열기 / 닫기 구분
-    char* plate = "\0";             // 번호판 텍스트
+    char* plate = NULL;             // 번호판 텍스트
 
     int response;                   // 쿼리 결과(정상 / 비정상)
     int read_status = 0;            // 개행까지 잘 읽었는지 판단
