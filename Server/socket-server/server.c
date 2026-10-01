@@ -25,8 +25,10 @@
 // 모든 통신 데이터의 구분자
 #define DELIM ":"
 
+// 명시적 핸드셰이크용 데이터
 #define HANDSHAKE "OK\n"
 
+// 모터 제어 명령어를 저장할 큐 사이즈
 #define MOTOR_COMMAND_QUEUE_SIZE 16
 
 // 모터 게이트와 열기/닫기 명령값
@@ -34,6 +36,9 @@
 #define GATE_EXIT 'X'
 #define GATE_OPEN 'O'
 #define GATE_CLOSE 'C'
+
+#define PAYMENT_REQ_QUEUE_SIZE 8
+
 
 // 클라이언트 구분값
 #define SENSOR_CLIENT "S"
@@ -49,6 +54,7 @@ typedef struct
     struct sockaddr_in client_addr;
 } client_info;
 
+
 // 모터 명령 데이터 저장 구조체
 typedef struct
 {
@@ -57,17 +63,24 @@ typedef struct
 } motor_cmd_t;
 
 
-static int g_motor_efd = -1;    // 접속 중인 모터 스레드의 eventfd 번호
-
-
+static int g_motor_efd = -1;                              // 접속 중인 모터 스레드의 eventfd 번호
 static motor_cmd_t motor_cmd_q[MOTOR_COMMAND_QUEUE_SIZE]; // 모터 명령 저장 큐
 static int motor_cmd_q_front = 0;                         // 큐 헤드
 static int motor_cmd_q_rear = 0;                          // 큐 꼬리
 static int motor_cmd_q_count = 0;                         // 큐 데이터 수
 
 
+static int g_payment_efd = -1;                   // 웹서버 통신 스레드를 깨울 eventfd 번호
+static int payment_req_q[PAYMENT_REQ_QUEUE_SIZE];  // 결제 요청 id 저장 큐
+static int payment_req_q_front = 0;                // 큐 헤드
+static int payment_req_q_rear = 0;                 // 큐 꼬리
+static int payment_req_q_count = 0;                // 큐 데이터 수
+
+
+
 // 뮤텍스 선언
 static pthread_mutex_t g_motor_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t g_payment_lock = PTHREAD_MUTEX_INITIALIZER;
 
 
 int read_line(int fd, char *buf, size_t size);  // 개행 문자까지 읽기
@@ -86,7 +99,7 @@ int push_motor_command(char gate, char action); // 모터 명령어 큐에 명�
 
 int mysql_insert_parked_status(MYSQL* conn, int* status, const char* table);    // 주차 현황 insert 함수
 int mysql_handle_records(MYSQL* conn, MYSQL_RES* res_ptr, MYSQL_ROW sql_row, char gate, char action, const char* plate_number, const char* table); // 차량 진출입 insert(update) 함수
-int mysql_insert_car_info(MYSQL* conn, const char** car_info, const char* table);
+int mysql_insert_car_info(MYSQL* conn, const char** car_info, const char* table);   // 차량에 대한 정보 저장(차량번호, 빌링키, 커스터머 키 등)
 
 int main()
 {
