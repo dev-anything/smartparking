@@ -5,6 +5,7 @@ const fetch = require('node-fetch');
 const axios = require('axios');
 const http = require('http');
 const crypto = require('crypto');
+const net = require('net');
 const { WebSocketServer, WebSocket } = require('ws');
 require('dotenv').config();
 
@@ -20,6 +21,11 @@ const SERVER_PORT = 10001;
 const LLM_API_URL = "http://localhost:10002/v1/chat/completions";
 const PARKED_STATUS_POLL_MS = 1000;
 const RECORDS_POLL_MS = 3000;
+
+const SOCKET_SERVER_HOST = "127.0.0.1";
+const SOCKET_SERVER_PORT = 10000;
+let socket = null;
+let connected = false;
 
 
 const RULE =
@@ -210,6 +216,46 @@ const isSafeSql = (sql) => {
 // C 소켓 서버 연결
 const connectSocketServer = () => {
 
+  try {
+    socket = net.createConnection(SOCKET_SERVER_PORT, SOCKET_SERVER_HOST, () => {
+      socket.write("ID:W\n");
+    });
+
+    socket.once("data", (chunk) => {
+      const text = chunk.toString("utf-8");
+
+      if (text.startsWith("OK"))
+      {
+        connected = true;
+        console.log("[CONNECTED] 소켓서버 연결 완료.");
+      }
+      else
+      {
+        connected = false;
+        console.error("[FAILED] 소켓서버 연결 실패.");
+      }
+    });
+  } catch (error) {
+    console.error("연결 오류: ", error.message);
+    return;
+  }
+  
+}
+
+// 소켓 서버로 데이터 보내기
+const sendData = (dataList) => {
+  let buffer;
+  if (socket === null || connected === false)
+  {
+    console.log("연결 상태 불량.");
+    return;
+  }
+
+  buffer = dataList.join(':');
+  
+
+  socket.write(`${buffer}\n`);
+
 }
 
 // =========== API 엔드포인트 =============
@@ -351,7 +397,6 @@ app.post("/api/login", async (req, res) => {
 app.post("/api/cuskey/issue", (req, res) => {
   const carNumber = req.body.carNumber;
 
-
   if (!carNumber)
   {
     return res.status(400).json({
@@ -378,7 +423,6 @@ app.post("/api/billing/issue", async (req, res) => {
 
   // 프론트엔드에서 받은 값 저장(authKey, customerKey, 차량번호)
   const { tossAuthKey, tossCustomerKey, carNumber } = req.body;
-  const newUuid = crypto.randomUUID();
 
   // 시크릿 키 인코딩
   const encodedSecretKey = Buffer.from(process.env.TOSS_SECRET_KEY + ':').toString("base64");
@@ -401,30 +445,33 @@ app.post("/api/billing/issue", async (req, res) => {
 
     console.log(JSON.stringify(tossRes.data, null, 2));
 
-    const billingKey = tossRes.data.billingKey;     // 빌링키
-    const cardNumber = tossRes.data.card.number;    // 카드번호
-    const cardCompany = tossRes.data.cardCompany;  // 카드회사
+    const billingKey = tossRes.data.billingKey;           // 빌링키
+    const cardNumber = tossRes.data.card.number;          // 카드번호
+    const cardCompanyCode = tossRes.data.card.issuerCode; // 카드회사 코드
 
     console.log(`[SUCCESS] ${carNumber} 차량의 빌링키 발급 완료: ${billingKey}`);
-    console.log(`[SUCCESS] 카드번호: ${cardNumber} / 카드회사: ${cardCompany}`);
+    console.log(`[SUCCESS] 카드번호: ${cardNumber} / 카드회사: ${cardCompanyCode}`);
 
     // DB 저장 구현
-
+    const dataList = [
+      carNumber,        // 차량번호
+      billingKey,       // 빌링키
+      tossCustomerKey,  // customerKey
+      cardNumber,       // 마킹된 카드번호
+      cardCompanyCode   // 카드회사 코드(나중에 DB JOIN으로 은행명으로 사용)
+    ]
       // C 서버한테 보내서 C 서버가 저장하게 하던가
       // 그냥 여기서 DB에 넣어버리던가
       // 지금까지 역할상 DB 조작은 C 서버가 하는 게 맞긴 해
 
+    sendData(dataList);
     // DB 저장 구현
 
     // 프론트엔드에게 성공 메시지 보내기
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: "빌링키 발급 완료!"
+      message: "빌링키 발급 및 저장 완료!"
     });
-
-
-
-
   } catch (err) {
     console.error("[실패] 빌링키 발급 중 오류 발생");
     if (err.response) {
@@ -436,8 +483,6 @@ app.post("/api/billing/issue", async (req, res) => {
   } finally {
     console.log("[DONE] 빌링키 발급 프로세스 종료.");
   }
-
-
 })
 
 
@@ -545,6 +590,7 @@ server.listen(SERVER_PORT, '0.0.0.0', () => {
   console.log(`서버(API / 웹소켓) 실행 중: http://0.0.0.0:${SERVER_PORT}`);
   console.log(`  - REST: /api/parked-status, /api/entry-exit-records, /api/llm-query, /api/login`);
   console.log(`  - WebSocket: ws://0.0.0.0:${SERVER_PORT}/ws`);
+  connectSocketServer();
 });
 
 //app.listen(PORT, '0.0.0.0', () => {

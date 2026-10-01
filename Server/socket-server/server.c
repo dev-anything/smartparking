@@ -33,6 +33,12 @@
 #define GATE_OPEN 'O'
 #define GATE_CLOSE 'C'
 
+// 클라이언트 구분값
+#define SENSOR_CLIENT "S"
+#define MOTOR_CLIENT "M"
+#define IP_CLIENT "P"
+#define WEBSERVER_CLIENT "W"
+
 
 // 클라이언트 정보 구조체
 typedef struct
@@ -63,14 +69,15 @@ static pthread_mutex_t g_motor_lock = PTHREAD_MUTEX_INITIALIZER;
 
 
 int read_line(int fd, char *buf, size_t size);  // 개행 문자까지 읽기
-static int parse_plate_data(const char* buf, char* gate, char* action, char** plate);   // 번호판 데이터 파싱 전용
+int parse_plate_data(const char* buf, char* gate, char* action, char** plate);   // 번호판 데이터 파싱 전용
 void send_ok(int fd);                           // 핸드셰이크 담당 함수
 void *handle_client(void *arg);                 // 스레드 진입 함수
 int send_motor_control(motor_cmd_t* cmd_q, int size, int fd);     // 모터 명령어 송신 함수
 
-void sensor_data_thread(client_info *arg);     // 스레드 실행 함수 1. 초음파 센서 데이터 수신 
-void plate_number_thread(client_info *arg);    // 스레드 실행 함수 2. 번호판 데이터 수신
-void motor_control_thread(client_info *arg);      // 스레드 실행 함수 3. 모터 제어 명령어 송신
+void sensor_data_thread(client_info *info);     // 스레드 실행 함수 1. 초음파 센서 데이터 수신 
+void plate_number_thread(client_info *info);    // 스레드 실행 함수 2. 번호판 데이터 수신
+void motor_control_thread(client_info *info);   // 스레드 실행 함수 3. 모터 제어 명령어 송신
+void web_server_thread(client_info* info);      // 스레드 실행 함수 4. 웹서버 통신
 
 int push_motor_command(char gate, char action); // 모터 명령어 큐에 명령어 삽입 + 연결 관리
 
@@ -208,7 +215,7 @@ void send_ok(int fd)
     send(fd, HANDSHAKE, strlen(HANDSHAKE), MSG_NOSIGNAL);
 }
 
-static int parse_plate_data(const char* buf, char* gate, char* action, char** plate)
+int parse_plate_data(const char* buf, char* gate, char* action, char** plate)
 {
     // 유효한 게이트인지 점검
     if (buf[0] != 'E' && buf[0] != 'X') return 0;
@@ -258,20 +265,25 @@ void *handle_client(void *arg)
         {
             token = strtok_r(NULL, DELIM, &save_token);
 
-            if (strcmp(token, "P") == 0)
+            if (strcmp(token, IP_CLIENT) == 0)
             {
                 printf("[CONFIRMED] IP client confirmed.\n");
                 plate_number_thread(info);
             }
-            else if (strcmp(token, "S") == 0)
+            else if (strcmp(token, SENSOR_CLIENT) == 0)
             {
                 printf("[CONFIRMED] Sensor client confirmed.\n");
                 sensor_data_thread(info);
             }
-            else if (strcmp(token, "M") == 0)
+            else if (strcmp(token, MOTOR_CLIENT) == 0)
             {
                 printf("[CONFIRMED] Motor client confirmed.\n");
                 motor_control_thread(info);
+            }
+            else if (strcmp(token, WEBSERVER_CLIENT) == 0)
+            {
+                printf("[CONFIRMED] Web server confirmed.\n");
+                web_server_thread(info);
             }
             else
             {
@@ -506,6 +518,52 @@ void plate_number_thread(client_info *info)
     }
     mysql_close(conn);
 }
+
+void web_server_thread(client_info* info)
+{
+    MYSQL* conn;
+    char buffer[BUFFER_SIZE];
+    int read_status;
+    char* car_info[5] = {0};
+    char *token = NULL;
+    char *next_token = NULL;
+    int idx = 0;
+
+    conn = mysql_init(NULL);
+    if (!(mysql_real_connect(conn, MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DB, 3306, NULL, 0)))
+    {
+        fprintf(stderr, "err: %s[%d]\n", mysql_error(conn), mysql_errno(conn));
+        return;
+    }
+    mysql_set_character_set(conn, "utf8mb4");
+    printf("MySQL Connected!\n\n");
+    
+    send_ok(info->client_fd);
+
+    read_status = read_line(info->client_fd, buffer, BUFFER_SIZE);
+
+    if (read_status)
+    {
+        printf("[수신] -> %s\n", buffer);
+
+        token = strtok_r(buffer, DELIM, &next_token);
+        while (token != NULL)
+        {
+            car_info[idx] = token;
+            idx++;
+            token = strtok_r(NULL, DELIM, &next_token);
+        }
+
+
+    }
+
+    for (int i = 0; i < 5; i++)
+    {
+        printf("%d번째 데이터: %s\n", i + 1, car_info[i]);
+    }
+
+}
+
 
 void motor_control_thread(client_info *info)
 {
