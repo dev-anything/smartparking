@@ -72,6 +72,7 @@ const pool = mysql.createPool({
 
 const forbidden = ['DROP', 'DELETE', 'UPDATE', 'INSERT', 'ALTER', 'TRUNCATE', 'GRANT', 'EXEC', '--', '/*'];
 
+// LLM 호출
 const callLLM = async (systemMsg, userPrompt) => {
   const messages = [];
   if (systemMsg)
@@ -122,6 +123,7 @@ const callLLM = async (systemMsg, userPrompt) => {
   return queryResult;
 };
 
+// SQL 쿼리 실행
 const runQuery = async (sql) => {
   let rows, fields;
   console.log("쿼리 시도.");
@@ -198,6 +200,11 @@ const isSafeSql = (sql) => {
   return true;
 };
 
+
+// C 소켓 서버 연결
+const connectSocketServer = () => {
+  
+}
 
 // =========== API 엔드포인트 =============
 
@@ -340,9 +347,12 @@ app.post("/api/billing/issue", async (req, res) => {
   //res.send("Confirmed!");
 
   // 프론트엔드에서 받은 값 저장(authKey, customerKey, 차량번호)
-  const { tossAuthKey, tossCustomerKey, carNumber } = req.body;
+  const { tossAuthKey, carNumber } = req.body;
+  const newUuid = crypto.randomUUID();
+  const newTossCustomerKey = `cus_${newUuid}`;
+
   // 시크릿 키 인코딩
-  const encodedKey = Buffer.from(process.env.TOSS_SECRET_KEY + ':').toString("base64");
+  const encodedSecretKey = Buffer.from(process.env.TOSS_SECRET_KEY + ':').toString("base64");
 
   // 빌링키 발급 시도 및 처리
   try {
@@ -350,11 +360,11 @@ app.post("/api/billing/issue", async (req, res) => {
       process.env.TOSS_POST_URL,
       {
         authKey: tossAuthKey,
-        customerKey: tossCustomerKey
+        customerKey: newTossCustomerKey
       },
       {
         headers: {
-          "Authorization": `Basic ${encodedKey}`,
+          "Authorization": `Basic ${encodedSecretKey}`,
           "Content-Type": "application/json",
         }
       },
