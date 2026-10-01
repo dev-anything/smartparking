@@ -20,7 +20,9 @@
 #define MYSQL_DB "smartparking"
 #define MYSQL_TABLE_records "records"
 #define MYSQL_TABLE_parked_status "parked_status"
+#define MYSQL_TABLE_car_info "car_info"
 
+// 모든 통신 데이터의 구분자
 #define DELIM ":"
 
 #define HANDSHAKE "OK\n"
@@ -83,7 +85,8 @@ int push_motor_command(char gate, char action); // 모터 명령어 큐에 명�
 
 
 int mysql_insert_parked_status(MYSQL* conn, int* status, const char* table);    // 주차 현황 insert 함수
-int mysql_insert_records(MYSQL* conn, char gate, char action, const char* plate_number, const char* table); // 차량 진출입 insert(update) 함수
+int mysql_handle_records(MYSQL* conn, MYSQL_RES* res_ptr, MYSQL_ROW sql_row, char gate, char action, const char* plate_number, const char* table); // 차량 진출입 insert(update) 함수
+int mysql_insert_car_info(MYSQL* conn, const char** car_info, const char* table);
 
 int main()
 {
@@ -385,9 +388,11 @@ void sensor_data_thread(client_info *info)
     mysql_close(conn);
 }
 
-int mysql_insert_records(MYSQL* conn, char gate, char action, const char* plate_number, const char* table)
+int mysql_handle_records(MYSQL* conn, MYSQL_RES* res_ptr, MYSQL_ROW sql_row, char gate, char action, const char* plate_number, const char* table)
 {
     char query_buffer[BUFFER_SIZE] = {0};
+    int response;
+
     // 입구
     if (gate == 'E')
     {
@@ -407,9 +412,12 @@ int mysql_insert_records(MYSQL* conn, char gate, char action, const char* plate_
                 query_buffer,
                 "INSERT INTO %s (id, car_number, entry_time, exit_time, updated_at)"
                 "VALUES (null, '%s', curtime(), null, curtime());",
-                MYSQL_TABLE_records,
+                table,
                 plate_number
             );
+
+            
+
         }
         // 차단기 닫힘
         else if (action == 'C')
@@ -424,15 +432,52 @@ int mysql_insert_records(MYSQL* conn, char gate, char action, const char* plate_
         // 차단기 열림
         if (action == 'O')
         {
+            
+
+            // 1단계: 출차 처리할 행의 id 가져오기
             sprintf(
                 query_buffer,
-                "UPDATE %s "
-                "SET exit_time = curtime(), updated_at = curtime() "
+                "SELECT id FROM %s "
                 "WHERE car_number = '%s' AND exit_time IS NULL "
-                "ORDER BY updated_at DESC LIMIT 1;",
-                MYSQL_TABLE_records,
+                "ORDER BY entry_time DESC LIMIT 1;",
+                table,
                 plate_number
             );
+
+            int res = mysql_query(conn, query_buffer);
+            res_ptr = mysql_store_result(conn);
+            // id를 잘 가져왔다면,
+            if (!res && (unsigned long)mysql_num_rows(res_ptr) == 1)
+            {
+                char* id = NULL;
+                
+
+                if (res_ptr)
+                {
+                    sql_row = mysql_fetch_row(res_ptr);
+
+                    id = sql_row[0];
+                }
+
+                printf("추출된 id: %s", id);
+                memset(query_buffer, 0, BUFFER_SIZE);
+
+                sprintf(
+                    query_buffer,
+                    "UPDATE %s SET exit_time=curtime(), updated_at=curtime() "
+                    "WHERE id=%s AND exit_time IS NULL;",
+                    table, id
+                );
+
+                response = mysql_query(conn, query_buffer);
+
+                if (!response)
+                {
+                    mysql_free_result(res_ptr);
+                    return 0;
+                }
+            }
+
         }
         // 차단기 닫힘
         else if (action == 'C')
@@ -444,7 +489,7 @@ int mysql_insert_records(MYSQL* conn, char gate, char action, const char* plate_
     // 잘못된 명령어 처리
     else
     {
-
+        return 1;
     }
 
     return (mysql_query(conn, query_buffer));
@@ -454,6 +499,8 @@ int mysql_insert_records(MYSQL* conn, char gate, char action, const char* plate_
 void plate_number_thread(client_info *info)
 {
     MYSQL *conn;
+    MYSQL_RES* res_ptr;
+    MYSQL_ROW sql_row;
     
     char buffer[BUFFER_SIZE];       // 수신 버퍼
 
@@ -493,7 +540,7 @@ void plate_number_thread(client_info *info)
                 mysql_close(conn);
                 return;
             }
-            response = mysql_insert_records(conn, gate, action, plate, MYSQL_TABLE_records);
+            response = mysql_handle_records(conn, res_ptr, sql_row, gate, action, plate, MYSQL_TABLE_records);
 
             if (!response)
             {
@@ -519,6 +566,27 @@ void plate_number_thread(client_info *info)
     mysql_close(conn);
 }
 
+int mysql_insert_car_info(MYSQL* conn, const char** car_info, const char* table)
+{
+    char query_buffer[BUFFER_SIZE] = {0};
+
+    sprintf(
+        query_buffer,
+        "INSERT INTO "
+        "%s (plate_number, billing_key, customer_key, card_number, bank_info, created_at, updated_at) "
+        "VALUES ('%s', '%s', '%s', '%s', '%s', curtime(), curtime());",
+        table,
+        car_info[0],
+        car_info[1],
+        car_info[2],
+        car_info[3],
+        car_info[4]
+    );
+
+    return (mysql_query(conn, query_buffer));
+}
+
+
 void web_server_thread(client_info* info)
 {
     MYSQL* conn;
@@ -528,6 +596,7 @@ void web_server_thread(client_info* info)
     char *token = NULL;
     char *next_token = NULL;
     int idx = 0;
+    int response;
 
     conn = mysql_init(NULL);
     if (!(mysql_real_connect(conn, MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DB, 3306, NULL, 0)))
@@ -540,28 +609,42 @@ void web_server_thread(client_info* info)
     
     send_ok(info->client_fd);
 
-    read_status = read_line(info->client_fd, buffer, BUFFER_SIZE);
+    
 
-    if (read_status)
-    {
-        printf("[수신] -> %s\n", buffer);
+    while (1) {
+        read_status = read_line(info->client_fd, buffer, BUFFER_SIZE);
 
-        token = strtok_r(buffer, DELIM, &next_token);
-        while (token != NULL)
+        if (read_status)
         {
-            car_info[idx] = token;
-            idx++;
-            token = strtok_r(NULL, DELIM, &next_token);
+            printf("[수신] -> %s\n", buffer);
+
+            token = strtok_r(buffer, DELIM, &next_token);
+            while (token != NULL)
+            {
+                car_info[idx] = token;
+                idx++;
+                token = strtok_r(NULL, DELIM, &next_token);
+            }
+
+
+            response = mysql_insert_car_info(conn, car_info, MYSQL_TABLE_car_info);
+
+            if (!response) printf("INSERTED %lu ROWS\n", (unsigned long)mysql_affected_rows(conn));
+            else fprintf(stderr, "insert error %s[%d]\n", mysql_error(conn), mysql_errno(conn));
+
         }
-
-
+        else if (read_status == 0)
+        {
+            printf("[-] (fd=%d) Disconnect sensor client.\n", info->client_fd);
+            break;
+        }
+        else
+        {
+            perror("[FAIL] Cannot read data.");
+            break;
+        }
     }
-
-    for (int i = 0; i < 5; i++)
-    {
-        printf("%d번째 데이터: %s\n", i + 1, car_info[i]);
-    }
-
+    mysql_close(conn);
 }
 
 

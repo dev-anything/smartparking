@@ -240,7 +240,7 @@ const connectSocketServer = () => {
     return;
   }
   
-}
+};
 
 // 소켓 서버로 데이터 보내기
 const sendData = (dataList) => {
@@ -256,7 +256,13 @@ const sendData = (dataList) => {
 
   socket.write(`${buffer}\n`);
 
-}
+};
+
+
+// 토스 서버에 결제 요청
+const requestPayment = async () => {
+
+};
 
 // =========== API 엔드포인트 =============
 
@@ -427,10 +433,12 @@ app.post("/api/billing/issue", async (req, res) => {
   // 시크릿 키 인코딩
   const encodedSecretKey = Buffer.from(process.env.TOSS_SECRET_KEY + ':').toString("base64");
 
+
+
   // 빌링키 발급 시도 및 처리
   try {
     const tossRes = await axios.post(
-      process.env.TOSS_POST_URL,
+      process.env.TOSS_ISSUE_BILLINGKEY_URL,
       {
         authKey: tossAuthKey,
         customerKey: tossCustomerKey

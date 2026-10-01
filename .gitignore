@@ -30,3 +30,4 @@ mysql8/
 # Server
 build/
 node_modules/
+client-test/
