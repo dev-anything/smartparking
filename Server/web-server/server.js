@@ -4,6 +4,7 @@ const mysql = require('mysql2/promise');
 const fetch = require('node-fetch');
 const axios = require('axios');
 const http = require('http');
+const crypto = require('crypto');
 const { WebSocketServer, WebSocket } = require('ws');
 require('dotenv').config();
 
@@ -57,6 +58,11 @@ const FEWSHOT_EXAMPLES =
     "SELECT * FROM parked_status;\n" +
     "SELECT car_number FROM records WHERE exit_time IS NULL;\n\n";
 
+
+// customerKey 임시 저장소
+const pendingKeys = new Map();
+// customerKey 유효시간
+const PENDING_TTL_MS = 3 * 60 * 1000;   // 3분
 
 
 const pool = mysql.createPool({
@@ -203,7 +209,7 @@ const isSafeSql = (sql) => {
 
 // C 소켓 서버 연결
 const connectSocketServer = () => {
-  
+
 }
 
 // =========== API 엔드포인트 =============
@@ -341,15 +347,38 @@ app.post("/api/login", async (req, res) => {
   }
 });
 
+// 토스페이먼츠용 customerKey 발급 요청 API
+app.post("/api/cuskey/issue", (req, res) => {
+  const carNumber = req.body.carNumber;
+
+
+  if (!carNumber)
+  {
+    return res.status(400).json({
+      success: false,
+      message: "carNumber는 필수입니다."
+    });
+  }
+  const newCusKey = `cus_${crypto.randomUUID()}`;
+
+
+  pendingKeys.set(newCusKey, {carNumber, createdAt: Date.now()});
+
+  return res.status(200).json({
+    success: true,
+    newCusKey
+  });
+
+});
+
 // process.env.TOSS_SECRET_KEY
 // 토스페이먼츠 authKey, customerKey 저장 요청 API
 app.post("/api/billing/issue", async (req, res) => {
   //res.send("Confirmed!");
 
   // 프론트엔드에서 받은 값 저장(authKey, customerKey, 차량번호)
-  const { tossAuthKey, carNumber } = req.body;
+  const { tossAuthKey, tossCustomerKey, carNumber } = req.body;
   const newUuid = crypto.randomUUID();
-  const newTossCustomerKey = `cus_${newUuid}`;
 
   // 시크릿 키 인코딩
   const encodedSecretKey = Buffer.from(process.env.TOSS_SECRET_KEY + ':').toString("base64");
@@ -360,7 +389,7 @@ app.post("/api/billing/issue", async (req, res) => {
       process.env.TOSS_POST_URL,
       {
         authKey: tossAuthKey,
-        customerKey: newTossCustomerKey
+        customerKey: tossCustomerKey
       },
       {
         headers: {

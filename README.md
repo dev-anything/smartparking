@@ -5,13 +5,17 @@
 - llama.cpp
 - https://github.com/ggerganov/llama.cpp
 
+### 모델
+- HuggingFace 에서 코드에 특화된 경량 모델을 사용합니다.
+- https://huggingface.co/Kj0rdan/Qwen2.5-Coder-0.5B-Instruct-Q4_K_M-GGUF
+
 
 
 ## 데이터베이스
 ### 사용 데이터베이스
-- MySQL 8.0.46 + Docker 20.10.21
+- Docker 20.10.21 + MySQL 8.0.46
 - *Jetpack Ubuntu 18.04.6 LTS 환경에서는 v8이 설치되지 않습니다.*
-- *설치되는 버전을 사용해도 문제없지만, 보안 관련 경고가 생기기 때문에 Docker 환경에서 구동합니다.*
+- *기본 설치되는 버전을 사용해도 문제없지만, 보안 관련 경고가 생기기 때문에 Docker 환경에서 구동합니다.*
 
 
 ### 테이블 종류 및 구조
