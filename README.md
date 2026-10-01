@@ -19,7 +19,7 @@
 1. records
 - 전체 차량의 입출입 기록을 관리 및 저장합니다.
 - 테이블 구조
-`
+- `
 Field      | Type     | Null     | KEY     | Default           | Extra
 id         | INT      | NOT NULL | PRIMARY | NULL              | AUTO_INCREMENT
 car_number | CHAR(30) | NOT NULL |         | NULL              |
