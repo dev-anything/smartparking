@@ -915,19 +915,19 @@ void motor_control_thread(client_info *info)
 
 int send_payment_id(char req_q[][PAYMENT_ID_SIZE], int size, int fd)
 {
-    char packet[PAYMENT_ID_SIZE] = {0};
+    char packet[PAYMENT_ID_SIZE + 5] = {0};
 
     for (int i = 0; i < size; i++)
     {
-        memset(packet, 0, PAYMENT_ID_SIZE);
+        memset(packet, 0, PAYMENT_ID_SIZE + 5);
         int len = snprintf(
             packet,
             sizeof(packet),
-            "%s\n",
+            "PAYID:%s\n",
             req_q[i]
         );
 
-        if (send(fd, packet, (size_t) len, MSG_NOSIGNAL) != (ssize_t)len)
+        if (send(fd, packet, (size_t)len, MSG_NOSIGNAL) != (ssize_t)len)
         {
             printf("[ID] 전송 실패.\n");
             return 0;

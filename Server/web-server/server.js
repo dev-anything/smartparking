@@ -6,6 +6,7 @@ const axios = require('axios');
 const http = require('http');
 const crypto = require('crypto');
 const net = require('net');
+const readline = require('readline');
 const { WebSocketServer, WebSocket } = require('ws');
 require('dotenv').config();
 
@@ -215,29 +216,46 @@ const isSafeSql = (sql) => {
 
 // C 소켓 서버 연결
 const connectSocketServer = () => {
-
+  
   try {
     socket = net.createConnection(SOCKET_SERVER_PORT, SOCKET_SERVER_HOST, () => {
       socket.write("ID:W\n");
     });
 
-    socket.on("data", (chunk) => {
-      const text = chunk.toString("utf-8");
+    const rl = readline.createInterface({ input: socket });
 
-      if (text.startsWith("OK"))
+    rl.on("line", (data) => {
+      if (!connected)
       {
-        connected = true;
-        console.log("[CONNECTED] 소켓서버 연결 완료.");
+        if (data === "OK")
+        {
+          connected = true;
+          console.log("[CONNECTED] 소켓서버 연결 완료.");
+        }
+        else
+        {
+          connected = false;
+          console.error("[FAILED] 소켓서버 연결 실패.");
+        }
       }
       else
       {
-        connected = false;
-        console.error("[FAILED] 소켓서버 연결 실패.");
+        if (data.startsWith("PAYID:"))  // 결제 요청
+        {
+          const paymentId = data.slice("PAYID:".length);
+          console.log(`[RECEIVED] 결제 요청 ID: ${paymentId}`);
+          const paymentInfo = getPaymentInfo(parseInt(paymentId));
+          requestPayment(paymentInfo);
+        }
       }
     });
+
+
+    return 1;
+
   } catch (error) {
     console.error("연결 오류: ", error.message);
-    return;
+    return 0;
   }
   
 };
@@ -299,7 +317,7 @@ const requestPayment = async (paymentInfo) => {
 
     return {
       ok: true,
-      orderId,
+      orderId: paymentInfo.orderId,
       data: paymentRes.data
     };
   } catch (err) {
@@ -308,7 +326,7 @@ const requestPayment = async (paymentInfo) => {
       const status = err.response.status;
       return {
         ok: false,
-        orderId,
+        orderId: paymentInfo.orderId,
         unknown: status >= 500,
         status,
         error: err.response.data,
@@ -683,7 +701,11 @@ server.listen(SERVER_PORT, '0.0.0.0', () => {
   console.log(`서버(API / 웹소켓) 실행 중: http://0.0.0.0:${SERVER_PORT}`);
   console.log(`  - REST: /api/parked-status, /api/entry-exit-records, /api/llm-query, /api/login`);
   console.log(`  - WebSocket: ws://0.0.0.0:${SERVER_PORT}/ws`);
-  connectSocketServer();
+  let status = connectSocketServer();
+  while (!status)
+  {
+
+  }
 });
 
 //app.listen(PORT, '0.0.0.0', () => {
