@@ -38,6 +38,7 @@
 #define GATE_CLOSE 'C'
 
 #define PAYMENT_REQ_QUEUE_SIZE 8
+#define PAYMENT_ID_SIZE 12
 
 
 // 클라이언트 구분값
@@ -71,7 +72,7 @@ static int motor_cmd_q_count = 0;                         // 큐 데이터 수
 
 
 static int g_payment_efd = -1;                     // 웹서버 통신 스레드를 깨울 eventfd 번호
-static int payment_req_q[PAYMENT_REQ_QUEUE_SIZE];  // 결제 요청 id 저장 큐
+static char payment_req_q[PAYMENT_REQ_QUEUE_SIZE][PAYMENT_ID_SIZE];  // 결제 요청 id 저장 큐
 static int payment_req_q_front = 0;                // 큐 헤드
 static int payment_req_q_rear = 0;                 // 큐 꼬리
 static int payment_req_q_count = 0;                // 큐 데이터 수
@@ -88,7 +89,7 @@ int parse_plate_data(const char* buf, char* gate, char* action, char** plate);  
 void send_ok(int fd);                           // 핸드셰이크 담당 함수
 void *handle_client(void *arg);                 // 스레드 진입 함수
 int send_motor_control(motor_cmd_t* cmd_q, int size, int fd);     // 모터 명령어 송신 함수
-int send_payment_id(int* req_q, int size, int fd);                // 결제 id 송신 함수
+int send_payment_id(char req_q[][PAYMENT_ID_SIZE], int size, int fd);                // 결제 id 송신 함수
 
 void sensor_data_thread(client_info *info);     // 스레드 실행 함수 1. 초음파 센서 데이터 수신 
 void plate_number_thread(client_info *info);    // 스레드 실행 함수 2. 번호판 데이터 수신
@@ -96,7 +97,7 @@ void motor_control_thread(client_info *info);   // 스레드 실행 함수 3. �
 void web_server_thread(client_info* info);      // 스레드 실행 함수 4. 웹서버 통신
 
 int push_motor_command(char gate, char action); // 모터 명령어 큐에 명령어 삽입 + 연결 관리
-int push_payment_request(int id);                    // 결제 요청 큐에 id 삽입
+int push_payment_request(const char* id);                    // 결제 요청 큐에 id 삽입
 
 
 int mysql_insert_parked_status(MYSQL* conn, int* status, const char* table);    // 주차 현황 insert 함수
@@ -236,10 +237,18 @@ void send_ok(int fd)
 int parse_plate_data(const char* buf, char* gate, char* action, char** plate)
 {
     // 유효한 게이트인지 점검
-    if (buf[0] != 'E' && buf[0] != 'X') return 0;
+    if (buf[0] != GATE_ENTRY && buf[0] != GATE_EXIT)
+    {
+        printf("[ERROR] 유효한 게이트 형식이 아님.\n");
+        return 0;
+    }
 
     // 유효한 명령인지 점검
-    if (buf[2] != 'O' && buf[2] != 'C') return 0;
+    if (buf[2] != GATE_OPEN && buf[2] != GATE_CLOSE)
+    {
+        printf("[ERROR] 유효한 명령이 아님.\n");
+        return 0;
+    }
 
     // 번호판 텍스트가 최소 존재하는지 점검
     if (buf[4] == '\0') return 0;
@@ -462,14 +471,16 @@ int mysql_handle_records(MYSQL* conn, MYSQL_RES* res_ptr, MYSQL_ROW sql_row, cha
             // id를 잘 가져왔다면,
             if (!res && (unsigned long)mysql_num_rows(res_ptr) == 1)
             {
-                char* id = NULL;
+                char id[PAYMENT_ID_SIZE];
                 
 
                 if (res_ptr)
                 {
                     sql_row = mysql_fetch_row(res_ptr);
+                    strncpy(id, sql_row[0], PAYMENT_ID_SIZE - 1);
+                    id[PAYMENT_ID_SIZE - 1] = '\0';
 
-                    id = sql_row[0];
+                    //id = sql_row[0];
                 }
 
                 printf("추출된 id: %s", id);
@@ -487,7 +498,7 @@ int mysql_handle_records(MYSQL* conn, MYSQL_RES* res_ptr, MYSQL_ROW sql_row, cha
                 if (!response)
                 {
                     mysql_free_result(res_ptr);
-                    int n = push_payment_request(atoi(id));
+                    int n = push_payment_request(id);
                     return 0;
                 }
             }
@@ -644,42 +655,123 @@ void web_server_thread(client_info* info)
     pthread_mutex_unlock(&g_payment_lock);
     // 뮤텍스 독점 종료
 
-    
+    //pollfd 구조체 배열로 수신/송신 동시 처리(0 - 수신 | 1 - 송신)
+    while (1)
+    {
+        struct pollfd fds[2];
 
-    while (1) {
-        read_status = read_line(info->client_fd, buffer, BUFFER_SIZE);
+        // 1. 수신 소켓
+        fds[0].fd = fd;         // 수신 소켓 fd
+        fds[0].events = POLLIN;
+        fds[0].revents = 0;
 
-        if (read_status)
+        // 2. 명령 요청 신호(eventfd)
+        fds[1].fd = efd;        // eventfd
+        fds[1].events = POLLIN;
+        fds[1].revents = 0;
+
+        // 둘 중 하나라도 일이 생기지 않으면 잠든 상태
+        // poll(배열, 개수, 제한시간): 제한시간 == -1 이면 무한 대기
+        //  - 모터 소켓: 읽을 데이터가 옴 / 연결 끊김 / 오류
+        //  - eventfd: 커널 내부 카운터가 0보다 커짐 == 번호판 스레드가 write로 신호를 보냄
+        //  - 반환값: 일이 생긴 fd 개수(양수), 오류 == -1
+        if (poll(fds, 2, -1) < 0)
         {
-            printf("[수신] -> %s\n", buffer);
+            if (errno == EINTR) continue;
+            break;
+        }
 
-            token = strtok_r(buffer, DELIM, &next_token);
-            while (token != NULL)
+        // 수신 데이터가 있다면
+        if (fds[0].revents & (POLLIN | POLLHUP | POLLERR))
+        {
+            read_status = read_line(info->client_fd, buffer, BUFFER_SIZE);
+
+            if (read_status)
             {
-                car_info[idx] = token;
-                idx++;
-                token = strtok_r(NULL, DELIM, &next_token);
+                printf("[수신] -> %s\n", buffer);
+
+                token = strtok_r(buffer, DELIM, &next_token);
+                while (token != NULL)
+                {
+                    car_info[idx] = token;
+                    idx++;
+                    token = strtok_r(NULL, DELIM, &next_token);
+                }
+
+
+                response = mysql_insert_car_info(conn, car_info, MYSQL_TABLE_car_info);
+
+                if (!response) printf("INSERTED %lu ROWS\n", (unsigned long)mysql_affected_rows(conn));
+                else fprintf(stderr, "insert error %s[%d]\n", mysql_error(conn), mysql_errno(conn));
+
+            }
+            else if (read_status == 0)
+            {
+                printf("[-] (fd=%d) Disconnect sensor client.\n", info->client_fd);
+                break;
+            }
+            else
+            {
+                perror("[FAIL] Cannot read data.");
+                break;
+            }
+            
+        }
+
+
+        // 큐에 결제 id가 채워졌다면
+        if (fds[1].revents & POLLIN)
+        {
+            // eventfd의 카운터를 읽고 0으로 되돌리기(read 하면 자동으로 0이 됨)
+            uint64_t counter;
+
+            // eventfd는 항상 8바이트 단위로 읽으므로 8바이트가 아니면 비정상 종료
+            if (read(efd, &counter, sizeof(counter)) != (ssize_t)sizeof(counter)) break;
+
+
+            // 실제 큐의 명령을 지역 변수 큐로 복사
+            char batch[PAYMENT_REQ_QUEUE_SIZE][PAYMENT_ID_SIZE];
+            int size = 0;  // 명령 개수
+
+            pthread_mutex_lock(&g_payment_lock);
+
+            while (payment_req_q_count > 0)   // 메인 큐가 공백일 때까지
+            {
+                strcpy(batch[size++], payment_req_q[payment_req_q_front]);
+                //batch[size++] = payment_req_q[payment_req_q_front];                             // 헤드 위치의 명령 복사
+                payment_req_q_front = (payment_req_q_front + 1) % PAYMENT_REQ_QUEUE_SIZE;  // 헤드 이동
+                payment_req_q_count--;                                                     // 개수 감소
             }
 
+            pthread_mutex_unlock(&g_payment_lock);
 
-            response = mysql_insert_car_info(conn, car_info, MYSQL_TABLE_car_info);
 
-            if (!response) printf("INSERTED %lu ROWS\n", (unsigned long)mysql_affected_rows(conn));
-            else fprintf(stderr, "insert error %s[%d]\n", mysql_error(conn), mysql_errno(conn));
+            if (!send_payment_id(batch, size, fd))
+            {
+                printf("[SEND ID] ID 전송 실패.\n");
+                break;
+            }
+        }
 
-        }
-        else if (read_status == 0)
-        {
-            printf("[-] (fd=%d) Disconnect sensor client.\n", info->client_fd);
-            break;
-        }
-        else
-        {
-            perror("[FAIL] Cannot read data.");
-            break;
-        }
     }
+
+    // 5. 등록 해제 -> eventfd 닫기 (순서가 중요: 먼저 -1로 돌려놓고, 그 다음에 닫는다)
+    //    락을 잡고 해제하므로, 요청 중인 request_motor_command가 끝날 때까지 여기서 기다린다.
+    //    (== efd 검사: 이 연결이 끊기는 사이 ESP가 재접속해 새 연결이 이미 등록됐다면,
+    //     그 등록과 큐까지 지워 버리지 않기 위해서다)
+    pthread_mutex_lock(&g_payment_lock);
+    if (g_payment_efd == efd)
+    {
+        g_payment_efd = -1;
+        payment_req_q_front = payment_req_q_rear = payment_req_q_count = 0;      // 보내지 못한 명령은 버린다
+    }
+    pthread_mutex_unlock(&g_payment_lock);
+ 
+    close(efd);
     mysql_close(conn);
+    printf("[MOTOR] (fd=%d) 모터 클라이언트 종료\n", fd);
+    
+    
 }
 
 
@@ -821,6 +913,33 @@ void motor_control_thread(client_info *info)
 
 }
 
+int send_payment_id(char req_q[][PAYMENT_ID_SIZE], int size, int fd)
+{
+    char packet[PAYMENT_ID_SIZE] = {0};
+
+    for (int i = 0; i < size; i++)
+    {
+        memset(packet, 0, PAYMENT_ID_SIZE);
+        int len = snprintf(
+            packet,
+            sizeof(packet),
+            "%s\n",
+            req_q[i]
+        );
+
+        if (send(fd, packet, (size_t) len, MSG_NOSIGNAL) != (ssize_t)len)
+        {
+            printf("[ID] 전송 실패.\n");
+            return 0;
+        }
+
+        printf("[MOTOR] (fd=%d) 전송: %s\n", fd, packet);
+
+        
+    }
+    return 1;
+}
+
 int send_motor_control(motor_cmd_t* cmd_q, int size, int fd)
 {
     char packet[8];
@@ -843,16 +962,16 @@ int send_motor_control(motor_cmd_t* cmd_q, int size, int fd)
     return 1;
 }
 
-int push_payment_request(int id)
+int push_payment_request(const char* id)
 {
     uint64_t one = 1;
     int ok = 0;
 
     pthread_mutex_lock(&g_payment_lock);
 
-    if (g_paymend_efd >= 0 && payment_req_q_count < PAYMENT_REQ_QUEUE_SIZE)
+    if (g_payment_efd >= 0 && payment_req_q_count < PAYMENT_REQ_QUEUE_SIZE)
     {
-        payment_req_q[payment_req_q_rear] = id;
+        strcpy(payment_req_q[payment_req_q_rear], id);
         payment_req_q_rear = (payment_req_q_rear + 1) % PAYMENT_REQ_QUEUE_SIZE;
         payment_req_q_count++;
 
