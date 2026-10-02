@@ -88,6 +88,7 @@ int parse_plate_data(const char* buf, char* gate, char* action, char** plate);  
 void send_ok(int fd);                           // 핸드셰이크 담당 함수
 void *handle_client(void *arg);                 // 스레드 진입 함수
 int send_motor_control(motor_cmd_t* cmd_q, int size, int fd);     // 모터 명령어 송신 함수
+int send_payment_id(int* req_q, int size, int fd);                // 결제 id 송신 함수
 
 void sensor_data_thread(client_info *info);     // 스레드 실행 함수 1. 초음파 센서 데이터 수신 
 void plate_number_thread(client_info *info);    // 스레드 실행 함수 2. 번호판 데이터 수신
@@ -95,7 +96,7 @@ void motor_control_thread(client_info *info);   // 스레드 실행 함수 3. �
 void web_server_thread(client_info* info);      // 스레드 실행 함수 4. 웹서버 통신
 
 int push_motor_command(char gate, char action); // 모터 명령어 큐에 명령어 삽입 + 연결 관리
-int push_payment_id(int id);                    // 결제 요청 큐에 id 삽입
+int push_payment_request(int id);                    // 결제 요청 큐에 id 삽입
 
 
 int mysql_insert_parked_status(MYSQL* conn, int* status, const char* table);    // 주차 현황 insert 함수
@@ -486,6 +487,7 @@ int mysql_handle_records(MYSQL* conn, MYSQL_RES* res_ptr, MYSQL_ROW sql_row, cha
                 if (!response)
                 {
                     mysql_free_result(res_ptr);
+                    int n = push_payment_request(atoi(id));
                     return 0;
                 }
             }
@@ -506,6 +508,8 @@ int mysql_handle_records(MYSQL* conn, MYSQL_RES* res_ptr, MYSQL_ROW sql_row, cha
 
     return (mysql_query(conn, query_buffer));
 }
+
+
 
 
 void plate_number_thread(client_info *info)
@@ -620,6 +624,25 @@ void web_server_thread(client_info* info)
     printf("MySQL Connected!\n\n");
     
     send_ok(info->client_fd);
+
+
+    int fd = info->client_fd;
+    int efd = eventfd(0, 0);
+
+    if (efd < 0)
+    {
+        perror("eventfd");
+        return;
+    }
+
+    // 뮤텍스 독점 시작
+    pthread_mutex_lock(&g_payment_lock);
+
+    g_payment_efd = efd;  // 현재 스레드의 fd 번호를 등록
+    payment_req_q_front = payment_req_q_rear = payment_req_q_count = 0;   // 명령어 큐 초기화
+
+    pthread_mutex_unlock(&g_payment_lock);
+    // 뮤텍스 독점 종료
 
     
 
@@ -818,6 +841,30 @@ int send_motor_control(motor_cmd_t* cmd_q, int size, int fd)
         printf("[MOTOR] (fd=%d) 전송: %c%s%c\n", fd, cmd_q[i].gate, DELIM, cmd_q[i].action);
     }
     return 1;
+}
+
+int push_payment_request(int id)
+{
+    uint64_t one = 1;
+    int ok = 0;
+
+    pthread_mutex_lock(&g_payment_lock);
+
+    if (g_paymend_efd >= 0 && payment_req_q_count < PAYMENT_REQ_QUEUE_SIZE)
+    {
+        payment_req_q[payment_req_q_rear] = id;
+        payment_req_q_rear = (payment_req_q_rear + 1) % PAYMENT_REQ_QUEUE_SIZE;
+        payment_req_q_count++;
+
+        if (write(g_payment_efd, &one, sizeof(one)) < 0)
+        {
+            perror("push_payment_request: eventfd write failed");
+        }
+        ok = 1;
+    }
+    pthread_mutex_unlock(&g_payment_lock);
+
+    return ok;
 }
 
 
