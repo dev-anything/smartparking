@@ -221,7 +221,7 @@ const connectSocketServer = () => {
       socket.write("ID:W\n");
     });
 
-    socket.once("data", (chunk) => {
+    socket.on("data", (chunk) => {
       const text = chunk.toString("utf-8");
 
       if (text.startsWith("OK"))
@@ -242,6 +242,94 @@ const connectSocketServer = () => {
   
 };
 
+const getPaymentInfo = async (id) => {
+  const sql = `
+    SELECT
+    TIMESTAMPDIFF(SECOND, r.entry_time, r.exit_time) AS stay_time,
+    c.billing_key,
+    c.customer_key,
+    c.plate_number
+    FROM records r
+    JOIN car_info c ON r.car_number = c.car_number
+    WHERE r.id = ${id};
+  `;
+
+  try {
+    [row, fields] = await pool.query(sql);
+  } catch (err) {
+    return { error: `쿼리 실행 오류: ${ err.message }`};
+  }
+
+  const result = row[0];
+
+  const paymentInfo = {
+    "amount": result.stay_time * 100, // 초당 100원
+    "billing_key": result.billing_key,
+    "customer_key": result.customer_key,
+    "orderId": crypto.randomUUID(),
+    "orderName": `${result.plate_number}-주차요금`,
+  };
+
+
+  return paymentInfo;
+}
+
+// 토스 서버에 결제 요청
+const requestPayment = async (paymentInfo) => {
+  // 시크릿 키 인코딩
+  const encodedSecretKey = Buffer.from(process.env.TOSS_SECRET_KEY + ':').toString("base64");
+  
+  try {
+    const paymentRes = await axios.post(
+      `${process.env.TOSS_REQUEST_PAYMENT_URL}/${paymentInfo.billing_key}`,
+      {
+        customerKey: paymentInfo.customer_key,
+        amount: paymentInfo.amount,
+        orderId: paymentInfo.orderId,
+        orderName: paymentInfo.orderName
+      },
+      {
+        headers: {
+          Authorization: `Basic ${encodedSecretKey}`,
+          "Content-Type": "application/json",
+        },
+        timeout: 60000    // 60초 타임아웃
+      }
+    );
+
+    return {
+      ok: true,
+      orderId,
+      data: paymentRes.data
+    };
+  } catch (err) {
+    if (err.response)
+    {
+      const status = err.response.status;
+      return {
+        ok: false,
+        orderId,
+        unknown: status >= 500,
+        status,
+        error: err.response.data,
+      };
+    }
+  }
+
+
+  return {
+    ok: false,
+    orderId,
+    unknown: true,
+    error: {
+      code: err.code,
+      message: err.message
+    },
+  };
+
+
+};
+
 // 소켓 서버로 데이터 보내기
 const sendData = (dataList) => {
   let buffer;
@@ -259,10 +347,7 @@ const sendData = (dataList) => {
 };
 
 
-// 토스 서버에 결제 요청
-const requestPayment = async () => {
 
-};
 
 // =========== API 엔드포인트 =============
 
