@@ -224,7 +224,7 @@ const connectSocketServer = () => {
 
     const rl = readline.createInterface({ input: socket });
 
-    rl.on("line", (data) => {
+    rl.on("line", async (data) => {
       if (!connected)
       {
         if (data === "OK")
@@ -244,8 +244,8 @@ const connectSocketServer = () => {
         {
           const paymentId = data.slice("PAYID:".length);
           console.log(`[RECEIVED] 결제 요청 ID: ${paymentId}`);
-          const paymentInfo = getPaymentInfo(parseInt(paymentId));
-          requestPayment(paymentInfo);
+          const paymentInfo = await getPaymentInfo(parseInt(paymentId));
+          await requestPayment(paymentInfo);
         }
       }
     });
@@ -266,15 +266,18 @@ const getPaymentInfo = async (id) => {
     TIMESTAMPDIFF(SECOND, r.entry_time, r.exit_time) AS stay_time,
     c.billing_key,
     c.customer_key,
-    c.plate_number
+    c.car_number
     FROM records r
     JOIN car_info c ON r.car_number = c.car_number
     WHERE r.id = ${id};
   `;
 
+  console.log("[LOG] 결제 정보 조회 시도.");
+
   try {
     [row, fields] = await pool.query(sql);
   } catch (err) {
+    console.log(`[ERROR] 쿼리 오류: ${err.message}`);
     return { error: `쿼리 실행 오류: ${ err.message }`};
   }
 
@@ -288,15 +291,18 @@ const getPaymentInfo = async (id) => {
     "orderName": `${result.plate_number}-주차요금`,
   };
 
-
+  console.log("[LOG] 결제 정보 발급 완료.");
+  
   return paymentInfo;
 }
 
 // 토스 서버에 결제 요청
 const requestPayment = async (paymentInfo) => {
+  
   // 시크릿 키 인코딩
   const encodedSecretKey = Buffer.from(process.env.TOSS_SECRET_KEY + ':').toString("base64");
-  
+  console.log(paymentInfo);
+  console.log("[LOG] 모의결제 시도.");
   try {
     const paymentRes = await axios.post(
       `${process.env.TOSS_REQUEST_PAYMENT_URL}/${paymentInfo.billing_key}`,
@@ -314,15 +320,17 @@ const requestPayment = async (paymentInfo) => {
         timeout: 60000    // 60초 타임아웃
       }
     );
-
+    console.log("[LOG] 결제 완료.");
     return {
       ok: true,
       orderId: paymentInfo.orderId,
       data: paymentRes.data
     };
   } catch (err) {
+    console.log("[ERROR] 결제 중 오류 발생.");
     if (err.response)
     {
+      console.log(err.response.data);
       const status = err.response.status;
       return {
         ok: false,
