@@ -15,9 +15,11 @@ const pool = mysql.createPool({
 
 const selectParkedStatus = async () => {
   const [rows] = await pool.query(
-    `SELECT * FROM parked_status ` +
-    `ORDER BY record_time DESC ` +
-    `LIMIT 1;`
+    `
+      SELECT * FROM parked_status
+      ORDER BY record_time DESC
+      LIMIT 1
+    `
   );
 
   return rows;
@@ -25,8 +27,23 @@ const selectParkedStatus = async () => {
 
 const selectEntryExitRecords = async () => {
   const [rows] = await pool.query(
-    `SELECT * FROM records ` +
-    `ORDER BY id DESC;`
+    `
+      SELECT * FROM records
+      ORDER BY id DESC
+    `
+  );
+
+  return rows;
+};
+
+const selectAccount = async (account) => {
+  const [rows] = await pool.query(
+    `
+      SELECT * FROM users
+      WHERE id=? AND password=?
+      COLLATE utf8mb4_bin
+    `,
+    [account.id, account.password]
   );
 
   return rows;
@@ -35,4 +52,5 @@ const selectEntryExitRecords = async () => {
 module.exports = {
   selectParkedStatus,
   selectEntryExitRecords,
+  selectAccount,
 };

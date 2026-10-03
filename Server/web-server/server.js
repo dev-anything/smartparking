@@ -32,7 +32,8 @@ const {
 
 const { 
   selectParkedStatus,
-  selectEntryExitRecords
+  selectEntryExitRecords,
+  selectAccount,
 } = require('./db');
 
 
@@ -463,7 +464,7 @@ app.post("/api/llm-query", async (req, res) => {
 app.post("/api/login", async (req, res) => {
   const { id, password } = req.body;
 
-  if (!id || !password)
+  if (!id || !password || typeof id !== "string" || typeof password !== "string")
   {
     return res.status(400).json({
       success: false,
@@ -471,29 +472,43 @@ app.post("/api/login", async (req, res) => {
     });
   }
 
+  const account = {
+    id: id,
+    password: password
+  };
 
   try {
-    const [rows] = await pool.query(
-      "SELECT * FROM users WHERE id=? AND password=?",
-      [id, password]
-    );
+    const user = await selectAccount(account);
 
-    if (rows.length > 0)
+    // 중복 계정 등 오류
+    if (user.length > 1)
     {
-      return res.status(200).json({ success: true });
-    }
-    else
-    {
-      return res.status(401).json({
+      console.error(`[ERROR] 중복 계정 발견: ${id}`);
+      return res.status(500).json({
         success: false,
-        message: "아이디 또는 비밀번호가 일치하지 않습니다."
+        message: "서버 오류. 잠시 후 다시 시도해주세요."
       });
     }
+    // 없는 계정 등 오류
+    else if (user.length < 1)
+    {
+      console.error(`[ERROR] 해당 계정 없음: ${id}`);
+      return res.status(401).json({
+        success: false,
+        message: "아이디 또는 비밀번호가 올바르지 않습니다."
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "로그인 성공."
+    });
+
   } catch (err) {
-    console.error("로그인 처리 오류", err.message);
+    console.error(`[ERROR] 로그인 처리 실패: ${err.message}`);
     return res.status(500).json({
       success: false,
-      error: err.message
+      message: "서버 오류. 잠시 후 다시 시도해주세요."
     });
   }
 });
