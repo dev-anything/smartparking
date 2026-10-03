@@ -5,7 +5,7 @@ const fetch = require('node-fetch');
 const axios = require('axios');
 const http = require('http');
 const crypto = require('crypto');
-const CryptoJS = require('crypto-js');
+
 const net = require('net');
 const readline = require('readline');
 const { WebSocketServer, WebSocket } = require('ws');
@@ -26,9 +26,14 @@ const {
 } = require("./constants");
 
 const {
-  encrypt,
-  decrypt,
+  billingKeyEncrypt,
+  billingKeyDecrypt,
 } = require("./billingCrypto");
+
+const { 
+  selectParkedStatus,
+  selectEntryExitRecords
+} = require('./db');
 
 
 const app = express();
@@ -77,7 +82,7 @@ const callLLM = async (systemMsg, userPrompt) => {
   };
   console.log("POST 요청 headers, body 완성. LLM 요청 시작.");
   console.log(body);
-  let res;
+  let res; 
 
   try {
     res = await fetch(LLM_API_URL, {
@@ -282,7 +287,7 @@ const requestPayment = async (paymentInfo) => {
   // 시크릿 키 인코딩
   const encodedSecretKey = Buffer.from(process.env.TOSS_SECRET_KEY + ':').toString("base64");
   // 빌링키 복호화
-  paymentInfo.billing_key = decrypt(paymentInfo.billing_key, process.env.BILLING_ENC_KEY);
+  paymentInfo.billing_key = billingKeyDecrypt(paymentInfo.billing_key, process.env.BILLING_ENC_KEY);
 
 
   console.log(paymentInfo);
@@ -364,7 +369,7 @@ const sendData = (dataList) => {
 
 
 // 테스트 API
-app.get('/', (req, res) => {
+app.get('/api/test', (req, res) => {
   res.send('Hello from Jetson Express Server!');
 });
 
@@ -372,26 +377,24 @@ app.get('/', (req, res) => {
 // 주차 현황 조회 API
 app.get('/api/parked-status', async (req, res) => {
   console.log("주차 현황 조회 요청 들어옴.");
+  
   try {
-    const [rows] = await pool.query(
-      `SELECT * from parked_status ORDER BY record_time DESC LIMIT 1;`
-    );
-    res.json(rows);
+    res.json(await selectParkedStatus());
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(`[ERROR] 주차 현황 조회 실패: ${err.message}`);
+    res.status(500).json({ message: "조회 실패."});
   }
 });
 
 // 전체 입출입 기록 조회 API
 app.get('/api/entry-exit-records', async (req, res) => {
   console.log("전체 입출입 기록 조회 요청 들어옴.");
+
   try {
-    const [rows] = await pool.query(
-      `SELECT * from ${process.env.MYSQL_TABLE_records} ORDER BY id DESC;`
-    );
-    res.json(rows);
+    res.json(await selectEntryExitRecords());
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(`[ERROR] 입출입 기록 조회 실패: ${err.message}`);
+    res.status(500).json({ message: "조회 실패."});
   }
 });
 
@@ -557,7 +560,7 @@ app.post("/api/billing/issue", async (req, res) => {
     console.log(`[SUCCESS] 카드번호: ${cardNumber} / 카드회사: ${cardCompanyCode}`);
 
     // 빌링키 암호화
-    encryptedBillingKey = encrypt(billingKey, process.env.BILLING_ENC_KEY);
+    encryptedBillingKey = billingKeyEncrypt(billingKey, process.env.BILLING_ENC_KEY);
 
     // DB 저장 구현
     const dataList = [

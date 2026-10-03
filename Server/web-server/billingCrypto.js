@@ -1,12 +1,16 @@
+const CryptoJS = require('crypto-js');
+
+require('dotenv').config();
+
 // 빌링키 암호화
-const encrypt = (data, key) => {
-  return CryptoJS.AES.encrypt(JSON.stringify(data), key).toString();
+const billingKeyEncrypt = (data) => {
+  return CryptoJS.AES.encrypt(JSON.stringify(data), process.env.BILLING_ENC_KEY).toString();
 };
 
 // 빌링키 복호화
-const decrypt = (data, key) => {
+const billingKeyDecrypt = (data) => {
   try {
-    const bytes = CryptoJS.AES.decrypt(data, key);
+    const bytes = CryptoJS.AES.decrypt(data, process.env.BILLING_ENC_KEY);
     return JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
   } catch (err) {
     console.error(err);
@@ -15,6 +19,6 @@ const decrypt = (data, key) => {
 };
 
 module.exports = {
-  encrypt,
-  decrypt
+  billingKeyEncrypt,
+  billingKeyDecrypt
 };
