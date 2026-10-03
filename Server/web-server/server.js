@@ -1,4 +1,3 @@
-require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const mysql = require('mysql2/promise');
@@ -11,7 +10,26 @@ const net = require('net');
 const readline = require('readline');
 const { WebSocketServer, WebSocket } = require('ws');
 
-const { RULE, SCHEMA, FEWSHOT_EXAMPLES, FORBIDDEN } = require("./constants");
+require('dotenv').config();
+
+const { 
+  LLM_API_URL,
+  RULE,
+  SCHEMA,
+  FEWSHOT_EXAMPLES,
+  FORBIDDEN,
+  SOCKET_SERVER_HOST,
+  SOCKET_SERVER_PORT,
+  SERVER_PORT,
+  PARKED_STATUS_POLL_MS,
+  RECORDS_POLL_MS,
+} = require("./constants");
+
+const {
+  encrypt,
+  decrypt,
+} = require("./billingCrypto");
+
 
 const app = express();
 app.use(express.json());
@@ -21,13 +39,7 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws' });
 
 
-const SERVER_PORT = 10001;
-const LLM_API_URL = "http://localhost:10002/v1/chat/completions";
-const PARKED_STATUS_POLL_MS = 1000;
-const RECORDS_POLL_MS = 3000;
 
-const SOCKET_SERVER_HOST = "127.0.0.1";
-const SOCKET_SERVER_PORT = 10000;
 let socket = null;
 let connected = false;
 
@@ -225,21 +237,6 @@ const connectSocketServer = () => {
 };
 
 
-// 빌링키 암호화
-const encrypt = (data, key) => {
-  return CryptoJS.AES.encrypt(JSON.stringify(data), key).toString();
-};
-
-// 빌링키 복호화
-const decrypt = (data, key) => {
-  try {
-    const bytes = CryptoJS.AES.decrypt(data, key);
-    return JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
-  } catch (err) {
-    console.error(err);
-    return null;
-  }
-};
 
 
 // 결제 정보 가져오기
