@@ -600,7 +600,7 @@ int mysql_insert_car_info(MYSQL* conn, const char** car_info, const char* table)
     sprintf(
         query_buffer,
         "INSERT INTO "
-        "%s (plate_number, billing_key, customer_key, card_number, bank_info, created_at, updated_at) "
+        "%s (car_number, billing_key, customer_key, card_number, bank_info, created_at, updated_at) "
         "VALUES ('%s', '%s', '%s', '%s', '%s', curtime(), curtime());",
         table,
         car_info[0],
