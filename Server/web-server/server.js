@@ -410,28 +410,36 @@ app.get('/api/entry-exit-records', async (req, res) => {
 // LLM 호출 요청 API
 app.post("/api/llm-query", async (req, res) => {
   console.log("요청 들어옴.");
-  const question = req.body?.question;
-
-  if (typeof question !== 'string' || question.trim() === '')
-  {
-    return res.status(400).json({ answer: "question 필드가 필요합니다." });
-  }
-
-  const sqlPrompt = `
-    스키마: ${SCHEMA}
-    위 스키마만 사용해서 MySQL SELECT 쿼리를 작성해.
-
-    규칙:
-    ${RULE}
-
-    예시 출력:
-    ${FEWSHOT_EXAMPLES}
-
-    질문: ${question}
-  `;
-
-
   try {
+    const question = req.body?.question;
+
+    if (typeof question !== 'string' || question.trim() === '')
+    {
+      return res.status(400).json({ answer: "question 필드가 필요합니다." });
+    }
+
+    //const sqlPrompt = `
+    //  스키마: ${SCHEMA}
+    //  위 스키마만 사용해서 MySQL SELECT 쿼리를 작성해.
+
+    //  규칙:
+    //  ${RULE}
+
+    //  예시 출력:
+    //  ${FEWSHOT_EXAMPLES}
+
+    //  질문: ${question}
+    //`;
+    const sqlPrompt = `
+      스키마: ${SCHEMA}
+      위 스키마만 사용해서 MySQL SELECT 쿼리를 작성해.
+
+      규칙:
+      ${RULE}
+
+
+      질문: ${question}
+    `;
     const rawSql = await callLLM(null, sqlPrompt);
     const stripRawSql = stripCodeFence(rawSql);
 
@@ -460,52 +468,18 @@ app.post("/api/llm-query", async (req, res) => {
 
     console.log(`=== 최종 답변 ===\n${answer ?? '(요약 실패)'}`);
 
-    return res.status(200).json(answer);
+    return res.status(200).json({
+      success: true,
+      message: answer
+    });
 
   } catch (err) {
     console.error(`[ERROR] LLM 호출 작업 오류: ${err.message}`);
+    return res.status(500).json({
+      success: false,
+      message: "LLM 작업을 완료하지 못했습니다."
+    });
   }
-
-  //let rawSql = await callLLM(null, prompt);
-
-  //if (!rawSql) return res.status(502).json({ answer: "LLM 서버에 연결할 수 없습니다." });
-
-  //// 백틱, 기타 문자열 제거
-  //rawSql = stripCodeFence(rawSql);
-
-  //if (!isSafeSql(rawSql))
-  //{
-  //  return res.status(400).json({
-  //    answer: "죄송합니다. 처리할 수 없는 요청입니다.",
-  //    rawSql,
-  //  });
-  //}
-
-
-  //const { text: resultText, error } = await runQuery(rawSql);
-
-  //if (error)
-  //{
-  //  return res.status(500).json({
-  //    answer: `쿼리 실행 중 오류가 발생했습니다: ${error}`,
-  //    rawSql,
-  //  });
-  //}
-
-  //console.log(`=== 쿼리 결과 ===\n${resultText}`)
-
-  //const summarizePrompt =
-  //  `사용자 질문: ${question}\n\n` +
-  //  `조회 결과:\n${resultText}\n\n` +
-  //  '위 데이터를 바탕으로 친절한 한국어 문장으로 답변해줘. ' +
-  //  '숫자나 값은 그대로 사용하고, 새로운 숫자나 정보를 만들어내지 마. ' +
-  //  '결과가 여러 개면 목록 형태로 자연스럽게 정리해줘.';
-
-  //const answer = await callLLM("너는 한국어로만 답변하는 친절한 AI 비서야.", summarizePrompt);
-
-  //console.log(`=== 최종 답변 ===\n${answer ?? '(요약 실패)'}`);
-
-  //return res.status(200).json(answer);
 });
 
 // 로그인 요청 API
@@ -694,9 +668,7 @@ let lastParkedStatudId = null;
 
 const pollParkedStatus = async () => {
   try {
-    const [rows] = await pool.query(
-      "SELECT * FROM parked_status ORDER BY record_time DESC LIMIT 1;"
-    );
+    const rows = await selectParkedStatus();
 
     if (rows.length === 0) return;
 
@@ -737,13 +709,11 @@ const pollRecords = async () => {
 
     if (lastRecordsUpdatedAt !== null && lastRecordsUpdatedAt !== current)
     {
-      const [records] = await pool.query(
-        `SELECT * FROM ${tableName} ORDER BY id DESC;`
-      );
+      const rows = await selectEntryExitRecords();
 
       broadcast({
         type: "entry_exit_records_updated",
-        data: records
+        data: rows
       });
     }
 
