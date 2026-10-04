@@ -1,4 +1,4 @@
-const { default: axios } = require('axios');
+const axios = require('axios');
 const crypto = require('crypto');
 
 // customer_key 발급 함수

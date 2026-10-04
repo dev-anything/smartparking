@@ -69,9 +69,28 @@ const selectLlmQuery = async (query) => {
   return { text: lines.join('\n') };
 };
 
+const selectPaymentInfo = async (id) => {
+  const [rows] = await pool.query(
+    `
+      SELECT
+      TIMESTAMPDIFF(SECOND, r.entry_time, r.exit_time) AS stay_time,
+      c.billing_key,
+      c.customer_key,
+      c.car_number
+      FROM records r
+      JOIN car_info c ON r.car_number = c.car_number
+      WHERE r.id=?
+    `,
+    [id]
+  );
+
+  return rows[0];
+};
+
 module.exports = {
   selectParkedStatus,
   selectEntryExitRecords,
   selectAccount,
   selectLlmQuery,
+  selectPaymentInfo,
 };

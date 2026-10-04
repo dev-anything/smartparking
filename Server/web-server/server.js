@@ -1,10 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const mysql = require('mysql2/promise');
-//const fetch = require('node-fetch');
-const axios = require('axios');
 const http = require('http');
-const crypto = require('crypto');
 
 const net = require('net');
 const readline = require('readline');
@@ -12,8 +9,7 @@ const { WebSocketServer, WebSocket } = require('ws');
 
 require('dotenv').config();
 
-const { 
-  LLM_API_URL,
+const {
   RULE,
   SCHEMA,
   FEWSHOT_EXAMPLES,
@@ -27,7 +23,6 @@ const {
 
 const {
   billingKeyEncrypt,
-  billingKeyDecrypt,
 } = require("./billingCrypto");
 
 const { 
@@ -42,7 +37,15 @@ const {
   stripCodeFence,
   isSafeSql,
 } = require("./llm");
-const { issueCustomerKey, issueBillingKey } = require('./toss');
+
+const {
+  issueCustomerKey,
+  issueBillingKey
+} = require('./toss');
+const {
+  sendPaymentInfo,
+  connectSocketServer,
+} = require('./socketClient');
 
 
 const app = express();
@@ -77,171 +80,171 @@ const pool = mysql.createPool({
 
 
 
-// C 소켓 서버 연결
-const connectSocketServer = () => {
+//// C 소켓 서버 연결
+//const connectSocketServer = () => {
   
-  try {
-    socket = net.createConnection(SOCKET_SERVER_PORT, SOCKET_SERVER_HOST, () => {
-      socket.write("ID:W\n");
-    });
+//  try {
+//    socket = net.createConnection(SOCKET_SERVER_PORT, SOCKET_SERVER_HOST, () => {
+//      socket.write("ID:W\n");
+//    });
 
-    const rl = readline.createInterface({ input: socket });
+//    const rl = readline.createInterface({ input: socket });
 
-    rl.on("line", async (data) => {
-      if (!connected)
-      {
-        if (data === "OK")
-        {
-          connected = true;
-          console.log("[CONNECTED] 소켓서버 연결 완료.");
-        }
-        else
-        {
-          connected = false;
-          console.error("[FAILED] 소켓서버 연결 실패.");
-        }
-      }
-      else
-      {
-        if (data.startsWith("PAYID:"))  // 결제 요청
-        {
-          const paymentId = data.slice("PAYID:".length);
-          console.log(`[RECEIVED] 결제 요청 ID: ${paymentId}`);
-          const paymentInfo = await getPaymentInfo(parseInt(paymentId));
-          await requestPayment(paymentInfo);
-        }
-      }
-    });
+//    rl.on("line", async (data) => {
+//      if (!connected)
+//      {
+//        if (data === "OK")
+//        {
+//          connected = true;
+//          console.log("[CONNECTED] 소켓서버 연결 완료.");
+//        }
+//        else
+//        {
+//          connected = false;
+//          console.error("[FAILED] 소켓서버 연결 실패.");
+//        }
+//      }
+//      else
+//      {
+//        if (data.startsWith("PAYID:"))  // 결제 요청
+//        {
+//          const paymentId = data.slice("PAYID:".length);
+//          console.log(`[RECEIVED] 결제 요청 ID: ${paymentId}`);
+//          const paymentInfo = await getPaymentInfo(parseInt(paymentId));
+//          await requestPayment(paymentInfo);
+//        }
+//      }
+//    });
 
 
-    return 1;
+//    return 1;
 
-  } catch (error) {
-    console.error("연결 오류: ", error.message);
-    return 0;
-  }
+//  } catch (error) {
+//    console.error("연결 오류: ", error.message);
+//    return 0;
+//  }
   
-};
+//};
 
 
 
 
 // 결제 정보 가져오기
-const getPaymentInfo = async (id) => {
-  const sql = `
-    SELECT
-    TIMESTAMPDIFF(SECOND, r.entry_time, r.exit_time) AS stay_time,
-    c.billing_key,
-    c.customer_key,
-    c.car_number
-    FROM records r
-    JOIN car_info c ON r.car_number = c.car_number
-    WHERE r.id = ${id};
-  `;
+//const getPaymentInfo = async (id) => {
+//  const sql = `
+//    SELECT
+//    TIMESTAMPDIFF(SECOND, r.entry_time, r.exit_time) AS stay_time,
+//    c.billing_key,
+//    c.customer_key,
+//    c.car_number
+//    FROM records r
+//    JOIN car_info c ON r.car_number = c.car_number
+//    WHERE r.id = ${id};
+//  `;
 
-  console.log("[LOG] 결제 정보 조회 시도.");
+//  console.log("[LOG] 결제 정보 조회 시도.");
 
-  try {
-    [row, fields] = await pool.query(sql);
-  } catch (err) {
-    console.log(`[ERROR] 쿼리 오류: ${err.message}`);
-    return { error: `쿼리 실행 오류: ${ err.message }`};
-  }
+//  try {
+//    [row, fields] = await pool.query(sql);
+//  } catch (err) {
+//    console.log(`[ERROR] 쿼리 오류: ${err.message}`);
+//    return { error: `쿼리 실행 오류: ${ err.message }`};
+//  }
 
-  const result = row[0];
+//  const result = row[0];
 
-  const paymentInfo = {
-    "amount": result.stay_time * 100, // 초당 100원
-    "billing_key": result.billing_key,
-    "customer_key": result.customer_key,
-    "orderId": crypto.randomUUID(),
-    "orderName": `${result.plate_number}-주차요금`,
-  };
+//  const paymentInfo = {
+//    "amount": result.stay_time * 100, // 초당 100원
+//    "billing_key": result.billing_key,
+//    "customer_key": result.customer_key,
+//    "orderId": crypto.randomUUID(),
+//    "orderName": `${result.plate_number}-주차요금`,
+//  };
 
-  console.log("[LOG] 결제 정보 발급 완료.");
+//  console.log("[LOG] 결제 정보 발급 완료.");
   
-  return paymentInfo;
-}
+//  return paymentInfo;
+//}
 
-// 토스 서버에 결제 요청
-const requestPayment = async (paymentInfo) => {
+//// 토스 서버에 결제 요청
+//const requestPayment = async (paymentInfo) => {
   
-  // 시크릿 키 인코딩
-  const encodedSecretKey = Buffer.from(process.env.TOSS_SECRET_KEY + ':').toString("base64");
-  // 빌링키 복호화
-  paymentInfo.billing_key = billingKeyDecrypt(paymentInfo.billing_key, process.env.BILLING_ENC_KEY);
+//  // 시크릿 키 인코딩
+//  const encodedSecretKey = Buffer.from(process.env.TOSS_SECRET_KEY + ':').toString("base64");
+//  // 빌링키 복호화
+//  paymentInfo.billing_key = billingKeyDecrypt(paymentInfo.billing_key, process.env.BILLING_ENC_KEY);
 
 
-  console.log(paymentInfo);
-  console.log("[LOG] 모의결제 시도.");
-  try {
-    const paymentRes = await axios.post(
-      `https://api.tosspayments.com/v1/billing/${paymentInfo.billing_key}`,
-      {
-        customerKey: paymentInfo.customer_key,
-        amount: paymentInfo.amount,
-        orderId: paymentInfo.orderId,
-        orderName: paymentInfo.orderName
-      },
-      {
-        headers: {
-          Authorization: `Basic ${encodedSecretKey}`,
-          "Content-Type": "application/json",
-        },
-        timeout: 60000    // 60초 타임아웃
-      }
-    );
-    console.log("[LOG] 결제 완료.");
-    return {
-      ok: true,
-      orderId: paymentInfo.orderId,
-      data: paymentRes.data
-    };
-  } catch (err) {
-    console.log("[ERROR] 결제 중 오류 발생.");
-    if (err.response)
-    {
-      console.log(err.response.data);
-      const status = err.response.status;
-      return {
-        ok: false,
-        orderId: paymentInfo.orderId,
-        unknown: status >= 500,
-        status,
-        error: err.response.data,
-      };
-    }
-  }
+//  console.log(paymentInfo);
+//  console.log("[LOG] 모의결제 시도.");
+//  try {
+//    const paymentRes = await axios.post(
+//      `https://api.tosspayments.com/v1/billing/${paymentInfo.billing_key}`,
+//      {
+//        customerKey: paymentInfo.customer_key,
+//        amount: paymentInfo.amount,
+//        orderId: paymentInfo.orderId,
+//        orderName: paymentInfo.orderName
+//      },
+//      {
+//        headers: {
+//          Authorization: `Basic ${encodedSecretKey}`,
+//          "Content-Type": "application/json",
+//        },
+//        timeout: 60000    // 60초 타임아웃
+//      }
+//    );
+//    console.log("[LOG] 결제 완료.");
+//    return {
+//      ok: true,
+//      orderId: paymentInfo.orderId,
+//      data: paymentRes.data
+//    };
+//  } catch (err) {
+//    console.log("[ERROR] 결제 중 오류 발생.");
+//    if (err.response)
+//    {
+//      console.log(err.response.data);
+//      const status = err.response.status;
+//      return {
+//        ok: false,
+//        orderId: paymentInfo.orderId,
+//        unknown: status >= 500,
+//        status,
+//        error: err.response.data,
+//      };
+//    }
+//  }
 
 
-  return {
-    ok: false,
-    orderId,
-    unknown: true,
-    error: {
-      code: err.code,
-      message: err.message
-    },
-  };
+//  return {
+//    ok: false,
+//    orderId,
+//    unknown: true,
+//    error: {
+//      code: err.code,
+//      message: err.message
+//    },
+//  };
 
 
-};
+//};
 
-// 소켓 서버로 데이터 보내기
-const sendData = (dataList) => {
-  let buffer;
-  if (socket === null || connected === false)
-  {
-    console.log("연결 상태 불량.");
-    return;
-  }
+//// 소켓 서버로 데이터 보내기
+//const sendData = (dataList) => {
+//  let buffer;
+//  if (socket === null || connected === false)
+//  {
+//    console.log("연결 상태 불량.");
+//    return;
+//  }
 
-  buffer = dataList.join(':');
+//  buffer = dataList.join(':');
   
 
-  socket.write(`${buffer}\n`);
+//  socket.write(`${buffer}\n`);
 
-};
+//};
 
 
 
@@ -471,7 +474,7 @@ app.post("/api/billing/issue", async (req, res) => {
       cardCompanyCode       // 카드회사 코드
     ]
 
-    sendData(dataList);
+    sendPaymentInfo(dataList);
 
     // 프론트엔드에게 성공 메시지 보내기
     return res.status(200).json({
@@ -592,11 +595,7 @@ server.listen(SERVER_PORT, '0.0.0.0', () => {
   console.log(`서버(API / 웹소켓) 실행 중: http://0.0.0.0:${SERVER_PORT}`);
   console.log(`  - REST: /api/parked-status, /api/entry-exit-records, /api/llm-query, /api/login`);
   console.log(`  - WebSocket: ws://0.0.0.0:${SERVER_PORT}/ws`);
-  let status = connectSocketServer();
-  while (!status)
-  {
-
-  }
+  connectSocketServer();
 });
 
 //app.listen(PORT, '0.0.0.0', () => {
