@@ -50,16 +50,6 @@ const FEWSHOT_EXAMPLES = `
 const FORBIDDEN = ['DROP', 'DELETE', 'UPDATE', 'INSERT', 'ALTER', 'TRUNCATE', 'GRANT', 'EXEC', '--', '/*'];
 
 
-
-// ===== 2. C 소켓 서버
-
-// 01. 소켓서버 IP
-const SOCKET_SERVER_HOST = "127.0.0.1";
-// 02. 소켓서버 포트
-const SOCKET_SERVER_PORT = 10000;
-
-
-
 // ===== 3. 웹서버
 
 // 01. 웹서버 실행포트
@@ -78,8 +68,6 @@ module.exports = {
   SCHEMA,
   FEWSHOT_EXAMPLES,
   FORBIDDEN,
-  SOCKET_SERVER_HOST,
-  SOCKET_SERVER_PORT,
   SERVER_PORT,
   PARKED_STATUS_POLL_MS,
   RECORDS_POLL_MS,

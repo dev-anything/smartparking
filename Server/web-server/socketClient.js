@@ -1,11 +1,9 @@
 const net = require('net');
 const readline = require('readline');
-const { handlePayment } = require('./paymentService');
 
-const {
-  SOCKET_SERVER_PORT,
-  SOCKET_SERVER_HOST
-} = require("./constants");
+require('dotenv').config();
+
+const { handlePayment } = require('./paymentService');
 
 
 let socket = null;
@@ -15,11 +13,20 @@ let connected = false;
 const connectSocketServer = () => {
   
   try {
-    socket = net.createConnection(SOCKET_SERVER_PORT, SOCKET_SERVER_HOST, () => {
+    socket = net.createConnection(process.env.SOCKET_SERVER_PORT, process.env.SOCKET_SERVER_HOST, () => {
       socket.write("ID:W\n");
     });
 
     const rl = readline.createInterface({ input: socket });
+
+    socket.on("error", (err) => {
+      console.error(`[ERROR] 소켓 오류: ${err.code || err.message}`);
+    });
+
+    socket.on("timeout", () => {
+      console.error(`[ERROR] 소켓서버 Timeout.`);
+      socket.destroy();
+    });
 
     rl.on("line", async (data) => {
       if (!connected)
@@ -46,9 +53,13 @@ const connectSocketServer = () => {
       }
     });
 
+    rl.on("error", (err) => {
+      console.error(`[ERROR] Readline 오류: ${err.code || err.message}`);
+    });
 
-  } catch (error) {
-    console.error("연결 오류: ", error.message);
+
+  } catch (err) {
+    console.error(`[ERROR] 소켓서버 연결 오류: ${err.message}`);
   }
   
 };
