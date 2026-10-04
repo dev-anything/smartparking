@@ -2,9 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const mysql = require('mysql2/promise');
 const http = require('http');
-
-const net = require('net');
-const readline = require('readline');
 const { WebSocketServer, WebSocket } = require('ws');
 
 require('dotenv').config();
@@ -14,8 +11,6 @@ const {
   SCHEMA,
   FEWSHOT_EXAMPLES,
   FORBIDDEN,
-  SOCKET_SERVER_HOST,
-  SOCKET_SERVER_PORT,
   SERVER_PORT,
   PARKED_STATUS_POLL_MS,
   RECORDS_POLL_MS,
@@ -30,6 +25,7 @@ const {
   selectEntryExitRecords,
   selectAccount,
   selectLlmQuery,
+  selectRecordsUpdatedTime,
 } = require('./db');
 
 const {
@@ -57,16 +53,6 @@ const wss = new WebSocketServer({ server, path: '/ws' });
 
 
 
-let socket = null;
-let connected = false;
-
-
-// customerKey 임시 저장소
-const pendingKeys = new Map();
-// customerKey 유효시간
-const PENDING_TTL_MS = 3 * 60 * 1000;   // 3분
-
-
 const pool = mysql.createPool({
   host: process.env.MYSQL_HOST,
   port: process.env.MYSQL_SERVER_PORT,
@@ -77,174 +63,6 @@ const pool = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0
 });
-
-
-
-//// C 소켓 서버 연결
-//const connectSocketServer = () => {
-  
-//  try {
-//    socket = net.createConnection(SOCKET_SERVER_PORT, SOCKET_SERVER_HOST, () => {
-//      socket.write("ID:W\n");
-//    });
-
-//    const rl = readline.createInterface({ input: socket });
-
-//    rl.on("line", async (data) => {
-//      if (!connected)
-//      {
-//        if (data === "OK")
-//        {
-//          connected = true;
-//          console.log("[CONNECTED] 소켓서버 연결 완료.");
-//        }
-//        else
-//        {
-//          connected = false;
-//          console.error("[FAILED] 소켓서버 연결 실패.");
-//        }
-//      }
-//      else
-//      {
-//        if (data.startsWith("PAYID:"))  // 결제 요청
-//        {
-//          const paymentId = data.slice("PAYID:".length);
-//          console.log(`[RECEIVED] 결제 요청 ID: ${paymentId}`);
-//          const paymentInfo = await getPaymentInfo(parseInt(paymentId));
-//          await requestPayment(paymentInfo);
-//        }
-//      }
-//    });
-
-
-//    return 1;
-
-//  } catch (error) {
-//    console.error("연결 오류: ", error.message);
-//    return 0;
-//  }
-  
-//};
-
-
-
-
-// 결제 정보 가져오기
-//const getPaymentInfo = async (id) => {
-//  const sql = `
-//    SELECT
-//    TIMESTAMPDIFF(SECOND, r.entry_time, r.exit_time) AS stay_time,
-//    c.billing_key,
-//    c.customer_key,
-//    c.car_number
-//    FROM records r
-//    JOIN car_info c ON r.car_number = c.car_number
-//    WHERE r.id = ${id};
-//  `;
-
-//  console.log("[LOG] 결제 정보 조회 시도.");
-
-//  try {
-//    [row, fields] = await pool.query(sql);
-//  } catch (err) {
-//    console.log(`[ERROR] 쿼리 오류: ${err.message}`);
-//    return { error: `쿼리 실행 오류: ${ err.message }`};
-//  }
-
-//  const result = row[0];
-
-//  const paymentInfo = {
-//    "amount": result.stay_time * 100, // 초당 100원
-//    "billing_key": result.billing_key,
-//    "customer_key": result.customer_key,
-//    "orderId": crypto.randomUUID(),
-//    "orderName": `${result.plate_number}-주차요금`,
-//  };
-
-//  console.log("[LOG] 결제 정보 발급 완료.");
-  
-//  return paymentInfo;
-//}
-
-//// 토스 서버에 결제 요청
-//const requestPayment = async (paymentInfo) => {
-  
-//  // 시크릿 키 인코딩
-//  const encodedSecretKey = Buffer.from(process.env.TOSS_SECRET_KEY + ':').toString("base64");
-//  // 빌링키 복호화
-//  paymentInfo.billing_key = billingKeyDecrypt(paymentInfo.billing_key, process.env.BILLING_ENC_KEY);
-
-
-//  console.log(paymentInfo);
-//  console.log("[LOG] 모의결제 시도.");
-//  try {
-//    const paymentRes = await axios.post(
-//      `https://api.tosspayments.com/v1/billing/${paymentInfo.billing_key}`,
-//      {
-//        customerKey: paymentInfo.customer_key,
-//        amount: paymentInfo.amount,
-//        orderId: paymentInfo.orderId,
-//        orderName: paymentInfo.orderName
-//      },
-//      {
-//        headers: {
-//          Authorization: `Basic ${encodedSecretKey}`,
-//          "Content-Type": "application/json",
-//        },
-//        timeout: 60000    // 60초 타임아웃
-//      }
-//    );
-//    console.log("[LOG] 결제 완료.");
-//    return {
-//      ok: true,
-//      orderId: paymentInfo.orderId,
-//      data: paymentRes.data
-//    };
-//  } catch (err) {
-//    console.log("[ERROR] 결제 중 오류 발생.");
-//    if (err.response)
-//    {
-//      console.log(err.response.data);
-//      const status = err.response.status;
-//      return {
-//        ok: false,
-//        orderId: paymentInfo.orderId,
-//        unknown: status >= 500,
-//        status,
-//        error: err.response.data,
-//      };
-//    }
-//  }
-
-
-//  return {
-//    ok: false,
-//    orderId,
-//    unknown: true,
-//    error: {
-//      code: err.code,
-//      message: err.message
-//    },
-//  };
-
-
-//};
-
-//// 소켓 서버로 데이터 보내기
-//const sendData = (dataList) => {
-//  let buffer;
-//  if (socket === null || connected === false)
-//  {
-//    console.log("연결 상태 불량.");
-//    return;
-//  }
-
-//  buffer = dataList.join(':');
-  
-
-//  socket.write(`${buffer}\n`);
-
-//};
 
 
 
@@ -560,12 +378,7 @@ let lastRecordsUpdatedAt = null;
 
 const pollRecords = async () => {
   try {
-    const tableName = process.env.MYSQL_TABLE_records;
-
-    const [rows] = await pool.query(
-      `SELECT COALESCE(MAX(updated_at), '') AS lastUpdatedAt FROM ${tableName};`
-    );
-
+    const rows = await selectRecordsUpdatedTime();
     const current = rows[0].lastUpdatedAt;
 
 

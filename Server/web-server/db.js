@@ -38,6 +38,18 @@ const selectEntryExitRecords = async () => {
   return rows;
 };
 
+const selectRecordsUpdatedTime = async () => {
+  const [rows] = await pool.query(
+    `
+      SELECT COALESCE(MAX(updated_at), '')
+      AS lastUpdatedAt
+      FROM records
+    `
+  );
+
+  return rows;
+};
+
 const selectAccount = async (account) => {
   const [rows] = await pool.query(
     `
@@ -90,6 +102,7 @@ const selectPaymentInfo = async (id) => {
 module.exports = {
   selectParkedStatus,
   selectEntryExitRecords,
+  selectRecordsUpdatedTime,
   selectAccount,
   selectLlmQuery,
   selectPaymentInfo,
