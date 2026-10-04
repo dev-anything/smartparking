@@ -40,7 +40,6 @@ const connectSocketServer = () => {
         if (data.startsWith("PAYID:"))  // 결제 요청
         {
           const paymentId = data.slice("PAYID:".length);
-          console.log(`[RECEIVED] 결제 요청 ID: ${paymentId}`);
           const orderId = await handlePayment(paymentId);
           console.log(`[DONE] 주문 ID: ${orderId} 결제 완료.`);
         }

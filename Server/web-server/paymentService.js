@@ -16,7 +16,7 @@ const handlePayment = async (id) => {
     const paymentInfo = await getPaymentInfo(id);
 
     // 실제 결제 요청
-    const { orderId } = requestPayment(paymentInfo);
+    const { orderId } = await requestPayment(paymentInfo);
 
     return orderId;
   } catch (err) {
