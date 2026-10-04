@@ -42,6 +42,7 @@ const {
   stripCodeFence,
   isSafeSql,
 } = require("./llm");
+const { issueBillingKey } = require('./toss');
 
 
 const app = express();
@@ -74,133 +75,6 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
-// LLM 호출
-//const callLLM = async (systemMsg, userPrompt) => {
-//  const messages = [];
-//  if (systemMsg)
-//  {
-//    messages.push({ role: "system", content: systemMsg});
-//  }
-
-//  messages.push({ role: "user", content: userPrompt });
-
-//  const body = {
-//    messages,
-//    temperature: 0.2
-//  };
-//  console.log("POST 요청 headers, body 완성. LLM 요청 시작.");
-//  console.log(body);
-//  let res; 
-
-//  try {
-//    res = await fetch(LLM_API_URL, {
-//      method: 'POST',
-//      headers: { 'Content-Type': 'application/json'},
-//      body: JSON.stringify(body),
-//      signal: AbortSignal.timeout(120_000),
-//    });
-//  } catch (err) {
-//    console.error("LLM 요청 실패: ", err.message);
-//    return null;
-//  }
-//  console.log("LLM 요청 처리 완료.");
-//  if (!res.ok)
-//  {
-//    console.error(`LLM 서버 오류 응답 반환: ${res.status}`);
-//    return null;
-//  }
-
-//  let data;
-
-//  try {
-//    data = await res.json();
-//  } catch (err) {
-//    console.error("LLM 응답 파싱 실패: ", err.message);
-//    return null;
-//  }
-
-//  const queryResult = data?.choices?.[0]?.message?.content;
-//  console.log("Query: ", queryResult);
-
-//  return queryResult;
-//};
-
-// SQL 쿼리 실행
-//const runQuery = async (sql) => {
-//  let rows, fields;
-//  console.log("쿼리 시도.");
-//  try {
-//    [rows, fields] = await pool.query(sql);
-//  } catch (err) {
-//    return { error: `쿼리 실행 오류: ${ err.message }`};
-//  }
-
-//  if (!Array.isArray(rows) || rows.length === 0)
-//  {
-//    return { text: "결과 없음", rows: []}
-//  }
-
-//  const columnNames = fields.map((f) => f.name);
-//  const lines = [`컬럼: ${columnNames.join(', ')}`];
-
-//  for (const row of rows)
-//  {
-//    const values = columnNames.map((name) => {
-//      const v = row[name];
-//      return v === null || v === undefined ? "NULL" : String(v);
-//    });
-//    lines.push(values.join(", "));
-//  }
-
-//  return { text: lines.join('\n')};
-//};
-
-//// 백틱 및 중간 개행문자 제거
-//const stripCodeFence = (raw) => {
-//  let text = raw;
-
-//  const fenceIdx = text.indexOf('```');
-//  if (fenceIdx !== -1)
-//  {
-//    text = text.slice(fenceIdx + 3);
-
-//    const newlineIdx = text.indexOf('\n');
-
-//    if (newlineIdx !== -1)
-//    {
-//      text = text.slice(newlineIdx + 1);
-//    }
-//  }
-
-//  text = text.replace(/^[\s]+/, '');
-
-//  const endIdx = text.indexOf('```');
-//  if (endIdx !== -1)
-//  {
-//    text = text.slice(0, endIdx);
-//  }
-
-//  return text.replace(/[\s]+$/, '');
-//};
-
-//// SQL 안전성 검증: SELECT만 허용
-//const isSafeSql = (sql) => {
-//  if (!sql) return false;
-
-//  const trimmed = sql.trim();
-
-//  if (!/^SELECT/i.test(trimmed)) return false;
-
-//  const upper = trimmed.toUpperCase();
-
-//  if (FORBIDDEN.some((word) => upper.includes(word))) return false;
-
-//  const semiCount = (trimmed.match(/;/g) || []).length;
-
-//  if (semiCount > 1) return false;
-
-//  return true;
-//};
 
 
 // C 소켓 서버 연결
@@ -537,24 +411,33 @@ app.post("/api/login", async (req, res) => {
 
 // 토스페이먼츠용 customerKey 발급 요청 API
 app.post("/api/cuskey/issue", (req, res) => {
-  const carNumber = req.body.carNumber;
+  try {
+    const carNumber = req.body.carNumber;
 
-  if (!carNumber)
-  {
-    return res.status(400).json({
+    if (!carNumber)
+    {
+      return res.status(400).json({
+        success: false,
+        message: "carNumber는 필수입니다."
+      });
+    }
+
+    const newCusKey = issueBillingKey(carNumber);
+
+    return res.status(200).json({
+      success: true,
+      newCusKey: newCusKey
+    });
+
+
+  } catch (err) {
+    console.error(`[ERROR] Customer_key 발급 오류: ${err.message}`);
+    return res.status(500).json({
       success: false,
-      message: "carNumber는 필수입니다."
+      message: "customer key를 발급하지 못했습니다."
     });
   }
-  const newCusKey = `cus_${crypto.randomUUID()}`;
 
-
-  pendingKeys.set(newCusKey, {carNumber, createdAt: Date.now()});
-
-  return res.status(200).json({
-    success: true,
-    newCusKey
-  });
 
 });
 
