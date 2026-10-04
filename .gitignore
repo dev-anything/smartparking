@@ -4,6 +4,7 @@ __pycache__
 *.pyc
 .env
 *venv*
+progress.txt
 
 
 # Image Processing

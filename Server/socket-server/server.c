@@ -597,6 +597,11 @@ int mysql_insert_car_info(MYSQL* conn, const char** car_info, const char* table)
 {
     char query_buffer[BUFFER_SIZE] = {0};
 
+    for (int i = 0; i < 5; i++)
+    {
+        printf("[PARSING] 파싱 결과: [%s]\n", car_info[i]);
+    }
+
     sprintf(
         query_buffer,
         "INSERT INTO "
@@ -622,7 +627,7 @@ void web_server_thread(client_info* info)
     char* car_info[5] = {0};
     char *token = NULL;
     char *next_token = NULL;
-    int idx = 0;
+    //int idx = 0;
     int response;
 
     conn = mysql_init(NULL);
@@ -688,12 +693,13 @@ void web_server_thread(client_info* info)
 
             if (read_status)
             {
-                printf("[수신] -> %s\n", buffer);
-
+                //printf("[수신] -> %s\n", buffer);
+                int idx = 0;
                 token = strtok_r(buffer, DELIM, &next_token);
                 while (token != NULL)
                 {
                     car_info[idx] = token;
+                    //printf("[PARSING] 파싱 결과: [%s]\n", car_info[idx]);
                     idx++;
                     token = strtok_r(NULL, DELIM, &next_token);
                 }

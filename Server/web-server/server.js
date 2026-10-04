@@ -575,7 +575,7 @@ app.post("/api/billing/issue", async (req, res) => {
     console.log(`[SUCCESS] 카드번호: ${cardNumber} / 카드회사: ${cardCompanyCode}`);
 
     // 빌링키 암호화
-    encryptedBillingKey = billingKeyEncrypt(billingKey, process.env.BILLING_ENC_KEY);
+    const encryptedBillingKey = billingKeyEncrypt(billingKey, process.env.BILLING_ENC_KEY);
 
     // DB 저장 구현
     const dataList = [
