@@ -1,4 +1,4 @@
-const mysql = require('mysql2');
+const mysql = require('mysql2/promise');
 
 require('dotenv').config();
 
@@ -51,8 +51,27 @@ const selectAccount = async (account) => {
   return rows;
 };
 
+const selectLlmQuery = async (query) => {
+  const [rows, fields] = await pool.query(query);
+
+  const columns = fields.map((c) => c.name);
+  const lines = [`columns: ${columns.join(', ')}`];
+
+  for (const row of rows)
+  {
+    const values = columns.map((c) => {
+      const v = row[c];
+      return v === null || v === undefined ? "NULL" : String(v);
+    });
+    lines.push(values.join(", "));
+  }
+
+  return { text: lines.join('\n') };
+};
+
 module.exports = {
   selectParkedStatus,
   selectEntryExitRecords,
   selectAccount,
+  selectLlmQuery,
 };

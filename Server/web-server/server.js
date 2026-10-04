@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const mysql = require('mysql2/promise');
-const fetch = require('node-fetch');
+//const fetch = require('node-fetch');
 const axios = require('axios');
 const http = require('http');
 const crypto = require('crypto');
@@ -34,7 +34,14 @@ const {
   selectParkedStatus,
   selectEntryExitRecords,
   selectAccount,
+  selectLlmQuery,
 } = require('./db');
+
+const {
+  callLLM,
+  stripCodeFence,
+  isSafeSql,
+} = require("./llm");
 
 
 const app = express();
@@ -68,132 +75,132 @@ const pool = mysql.createPool({
 });
 
 // LLM 호출
-const callLLM = async (systemMsg, userPrompt) => {
-  const messages = [];
-  if (systemMsg)
-  {
-    messages.push({ role: "system", content: systemMsg});
-  }
+//const callLLM = async (systemMsg, userPrompt) => {
+//  const messages = [];
+//  if (systemMsg)
+//  {
+//    messages.push({ role: "system", content: systemMsg});
+//  }
 
-  messages.push({ role: "user", content: userPrompt });
+//  messages.push({ role: "user", content: userPrompt });
 
-  const body = {
-    messages,
-    temperature: 0.2
-  };
-  console.log("POST 요청 headers, body 완성. LLM 요청 시작.");
-  console.log(body);
-  let res; 
+//  const body = {
+//    messages,
+//    temperature: 0.2
+//  };
+//  console.log("POST 요청 headers, body 완성. LLM 요청 시작.");
+//  console.log(body);
+//  let res; 
 
-  try {
-    res = await fetch(LLM_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json'},
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(120_000),
-    });
-  } catch (err) {
-    console.error("LLM 요청 실패: ", err.message);
-    return null;
-  }
-  console.log("LLM 요청 처리 완료.");
-  if (!res.ok)
-  {
-    console.error(`LLM 서버 오류 응답 반환: ${res.status}`);
-    return null;
-  }
+//  try {
+//    res = await fetch(LLM_API_URL, {
+//      method: 'POST',
+//      headers: { 'Content-Type': 'application/json'},
+//      body: JSON.stringify(body),
+//      signal: AbortSignal.timeout(120_000),
+//    });
+//  } catch (err) {
+//    console.error("LLM 요청 실패: ", err.message);
+//    return null;
+//  }
+//  console.log("LLM 요청 처리 완료.");
+//  if (!res.ok)
+//  {
+//    console.error(`LLM 서버 오류 응답 반환: ${res.status}`);
+//    return null;
+//  }
 
-  let data;
+//  let data;
 
-  try {
-    data = await res.json();
-  } catch (err) {
-    console.error("LLM 응답 파싱 실패: ", err.message);
-    return null;
-  }
+//  try {
+//    data = await res.json();
+//  } catch (err) {
+//    console.error("LLM 응답 파싱 실패: ", err.message);
+//    return null;
+//  }
 
-  const queryResult = data?.choices?.[0]?.message?.content;
-  console.log("Query: ", queryResult);
+//  const queryResult = data?.choices?.[0]?.message?.content;
+//  console.log("Query: ", queryResult);
 
-  return queryResult;
-};
+//  return queryResult;
+//};
 
 // SQL 쿼리 실행
-const runQuery = async (sql) => {
-  let rows, fields;
-  console.log("쿼리 시도.");
-  try {
-    [rows, fields] = await pool.query(sql);
-  } catch (err) {
-    return { error: `쿼리 실행 오류: ${ err.message }`};
-  }
+//const runQuery = async (sql) => {
+//  let rows, fields;
+//  console.log("쿼리 시도.");
+//  try {
+//    [rows, fields] = await pool.query(sql);
+//  } catch (err) {
+//    return { error: `쿼리 실행 오류: ${ err.message }`};
+//  }
 
-  if (!Array.isArray(rows) || rows.length === 0)
-  {
-    return { text: "결과 없음", rows: []}
-  }
+//  if (!Array.isArray(rows) || rows.length === 0)
+//  {
+//    return { text: "결과 없음", rows: []}
+//  }
 
-  const columnNames = fields.map((f) => f.name);
-  const lines = [`컬럼: ${columnNames.join(', ')}`];
+//  const columnNames = fields.map((f) => f.name);
+//  const lines = [`컬럼: ${columnNames.join(', ')}`];
 
-  for (const row of rows)
-  {
-    const values = columnNames.map((name) => {
-      const v = row[name];
-      return v === null || v === undefined ? "NULL" : String(v);
-    });
-    lines.push(values.join(", "));
-  }
+//  for (const row of rows)
+//  {
+//    const values = columnNames.map((name) => {
+//      const v = row[name];
+//      return v === null || v === undefined ? "NULL" : String(v);
+//    });
+//    lines.push(values.join(", "));
+//  }
 
-  return { text: lines.join('\n')};
-};
+//  return { text: lines.join('\n')};
+//};
 
-// 백틱 및 중간 개행문자 제거
-const stripCodeFence = (raw) => {
-  let text = raw;
+//// 백틱 및 중간 개행문자 제거
+//const stripCodeFence = (raw) => {
+//  let text = raw;
 
-  const fenceIdx = text.indexOf('```');
-  if (fenceIdx !== -1)
-  {
-    text = text.slice(fenceIdx + 3);
+//  const fenceIdx = text.indexOf('```');
+//  if (fenceIdx !== -1)
+//  {
+//    text = text.slice(fenceIdx + 3);
 
-    const newlineIdx = text.indexOf('\n');
+//    const newlineIdx = text.indexOf('\n');
 
-    if (newlineIdx !== -1)
-    {
-      text = text.slice(newlineIdx + 1);
-    }
-  }
+//    if (newlineIdx !== -1)
+//    {
+//      text = text.slice(newlineIdx + 1);
+//    }
+//  }
 
-  text = text.replace(/^[\s]+/, '');
+//  text = text.replace(/^[\s]+/, '');
 
-  const endIdx = text.indexOf('```');
-  if (endIdx !== -1)
-  {
-    text = text.slice(0, endIdx);
-  }
+//  const endIdx = text.indexOf('```');
+//  if (endIdx !== -1)
+//  {
+//    text = text.slice(0, endIdx);
+//  }
 
-  return text.replace(/[\s]+$/, '');
-};
+//  return text.replace(/[\s]+$/, '');
+//};
 
-// SQL 안전성 검증: SELECT만 허용
-const isSafeSql = (sql) => {
-  if (!sql) return false;
+//// SQL 안전성 검증: SELECT만 허용
+//const isSafeSql = (sql) => {
+//  if (!sql) return false;
 
-  const trimmed = sql.trim();
+//  const trimmed = sql.trim();
 
-  if (!/^SELECT/i.test(trimmed)) return false;
+//  if (!/^SELECT/i.test(trimmed)) return false;
 
-  const upper = trimmed.toUpperCase();
+//  const upper = trimmed.toUpperCase();
 
-  if (FORBIDDEN.some((word) => upper.includes(word))) return false;
+//  if (FORBIDDEN.some((word) => upper.includes(word))) return false;
 
-  const semiCount = (trimmed.match(/;/g) || []).length;
+//  const semiCount = (trimmed.match(/;/g) || []).length;
 
-  if (semiCount > 1) return false;
+//  if (semiCount > 1) return false;
 
-  return true;
-};
+//  return true;
+//};
 
 
 // C 소켓 서버 연결
@@ -410,54 +417,95 @@ app.post("/api/llm-query", async (req, res) => {
     return res.status(400).json({ answer: "question 필드가 필요합니다." });
   }
 
-  const prompt =
-    `스키마: ${SCHEMA}\n\n` +
-    `위 스카마만 사용해서 MySQL SELECT 쿼리를 작성해.\n\n` +
-    `규칙:\n` +
-    RULE +
-    `예시 출력:\n${FEWSHOT_EXAMPLES}\n\n` +
-    `질문: ${question}`;
+  const sqlPrompt = `
+    스키마: ${SCHEMA}
+    위 스키마만 사용해서 MySQL SELECT 쿼리를 작성해.
 
-  let rawSql = await callLLM(null, prompt);
+    규칙:
+    ${RULE}
 
-  if (!rawSql) return res.status(502).json({ answer: "LLM 서버에 연결할 수 없습니다." });
+    예시 출력:
+    ${FEWSHOT_EXAMPLES}
 
-  // 백틱, 기타 문자열 제거
-  rawSql = stripCodeFence(rawSql);
+    질문: ${question}
+  `;
 
-  if (!isSafeSql(rawSql))
-  {
-    return res.status(400).json({
-      answer: "죄송합니다. 처리할 수 없는 요청입니다.",
-      rawSql,
-    });
+
+  try {
+    const rawSql = await callLLM(null, sqlPrompt);
+    const stripRawSql = stripCodeFence(rawSql);
+
+    if (!isSafeSql(stripRawSql))
+    {
+      return res.status(400).json({
+        success: false,
+        message: "죄송합니다. 처리할 수 없는 요청입니다."
+      });
+    }
+
+    const queryText = await selectLlmQuery(stripRawSql);
+
+    const summarizePrompt = `
+      사용자 질문: ${question}
+      조회 결과:
+      ${queryText}
+
+      위 질문과 조회 결과를 바탕으로 친절한 한국어 문장으로 답변해.
+      숫자나 값은 그대로 사용하고, 새로운 정보를 만들지 마.
+      결과가 여러 개면 목록 형태로 자연스럽게 정리해.
+    `;
+
+
+    const answer = await callLLM("너는 한국어로만 답변하는 친절한 AI 비서야.", summarizePrompt);
+
+    console.log(`=== 최종 답변 ===\n${answer ?? '(요약 실패)'}`);
+
+    return res.status(200).json(answer);
+
+  } catch (err) {
+    console.error(`[ERROR] LLM 호출 작업 오류: ${err.message}`);
   }
 
+  //let rawSql = await callLLM(null, prompt);
 
-  const { text: resultText, error } = await runQuery(rawSql);
+  //if (!rawSql) return res.status(502).json({ answer: "LLM 서버에 연결할 수 없습니다." });
 
-  if (error)
-  {
-    return res.status(500).json({
-      answer: `쿼리 실행 중 오류가 발생했습니다: ${error}`,
-      rawSql,
-    });
-  }
+  //// 백틱, 기타 문자열 제거
+  //rawSql = stripCodeFence(rawSql);
 
-  console.log(`=== 쿼리 결과 ===\n${resultText}`)
+  //if (!isSafeSql(rawSql))
+  //{
+  //  return res.status(400).json({
+  //    answer: "죄송합니다. 처리할 수 없는 요청입니다.",
+  //    rawSql,
+  //  });
+  //}
 
-  const summarizePrompt =
-    `사용자 질문: ${question}\n\n` +
-    `조회 결과:\n${resultText}\n\n` +
-    '위 데이터를 바탕으로 친절한 한국어 문장으로 답변해줘. ' +
-    '숫자나 값은 그대로 사용하고, 새로운 숫자나 정보를 만들어내지 마. ' +
-    '결과가 여러 개면 목록 형태로 자연스럽게 정리해줘.';
 
-  const answer = await callLLM("너는 한국어로만 답변하는 친절한 AI 비서야.", summarizePrompt);
+  //const { text: resultText, error } = await runQuery(rawSql);
 
-  console.log(`=== 최종 답변 ===\n${answer ?? '(요약 실패)'}`);
+  //if (error)
+  //{
+  //  return res.status(500).json({
+  //    answer: `쿼리 실행 중 오류가 발생했습니다: ${error}`,
+  //    rawSql,
+  //  });
+  //}
 
-  return res.status(200).json(answer);
+  //console.log(`=== 쿼리 결과 ===\n${resultText}`)
+
+  //const summarizePrompt =
+  //  `사용자 질문: ${question}\n\n` +
+  //  `조회 결과:\n${resultText}\n\n` +
+  //  '위 데이터를 바탕으로 친절한 한국어 문장으로 답변해줘. ' +
+  //  '숫자나 값은 그대로 사용하고, 새로운 숫자나 정보를 만들어내지 마. ' +
+  //  '결과가 여러 개면 목록 형태로 자연스럽게 정리해줘.';
+
+  //const answer = await callLLM("너는 한국어로만 답변하는 친절한 AI 비서야.", summarizePrompt);
+
+  //console.log(`=== 최종 답변 ===\n${answer ?? '(요약 실패)'}`);
+
+  //return res.status(200).json(answer);
 });
 
 // 로그인 요청 API
