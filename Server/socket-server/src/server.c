@@ -12,14 +12,16 @@
 #include <sys/eventfd.h>
 
 #include "constants.h"
+#include "net_util.h"
+#include "types.h"
 
 
-// 클라이언트 정보 구조체
-typedef struct
-{
-    int client_fd;
-    struct sockaddr_in client_addr;
-} client_info;
+//// 클라이언트 정보 구조체
+//typedef struct
+//{
+//    int client_fd;
+//    struct sockaddr_in client_addr;
+//} client_info;
 
 
 // 모터 명령 데이터 저장 구조체
@@ -50,14 +52,14 @@ static pthread_mutex_t g_motor_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t g_payment_lock = PTHREAD_MUTEX_INITIALIZER;
 
 
-int read_line(int fd, char *buf, size_t size);  // 개행 문자까지 읽기
+//int read_line(int fd, char *buf, size_t size);  // 개행 문자까지 읽기
 int parse_plate_data(const char* buf, char* gate, char* action, char** plate);   // 번호판 데이터 파싱 전용
-void send_ok(int fd);                           // 핸드셰이크 담당 함수
+//void send_ok(int fd);                           // 핸드셰이크 담당 함수
 void *handle_client(void *arg);                 // 스레드 진입 함수
 int send_motor_control(motor_cmd_t* cmd_q, int size, int fd);     // 모터 명령어 송신 함수
 int send_payment_id(char req_q[][PAYMENT_ID_SIZE], int size, int fd);                // 결제 id 송신 함수
 
-void sensor_data_thread(client_info *info);     // 스레드 실행 함수 1. 초음파 센서 데이터 수신 
+//void sensor_data_thread(client_info *info);     // 스레드 실행 함수 1. 초음파 센서 데이터 수신
 void plate_number_thread(client_info *info);    // 스레드 실행 함수 2. 번호판 데이터 수신
 void motor_control_thread(client_info *info);   // 스레드 실행 함수 3. 모터 제어 명령어 송신
 void web_server_thread(client_info* info);      // 스레드 실행 함수 4. 웹서버 통신
@@ -66,7 +68,7 @@ int push_motor_command(char gate, char action); // 모터 명령어 큐에 명�
 int push_payment_request(const char* id);                    // 결제 요청 큐에 id 삽입
 
 
-int mysql_insert_parked_status(MYSQL* conn, int* status, const char* table);    // 주차 현황 insert 함수
+//int mysql_insert_parked_status(MYSQL* conn, int* status, const char* table);    // 주차 현황 insert 함수
 int mysql_handle_records(MYSQL* conn, MYSQL_RES* res_ptr, MYSQL_ROW sql_row, char gate, char action, const char* plate_number, const char* table); // 차량 진출입 insert(update) 함수
 int mysql_insert_car_info(MYSQL* conn, const char** car_info, const char* table);   // 차량에 대한 정보 저장(차량번호, 빌링키, 커스터머 키 등)
 
@@ -161,44 +163,44 @@ int main()
     return 0;
 }
 
-int read_line(int fd, char *buf, size_t size)
-{
-    char current = '\0';
-    int buffer_idx = 0;
-    ssize_t n = 0;
+//int read_line(int fd, char *buf, size_t size)
+//{
+//    char current = '\0';
+//    int buffer_idx = 0;
+//    ssize_t n = 0;
 
-    while (1)
-    {
-        // 버퍼에서 1글자씩 읽기
-        n = read(fd, &current, 1);
+//    while (1)
+//    {
+//        // 버퍼에서 1글자씩 읽기
+//        n = read(fd, &current, 1);
 
-        if (n < 0 && errno == EINTR)
-            continue;
+//        if (n < 0 && errno == EINTR)
+//            continue;
 
-        // 연결 종료 or 오류 or 타임아웃
-        if (n <= 0 || buffer_idx >= size - 1)
-            break;
+//        // 연결 종료 or 오류 or 타임아웃
+//        if (n <= 0 || buffer_idx >= size - 1)
+//            break;
 
-        if (current == '\n')
-        {
-            if (buffer_idx > 0 && buf[buffer_idx - 1] == '\r')
-                buffer_idx--;
+//        if (current == '\n')
+//        {
+//            if (buffer_idx > 0 && buf[buffer_idx - 1] == '\r')
+//                buffer_idx--;
 
-            buf[buffer_idx] = '\0';
-            return 1;
-        }
+//            buf[buffer_idx] = '\0';
+//            return 1;
+//        }
 
-        buf[buffer_idx++] = current;
-    }
+//        buf[buffer_idx++] = current;
+//    }
 
-    buf[buffer_idx] = '\0';
-    return 0;
-}
+//    buf[buffer_idx] = '\0';
+//    return 0;
+//}
 
-void send_ok(int fd)
-{
-    send(fd, HANDSHAKE, strlen(HANDSHAKE), MSG_NOSIGNAL);
-}
+//void send_ok(int fd)
+//{
+//    send(fd, HANDSHAKE, strlen(HANDSHAKE), MSG_NOSIGNAL);
+//}
 
 int parse_plate_data(const char* buf, char* gate, char* action, char** plate)
 {
@@ -299,83 +301,83 @@ void *handle_client(void *arg)
     return NULL;
 }
 
-int mysql_insert_parked_status(MYSQL* conn, int* status, const char* table)
-{
-    char query_buffer[BUFFER_SIZE] = {0};
+//int mysql_insert_parked_status(MYSQL* conn, int* status, const char* table)
+//{
+//    char query_buffer[BUFFER_SIZE] = {0};
 
-    sprintf(
-        query_buffer,
-        "INSERT INTO %s (id, record_time, area_1, area_2, area_3, area_4, area_5, area_6) "
-        "VALUES (null, curtime(), %d, %d, %d, %d, %d, %d);",
-        MYSQL_TABLE_parked_status,
-        status[0], status[1], status[2], status[3], status[4], status[5]
-    );
+//    sprintf(
+//        query_buffer,
+//        "INSERT INTO %s (id, record_time, area_1, area_2, area_3, area_4, area_5, area_6) "
+//        "VALUES (null, curtime(), %d, %d, %d, %d, %d, %d);",
+//        MYSQL_TABLE_parked_status,
+//        status[0], status[1], status[2], status[3], status[4], status[5]
+//    );
 
-    return (mysql_query(conn, query_buffer));
-}
+//    return (mysql_query(conn, query_buffer));
+//}
 
-void sensor_data_thread(client_info *info)
-{
-    MYSQL *conn;
-    char *token = NULL;
-    char *next_token = NULL;
-    char buffer[BUFFER_SIZE];
-    int status[6] = {0};
-    int idx = 0;
-    int response;
-    int read_status;
+//void sensor_data_thread(client_info *info)
+//{
+//    MYSQL *conn;
+//    char *token = NULL;
+//    char *next_token = NULL;
+//    char buffer[BUFFER_SIZE];
+//    int status[6] = {0};
+//    int idx = 0;
+//    int response;
+//    int read_status;
 
-    conn = mysql_init(NULL);
-    if (!(mysql_real_connect(conn, MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DB, 3306, NULL, 0)))
-    {
-        fprintf(stderr, "err: %s[%d]\n", mysql_error(conn), mysql_errno(conn));
-        return;
-    }
-    mysql_set_character_set(conn, "utf8mb4");
-    printf("MySQL Connected!\n\n");
+//    conn = mysql_init(NULL);
+//    if (!(mysql_real_connect(conn, MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DB, 3306, NULL, 0)))
+//    {
+//        fprintf(stderr, "err: %s[%d]\n", mysql_error(conn), mysql_errno(conn));
+//        return;
+//    }
+//    mysql_set_character_set(conn, "utf8mb4");
+//    printf("MySQL Connected!\n\n");
 
-    // 연결 확인 handshake 송신
-    send_ok(info->client_fd);
+//    // 연결 확인 handshake 송신
+//    send_ok(info->client_fd);
 
-    while (1)
-    {
-        idx = 0;
-        memset(buffer, 0, BUFFER_SIZE);
-        memset(status, 0, sizeof(status));
-        read_status = read_line(info->client_fd, buffer, BUFFER_SIZE);
-        if (read_status)
-        {
-            printf("수신: %s\n", buffer);
+//    while (1)
+//    {
+//        idx = 0;
+//        memset(buffer, 0, BUFFER_SIZE);
+//        memset(status, 0, sizeof(status));
+//        read_status = read_line(info->client_fd, buffer, BUFFER_SIZE);
+//        if (read_status)
+//        {
+//            printf("수신: %s\n", buffer);
 
-            token = strtok_r(buffer, DELIM, &next_token);
+//            token = strtok_r(buffer, DELIM, &next_token);
 
-            while (token != NULL && idx < 6)
-            {
-                // printf("Count: %d", idx + 1);
-                status[idx] = atoi(token);
-                token = strtok_r(NULL, DELIM, &next_token);
-                idx++;
-            }
+//            while (token != NULL && idx < 6)
+//            {
+//                // printf("Count: %d", idx + 1);
+//                status[idx] = atoi(token);
+//                token = strtok_r(NULL, DELIM, &next_token);
+//                idx++;
+//            }
             
-            response = mysql_insert_parked_status(conn, status, MYSQL_TABLE_parked_status);
-            //response = mysql_query(conn, query_buffer);
+//            response = mysql_insert_parked_status(conn, status, MYSQL_TABLE_parked_status);
+//            //response = mysql_query(conn, query_buffer);
 
-            if (!response) printf("INSERTED %lu ROWS\n", (unsigned long)mysql_affected_rows(conn));
-            else fprintf(stderr, "insert error %s[%d]\n", mysql_error(conn), mysql_errno(conn));
-        }
-        else if (read_status == 0)
-        {
-            printf("[-] (fd=%d) Disconnect sensor client.\n", info->client_fd);
-            break;
-        }
-        else
-        {
-            perror("[FAIL] Cannot read data.");
-            break;
-        }
-    }
-    mysql_close(conn);
-}
+//            if (!response) printf("INSERTED %lu ROWS\n", (unsigned long)mysql_affected_rows(conn));
+//            else fprintf(stderr, "insert error %s[%d]\n", mysql_error(conn), mysql_errno(conn));
+//        }
+//        else if (read_status == 0)
+//        {
+//            printf("[-] (fd=%d) Disconnect sensor client.\n", info->client_fd);
+//            break;
+//        }
+//        else
+//        {
+//            perror("[FAIL] Cannot read data.");
+//            break;
+//        }
+//    }
+//    mysql_close(conn);
+//}
 
 int mysql_handle_records(MYSQL* conn, MYSQL_RES* res_ptr, MYSQL_ROW sql_row, char gate, char action, const char* plate_number, const char* table)
 {

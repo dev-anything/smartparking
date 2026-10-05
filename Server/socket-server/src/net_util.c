@@ -17,17 +17,14 @@ int read_line(int fd, char *buf, size_t size)
         // 버퍼에서 1글자씩 읽기
         n = read(fd, &current, 1);
 
-        if (n < 0 && errno == EINTR)
-            continue;
+        if (n < 0 && errno == EINTR) continue;
 
         // 연결 종료 or 오류 or 타임아웃
-        if (n <= 0 || buffer_idx >= size - 1)
-            break;
+        if (n <= 0 || buffer_idx >= size - 1) return -1;
 
         if (current == '\n')
         {
-            if (buffer_idx > 0 && buf[buffer_idx - 1] == '\r')
-                buffer_idx--;
+            if (buffer_idx > 0 && buf[buffer_idx - 1] == '\r') buffer_idx--;
 
             buf[buffer_idx] = '\0';
             return 1;

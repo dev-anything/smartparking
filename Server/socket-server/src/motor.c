@@ -1,5 +1,8 @@
-#include "motor.h"
+#include <pthread.h>
 
+#include "constants.h"
+#include "motor.h"
+#include "types.h"
 
 // 모터 명령 데이터 저장 구조체
 typedef struct
