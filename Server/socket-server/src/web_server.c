@@ -1,10 +1,17 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include <pthread.h>
+#include <poll.h>
+#include <errno.h>
 #include <mysql/mysql.h>
 #include <sys/eventfd.h>
 
 #include "web_server.h"
+#include "constants.h"
+#include "net_util.h"
+#include "db_util.h"
 
 static int g_payment_efd = -1;                     // 웹서버 통신 스레드를 깨울 eventfd 번호
 static char payment_req_q[PAYMENT_REQ_QUEUE_SIZE][PAYMENT_ID_SIZE];  // 결제 요청 id 저장 큐
@@ -13,6 +20,9 @@ static int payment_req_q_rear = 0;                 // 큐 꼬리
 static int payment_req_q_count = 0;                // 큐 데이터 수
 
 static pthread_mutex_t g_payment_lock = PTHREAD_MUTEX_INITIALIZER;
+
+static int send_payment_id(char req_q[][PAYMENT_ID_SIZE], int size, int fd);
+static int insert_car_info(MYSQL* conn, const char** car_info);
 
 void web_server_thread(client_info* info)
 {

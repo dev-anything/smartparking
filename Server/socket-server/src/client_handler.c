@@ -12,6 +12,7 @@
 #include "sensor.h"
 #include "motor.h"
 #include "web_server.h"
+#include "plate.h"
 
 void *handle_client(void *arg)
 {

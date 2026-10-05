@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <mysql/mysql.h>
 
 #include "db_util.h"
@@ -30,7 +32,7 @@ int run_select_id_query(MYSQL* conn, const char* query, char* id)
     }
 
 
-    if ((unsigned long)mysql_numrows(res) == 1)
+    if ((unsigned long)mysql_num_rows(res) == 1)
     {
         row = mysql_fetch_row(res);
         strncpy(id, row[0], PAYMENT_ID_SIZE - 1);

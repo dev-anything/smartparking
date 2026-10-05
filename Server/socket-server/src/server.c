@@ -16,6 +16,7 @@
 #include "types.h"
 #include "sensor.h"
 #include "web_server.h"
+#include "client_handler.h"
 
 
 
@@ -110,12 +111,3 @@ int main()
     close(server_fd);
     return 0;
 }
-
-
-
-
-
-
-
-
-

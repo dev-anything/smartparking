@@ -1,10 +1,21 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <mysql/mysql.h>
 
 #include "plate.h"
 #include "constants.h"
 #include "types.h"
+#include "motor.h"
+#include "db_util.h"
+#include "net_util.h"
+
+static int parse_plate_data(const char* buf, char* gate, char* action, char** plate);
+static int insert_record(MYSQL* conn, const char* plate_number);
+static int select_payment_id(MYSQL* conn, const char* plate_number, char* id);
+static int update_records(MYSQL* conn, const char* id);
+
+
 
 void plate_number_thread(client_info *info)
 {
@@ -49,7 +60,7 @@ void plate_number_thread(client_info *info)
 
             if (gate == GATE_ENTRY && action == GATE_OPEN)     // 입구 처리: insert
             {
-                insert_record(conn, gate, action, plate);
+                insert_record(conn, plate);
             }
             else if (gate == GATE_EXIT && action == GATE_OPEN) // 출구 처리: select - update
             {
@@ -64,17 +75,17 @@ void plate_number_thread(client_info *info)
 
 
 
-            response = mysql_handle_records(conn, gate, action, plate);
+            //response = mysql_handle_records(conn, gate, action, plate);
 
-            if (!response)
-            {
-                printf("INSERTED %lu ROWS\n", (unsigned long)mysql_affected_rows(conn));
-                if (!push_motor_command(gate, action))
-                {
-                    fprintf(stderr, "[PLATE] 모터 명령 요청 실패 (%c:%c): 모터 미접속 또는 큐 가득 참\n", gate, action);
-                }
-            }
-            else fprintf(stderr, "insert error %s[%d]\n", mysql_error(conn), mysql_errno(conn));
+            //if (!response)
+            //{
+            //    printf("INSERTED %lu ROWS\n", (unsigned long)mysql_affected_rows(conn));
+            //    if (!push_motor_command(gate, action))
+            //    {
+            //        fprintf(stderr, "[PLATE] 모터 명령 요청 실패 (%c:%c): 모터 미접속 또는 큐 가득 참\n", gate, action);
+            //    }
+            //}
+            //else fprintf(stderr, "insert error %s[%d]\n", mysql_error(conn), mysql_errno(conn));
         }
         else if (read_status == 0)
         {
@@ -119,7 +130,7 @@ static int parse_plate_data(const char* buf, char* gate, char* action, char** pl
     return 1;
 }
 
-static int insert_record(MYSQL* conn, char action, const char* plate_number)
+static int insert_record(MYSQL* conn, const char* plate_number)
 {
     char query_buffer[BUFFER_SIZE] = {0};
 

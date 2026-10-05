@@ -12,6 +12,9 @@
 #include "constants.h"
 #include "types.h"
 
+static int insert_parked_status(MYSQL* conn, int* status);
+static void parse_sensor_data(const char* buffer, int* status, int size);
+
 void sensor_data_thread(client_info *info)
 {
     MYSQL *conn = mysql_init(NULL); // MySQL 연결 구조체

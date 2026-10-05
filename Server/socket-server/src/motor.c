@@ -1,9 +1,14 @@
 #include <pthread.h>
 #include <sys/eventfd.h>
+#include <poll.h>
+#include <errno.h>
+#include <unistd.h>
+#include <sys/socket.h>
 
 #include "constants.h"
 #include "motor.h"
 #include "types.h"
+#include "net_util.h"
 
 // 모터 명령 데이터 저장 구조체
 typedef struct
@@ -19,6 +24,9 @@ static motor_cmd_t motor_cmd_q[MOTOR_COMMAND_QUEUE_SIZE]; // 모터 명령 저�
 static int motor_cmd_q_front = 0;                         // 큐 헤드
 static int motor_cmd_q_rear = 0;                          // 큐 꼬리
 static int motor_cmd_q_count = 0;                         // 큐 데이터 수
+
+static int pop_motor_command(motor_cmd_t* batch);
+static int send_motor_control(motor_cmd_t* cmd_batch, int size, int fd);
 
 void motor_control_thread(client_info *info)
 {
@@ -97,7 +105,7 @@ void motor_control_thread(client_info *info)
 
             // 복사한 명령어를 순서대로 ESP로 송신(뮤텍스 독점 필요 없음)
             // 참인 경우 -> 전송 실패
-            if (!send_motor_control(cmd_batch, size - 1, fd))
+            if (!send_motor_control(cmd_batch, cmd_batch_size - 1, fd))
             {
                 printf("[ERROR] 모터 명령어 전송 실패. 시스템을 점검하세요.");
                 break;
@@ -157,7 +165,7 @@ static int pop_motor_command(motor_cmd_t* batch)
 
     while (motor_cmd_q_count > 0)   // 메인 큐가 공백일 때까지
     {
-        cmd_batch[batch_size++] = motor_cmd_q[motor_cmd_q_front];                             // 헤드 위치의 명령 복사
+        batch[batch_size++] = motor_cmd_q[motor_cmd_q_front];                             // 헤드 위치의 명령 복사
         motor_cmd_q_front = (motor_cmd_q_front + 1) % MOTOR_COMMAND_QUEUE_SIZE;  // 헤드 이동
         motor_cmd_q_count--;                                                     // 개수 감소
     }
