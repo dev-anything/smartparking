@@ -12,29 +12,27 @@ int read_line(int fd, char *buf, size_t size)
     int buffer_idx = 0;
     ssize_t n = 0;
 
+
     while (1)
     {
-        // 버퍼에서 1글자씩 읽기
-        n = read(fd, &current, 1);
+        n = read(fd, &current, 1);  // -1 or 0 or 1
 
-        if (n < 0 && errno == EINTR) continue;
+        if (n == 0) return 0;
+        else if (n < 0) return -1;
 
-        // 연결 종료 or 오류 or 타임아웃
-        if (n <= 0 || buffer_idx >= size - 1) return -1;
 
-        if (current == '\n')
-        {
-            if (buffer_idx > 0 && buf[buffer_idx - 1] == '\r') buffer_idx--;
-
-            buf[buffer_idx] = '\0';
-            return 1;
-        }
+        if (current == '\n') break;
 
         buf[buffer_idx++] = current;
     }
 
+    if (buf[buffer_idx - 1] == '\r')
+    {
+        buf[buffer_idx - 1] = '\0';
+    }
+
     buf[buffer_idx] = '\0';
-    return 0;
+    return 1;
 }
 
 void send_ok(int fd)

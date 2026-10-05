@@ -14,6 +14,7 @@
 #include "constants.h"
 #include "net_util.h"
 #include "types.h"
+#include "sensor.h"
 
 
 //// 클라이언트 정보 구조체
@@ -163,44 +164,6 @@ int main()
     return 0;
 }
 
-//int read_line(int fd, char *buf, size_t size)
-//{
-//    char current = '\0';
-//    int buffer_idx = 0;
-//    ssize_t n = 0;
-
-//    while (1)
-//    {
-//        // 버퍼에서 1글자씩 읽기
-//        n = read(fd, &current, 1);
-
-//        if (n < 0 && errno == EINTR)
-//            continue;
-
-//        // 연결 종료 or 오류 or 타임아웃
-//        if (n <= 0 || buffer_idx >= size - 1)
-//            break;
-
-//        if (current == '\n')
-//        {
-//            if (buffer_idx > 0 && buf[buffer_idx - 1] == '\r')
-//                buffer_idx--;
-
-//            buf[buffer_idx] = '\0';
-//            return 1;
-//        }
-
-//        buf[buffer_idx++] = current;
-//    }
-
-//    buf[buffer_idx] = '\0';
-//    return 0;
-//}
-
-//void send_ok(int fd)
-//{
-//    send(fd, HANDSHAKE, strlen(HANDSHAKE), MSG_NOSIGNAL);
-//}
 
 int parse_plate_data(const char* buf, char* gate, char* action, char** plate)
 {
@@ -301,83 +264,7 @@ void *handle_client(void *arg)
     return NULL;
 }
 
-//int mysql_insert_parked_status(MYSQL* conn, int* status, const char* table)
-//{
-//    char query_buffer[BUFFER_SIZE] = {0};
 
-//    sprintf(
-//        query_buffer,
-//        "INSERT INTO %s (id, record_time, area_1, area_2, area_3, area_4, area_5, area_6) "
-//        "VALUES (null, curtime(), %d, %d, %d, %d, %d, %d);",
-//        MYSQL_TABLE_parked_status,
-//        status[0], status[1], status[2], status[3], status[4], status[5]
-//    );
-
-//    return (mysql_query(conn, query_buffer));
-//}
-
-//void sensor_data_thread(client_info *info)
-//{
-//    MYSQL *conn;
-//    char *token = NULL;
-//    char *next_token = NULL;
-//    char buffer[BUFFER_SIZE];
-//    int status[6] = {0};
-//    int idx = 0;
-//    int response;
-//    int read_status;
-
-//    conn = mysql_init(NULL);
-//    if (!(mysql_real_connect(conn, MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DB, 3306, NULL, 0)))
-//    {
-//        fprintf(stderr, "err: %s[%d]\n", mysql_error(conn), mysql_errno(conn));
-//        return;
-//    }
-//    mysql_set_character_set(conn, "utf8mb4");
-//    printf("MySQL Connected!\n\n");
-
-//    // 연결 확인 handshake 송신
-//    send_ok(info->client_fd);
-
-//    while (1)
-//    {
-//        idx = 0;
-//        memset(buffer, 0, BUFFER_SIZE);
-//        memset(status, 0, sizeof(status));
-//        read_status = read_line(info->client_fd, buffer, BUFFER_SIZE);
-//        if (read_status)
-//        {
-//            printf("수신: %s\n", buffer);
-
-//            token = strtok_r(buffer, DELIM, &next_token);
-
-//            while (token != NULL && idx < 6)
-//            {
-//                // printf("Count: %d", idx + 1);
-//                status[idx] = atoi(token);
-//                token = strtok_r(NULL, DELIM, &next_token);
-//                idx++;
-//            }
-            
-//            response = mysql_insert_parked_status(conn, status, MYSQL_TABLE_parked_status);
-//            //response = mysql_query(conn, query_buffer);
-
-//            if (!response) printf("INSERTED %lu ROWS\n", (unsigned long)mysql_affected_rows(conn));
-//            else fprintf(stderr, "insert error %s[%d]\n", mysql_error(conn), mysql_errno(conn));
-//        }
-//        else if (read_status == 0)
-//        {
-//            printf("[-] (fd=%d) Disconnect sensor client.\n", info->client_fd);
-//            break;
-//        }
-//        else
-//        {
-//            perror("[FAIL] Cannot read data.");
-//            break;
-//        }
-//    }
-//    mysql_close(conn);
-//}
 
 int mysql_handle_records(MYSQL* conn, MYSQL_RES* res_ptr, MYSQL_ROW sql_row, char gate, char action, const char* plate_number, const char* table)
 {
