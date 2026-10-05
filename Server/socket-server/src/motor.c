@@ -1,4 +1,5 @@
 #include <pthread.h>
+#include <sys/eventfd.h>
 
 #include "constants.h"
 #include "motor.h"
