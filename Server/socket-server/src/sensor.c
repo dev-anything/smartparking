@@ -8,6 +8,7 @@
 
 #include "sensor.h"
 #include "net_util.h"
+#include "db_util.h"
 #include "constants.h"
 #include "types.h"
 
@@ -43,7 +44,7 @@ void sensor_data_thread(client_info *info)
             parse_sensor_data(buffer, status, sizeof(status) / sizeof(status[0]));
 
             
-            response = mysql_insert_parked_status(conn, status, MYSQL_TABLE_parked_status);
+            response = insert_parked_status(conn, status);
             //response = mysql_query(conn, query_buffer);
 
             if (!response) printf("INSERTED %lu ROWS\n", (unsigned long)mysql_affected_rows(conn));
@@ -63,7 +64,7 @@ void sensor_data_thread(client_info *info)
     mysql_close(conn);
 }
 
-static int mysql_insert_parked_status(MYSQL* conn, int* status, const char* table)
+static int insert_parked_status(MYSQL* conn, int* status)
 {
     char query_buffer[BUFFER_SIZE] = {0};
 
@@ -74,7 +75,7 @@ static int mysql_insert_parked_status(MYSQL* conn, int* status, const char* tabl
         status[0], status[1], status[2], status[3], status[4], status[5]
     );
 
-    return (mysql_query(conn, query_buffer));
+    return (run_nonselect_query(conn, query_buffer));
 }
 
 // 센서 데이터 파싱 함수

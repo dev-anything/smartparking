@@ -93,20 +93,6 @@ void motor_control_thread(client_info *info)
             // 실제 큐의 명령을 지역 변수 큐로 복사
             motor_cmd_t cmd_batch[MOTOR_COMMAND_QUEUE_SIZE];
             int cmd_batch_size = pop_motor_command(cmd_batch);
-            //int size = 0;  // 명령 개수
-
-            //// 뮤텍스 독점 시작 - 공유 자원인 메인 큐를 건드려야 하기 때문
-            //pthread_mutex_lock(&g_motor_lock);
-
-            //while (motor_cmd_q_count > 0)   // 메인 큐가 공백일 때까지
-            //{
-            //    cmd_batch[size++] = motor_cmd_q[motor_cmd_q_front];                             // 헤드 위치의 명령 복사
-            //    motor_cmd_q_front = (motor_cmd_q_front + 1) % MOTOR_COMMAND_QUEUE_SIZE;  // 헤드 이동
-            //    motor_cmd_q_count--;                                                     // 개수 감소
-            //}
-
-            //pthread_mutex_unlock(&g_motor_lock);
-            //// 뮤텍스 독점 해제
 
 
             // 복사한 명령어를 순서대로 ESP로 송신(뮤텍스 독점 필요 없음)
@@ -230,7 +216,7 @@ static int send_motor_control(motor_cmd_t* cmd_batch, int size, int fd)
             return 0;   // 송신 실패
         }
 
-        printf("[MOTOR] (fd=%d) 전송: %c%s%c\n", fd, cmd_batch[i].gate, DELIM, cmd_batch[i].action);
+        printf("[SENT] (fd=%d) 전송: %c%s%c\n", fd, cmd_batch[i].gate, DELIM, cmd_batch[i].action);
     }
     return 1;
 }

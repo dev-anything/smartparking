@@ -5,9 +5,6 @@
 #define MYSQL_USER "server"
 #define MYSQL_PASSWORD "server"
 #define MYSQL_DB "smartparking"
-#define MYSQL_TABLE_records "records"
-#define MYSQL_TABLE_parked_status "parked_status"
-#define MYSQL_TABLE_car_info "car_info"
 
 // 모든 통신 데이터의 구분자
 #define DELIM ":"

@@ -100,10 +100,9 @@ void web_server_thread(client_info* info)
                 }
 
 
-                response = mysql_insert_car_info(conn, car_info, MYSQL_TABLE_car_info);
+                response = insert_car_info(conn, car_info);
 
-                if (!response) printf("INSERTED %lu ROWS\n", (unsigned long)mysql_affected_rows(conn));
-                else fprintf(stderr, "insert error %s[%d]\n", mysql_error(conn), mysql_errno(conn));
+                if (!response) printf("[SUCCESS] 차량정보 삽입 성공.");
 
             }
             else if (read_status == 0)
@@ -227,7 +226,7 @@ static int send_payment_id(char req_q[][PAYMENT_ID_SIZE], int size, int fd)
     return 1;
 }
 
-static int mysql_insert_car_info(MYSQL* conn, const char** car_info, const char* table)
+static int insert_car_info(MYSQL* conn, const char** car_info)
 {
     char query_buffer[BUFFER_SIZE] = {0};
 
@@ -239,9 +238,8 @@ static int mysql_insert_car_info(MYSQL* conn, const char** car_info, const char*
     sprintf(
         query_buffer,
         "INSERT INTO "
-        "%s (car_number, billing_key, customer_key, card_number, bank_info, created_at, updated_at) "
+        "car_info (car_number, billing_key, customer_key, card_number, bank_info, created_at, updated_at) "
         "VALUES ('%s', '%s', '%s', '%s', '%s', curtime(), curtime());",
-        table,
         car_info[0],
         car_info[1],
         car_info[2],
@@ -249,5 +247,5 @@ static int mysql_insert_car_info(MYSQL* conn, const char** car_info, const char*
         car_info[4]
     );
 
-    return (mysql_query(conn, query_buffer));
+    return (run_nonselect_query(conn, query_buffer));
 }
