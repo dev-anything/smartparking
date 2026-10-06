@@ -26,6 +26,9 @@ static int insert_car_info(MYSQL* conn, const char** car_info);
 static int insert_payments_result(MYSQL* conn, const char** payments_result_info);
 static int parse_car_info_data(char* data, char** car_info);
 static int parse_payment_result_info_data(char* data, char** payment_result_info);
+static int select_is_exist_car_info(MYSQL* conn, const char* plate_number);
+static int update_car_info(MYSQL* conn, const char** car_info);
+
 
 void web_server_thread(client_info* info)
 {
@@ -110,9 +113,21 @@ void web_server_thread(client_info* info)
                     char* car_info[5] = {0};
                     // 저장할 차량번호가 DB에 있는지 없는지 확인 필요
                     parse_car_info_data(next_token, car_info);
-                    response = insert_car_info(conn, car_info);
+                    // 이미 해당 차량번호에 등록된 정보가 있다면
+                    if (select_is_exist_car_info(conn, car_info[0]))
+                    {
+                        response = update_car_info(conn, car_info);
 
-                    if (!response) printf("[SUCCESS] 차량정보 삽입 성공.");
+                        if (!response) printf("[SUCCESS] 차량정보 업데이트 성공.\n");
+                    }
+                    // 없다면
+                    else
+                    {
+                        response = insert_car_info(conn, car_info);
+
+                        if (!response) printf("[SUCCESS] 차량정보 삽입 성공.\n");
+                    }
+                    
 
                 }
                 // 결제 결과 저장
@@ -122,7 +137,9 @@ void web_server_thread(client_info* info)
                     parse_payment_result_info_data(next_token, payment_result_info);
                     response = insert_payments_result(conn, payment_result_info);
 
-                    if (!response) printf("[SUCCESS] 결제정보 삽입 성공.");
+                    if (!response) printf("[SUCCESS] 결제정보 삽입 성공.\n");
+
+                    
                 }
             }
             else if (read_status == 0)
@@ -331,4 +348,37 @@ static int insert_car_info(MYSQL* conn, const char** car_info)
     );
 
     return (run_nonselect_query(conn, query_buffer));
+}
+static int update_car_info(MYSQL* conn, const char** car_info)
+{
+    char query_buffer[BUFFER_SIZE];
+
+    sprintf(
+        query_buffer,
+        "UPDATE car_info "
+        "SET "
+        "billing_key='%s', customer_key='%s', card_number='%s', bank_info='%s', updated_at=curtime() "
+        "WHERE car_number='%s'",
+        car_info[1],
+        car_info[2],
+        car_info[3],
+        car_info[4],
+        car_info[0]
+    );
+
+    return (run_nonselect_query(conn, query_buffer));
+}
+
+static int select_is_exist_car_info(MYSQL* conn, const char* plate_number)
+{
+    char query_buffer[BUFFER_SIZE] = {0};
+
+    sprintf(
+        query_buffer,
+        "SELECT * FROM car_info "
+        "WHERE car_number='%s';",
+        plate_number
+    );
+
+    return (run_select_plate_number_query(conn, query_buffer));
 }

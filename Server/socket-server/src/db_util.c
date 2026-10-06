@@ -46,3 +46,28 @@ int run_select_id_query(MYSQL* conn, const char* query, char* id)
         return -1;
     }
 }
+
+int run_select_plate_number_query(MYSQL* conn, const char* query)
+{
+    MYSQL_RES* res;
+    MYSQL_ROW row;
+    int row_nums;
+
+    if (mysql_query(conn, query))
+    {
+        fprintf(stderr, "[ERROR] 쿼리 오류: %s[%u]\n", mysql_error(conn), mysql_errno(conn));
+        return -1;
+    }
+
+    if (res == NULL)
+    {
+        fprintf(stderr, "[ERROR] 결과 없음: %s[%u]\n", mysql_error(conn), mysql_errno(conn));
+        return -1;
+    }
+
+    row_nums = (unsigned long)mysql_num_rows(res);
+
+    res = mysql_store_result(conn);
+
+    return row_nums;    // 새 차량이라면 0, 이미 등록된 차량이라면 1
+}
