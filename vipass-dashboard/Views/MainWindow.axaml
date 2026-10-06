@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:vipass_dashboard.ViewModels"
+        xmlns:views="using:vipass_dashboard.Views"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
@@ -15,8 +16,14 @@
         <vm:MainViewModel />
     </Design.DataContext>
 
-    <TextBox Text="{Binding Greeting}"
-             HorizontalAlignment="Center"
-             VerticalAlignment="Center" />
+    <Grid ColumnDefinitions="220,*">
+
+        <!-- 좌측 사이드바 -->
+        <views:SidebarView Grid.Column="0" />
+
+        <!-- 우측 내용 영역: CurrentPage(ViewModel)에 맞는 View를 ViewLocator가 찾아 표시한다 -->
+        <ContentControl Grid.Column="1" Content="{Binding CurrentPage}" />
+
+    </Grid>
 
 </Window>
