@@ -1,0 +1,72 @@
+is_global = true
+build_property.TargetFramework = net8.0
+build_property.TargetFramework = net8.0
+build_property.TargetFrameworkIdentifier = .NETCoreApp
+build_property.TargetFrameworkIdentifier = .NETCoreApp
+build_property.RuntimeIdentifier = 
+build_property.AppHostRuntimeIdentifier = win-x64
+build_property.DefaultAppHostRuntimeIdentifier = win-x64
+build_property.NETCoreSdkPortableRuntimeIdentifier = win-x64
+build_property.IsTestProject = 
+build_property.AvaloniaMainPackageVersion = 
+build_property.HasAvaloniaDiagnosticsSupport = 
+build_property.AvaloniaUseCompiledBindingsByDefault = 
+build_property._AvnB64ProjectAssetsFile = 
+build_property._AvnB64ProjectDepsFilePath = 
+build_property._AvnB64ProjectRuntimeConfigFilePath = 
+build_property._AvnB64IntermediateOutputPath = b2JqXERlYnVnXG5ldDguMFw=
+build_property._AvnB64PublishDir = YmluXERlYnVnXG5ldDguMFxwdWJsaXNoXA==
+build_property._AvnB64AvaloniaPreviewerNetCoreToolPath = 
+build_property.TargetFrameworkVersion = v8.0
+build_property.TargetPlatformMinVersion = 
+build_property.UsingMicrosoftNETSdkWeb = true
+build_property.ProjectTypeGuids = 
+build_property.InvariantGlobalization = 
+build_property.PlatformNeutralAssembly = 
+build_property.EnforceExtendedAnalyzerRules = 
+build_property.EntryPointFilePath = 
+build_property._SupportedPlatformList = Linux,macOS,Windows
+build_property.RootNamespace = NewDashboard
+build_property.RootNamespace = NewDashboard
+build_property.ProjectDir = d:\한국폴리텍대학\2-2\전공수업_융합프로젝트실습2\SmartParkingSystem\smartparking\NewDashboard\
+build_property.EnableComHosting = 
+build_property.EnableGeneratedComInterfaceComImportInterop = 
+build_property.RazorLangVersion = 8.0
+build_property.SupportLocalizedComponentNames = 
+build_property.GenerateRazorMetadataSourceChecksumAttributes = 
+build_property.MSBuildProjectDirectory = d:\한국폴리텍대학\2-2\전공수업_융합프로젝트실습2\SmartParkingSystem\smartparking\NewDashboard
+build_property._RazorSourceGeneratorDebug = 
+build_property.EffectiveAnalysisLevelStyle = 8.0
+build_property.EnableCodeStyleSeverity = 
+
+[d:/한국폴리텍대학/2-2/전공수업_융합프로젝트실습2/SmartParkingSystem/smartparking/NewDashboard/Components/App.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xBcHAucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[d:/한국폴리텍대학/2-2/전공수업_융합프로젝트실습2/SmartParkingSystem/smartparking/NewDashboard/Components/Pages/BillingSuccess.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xCaWxsaW5nU3VjY2Vzcy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[d:/한국폴리텍대학/2-2/전공수업_융합프로젝트실습2/SmartParkingSystem/smartparking/NewDashboard/Components/Pages/Error.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xFcnJvci5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[d:/한국폴리텍대학/2-2/전공수업_융합프로젝트실습2/SmartParkingSystem/smartparking/NewDashboard/Components/Pages/Home.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xIb21lLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[d:/한국폴리텍대학/2-2/전공수업_융합프로젝트실습2/SmartParkingSystem/smartparking/NewDashboard/Components/Routes.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xSb3V0ZXMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[d:/한국폴리텍대학/2-2/전공수업_융합프로젝트실습2/SmartParkingSystem/smartparking/NewDashboard/Components/_Imports.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xfSW1wb3J0cy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[d:/한국폴리텍대학/2-2/전공수업_융합프로젝트실습2/SmartParkingSystem/smartparking/NewDashboard/Components/Layout/MainLayout.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xMYXlvdXRcTWFpbkxheW91dC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = b-w7sqzc6hiw
+
+[d:/한국폴리텍대학/2-2/전공수업_융합프로젝트실습2/SmartParkingSystem/smartparking/NewDashboard/Components/Layout/NavMenu.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xMYXlvdXRcTmF2TWVudS5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = b-812j8c375e

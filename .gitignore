@@ -3,8 +3,10 @@
 __pycache__
 *.pyc
 .env
+.env.*
 *venv*
 progress.txt
+CLAUDE.md
 
 
 # Image Processing
@@ -32,3 +34,85 @@ mysql8/
 build/
 node_modules/
 client-test/
+
+
+# ===== C# / .NET (ParkingDashboard) =====
+# Build output
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+[Pp]ublish/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+artifacts/
+out/
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+project.lock.json
+project.fragment.lock.json
+
+# dotnet CLI / test results
+.dotnet/
+TestResults/
+[Tt]est[Rr]esult*/
+*.trx
+coverage*.json
+coverage*.xml
+*.coverage
+*.coveragexml
+
+# Logs
+*.log
+logs/
+
+# Visual Studio / Rider (함께 사용할 경우)
+.vs/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+*.rsuser
+*.vsidx
+*.pdb
+*.ilk
+*.pch
+*.tlog
+_ReSharper*/
+*.DotSettings.user
+
+# Secrets (설정 파일 중 민감 정보)
+secrets.json
+appsettings.Local.json
+appsettings.*.local.json
+*.pfx
+*.p12
+*.snk
+
+# OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# Temp
+*.tmp
+*.bak
+*.swp
+
+
+# ===== 충돌 방지: 위의 기존 규칙이 C# 프로젝트를 가리지 않도록 재포함 =====
+# (폴더 이름 ParkingDashboard는 실제 프로젝트 폴더명으로 바꾸세요)
+!ParkingDashboard/Models/
+!ParkingDashboard/Assets/**/*.png
+!ParkingDashboard/Assets/**/*.jpg
