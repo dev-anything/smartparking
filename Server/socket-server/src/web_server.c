@@ -23,13 +23,15 @@ static pthread_mutex_t g_payment_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static int send_payment_id(char req_q[][PAYMENT_ID_SIZE], int size, int fd);
 static int insert_car_info(MYSQL* conn, const char** car_info);
+static int insert_payments_result(MYSQL* conn, const char** payments_result_info);
+static int parse_car_info_data(char* data, char** car_info);
+static int parse_payment_result_info_data(char* data, char** payment_result_info);
 
 void web_server_thread(client_info* info)
 {
     MYSQL* conn;
     char buffer[BUFFER_SIZE];
     int read_status;
-    char* car_info[5] = {0};
     char *token = NULL;
     char *next_token = NULL;
     //int idx = 0;
@@ -101,18 +103,39 @@ void web_server_thread(client_info* info)
                 //printf("[수신] -> %s\n", buffer);
                 int idx = 0;
                 token = strtok_r(buffer, DELIM, &next_token);
-                while (token != NULL)
+
+                // 결제 정보 저장
+                if (strcmp(token, PAYMENT_INFO_CODE) == 0)
                 {
-                    car_info[idx] = token;
-                    //printf("[PARSING] 파싱 결과: [%s]\n", car_info[idx]);
-                    idx++;
-                    token = strtok_r(NULL, DELIM, &next_token);
+                    char* car_info[5] = {0};
+                    parse_car_info_data(next_token, car_info);
+                    response = insert_car_info(conn, car_info);
+
+                    if (!response) printf("[SUCCESS] 차량정보 삽입 성공.");
+
+                }
+                // 결제 결과 저장
+                else if (strcmp(token, PAYMENT_RESULT_CODE) == 0)
+                {
+                    char* payment_result_info[7] = {0};
+                    parse_payment_result_info_data(next_token, payment_result_info);
+                    response = insert_payments_result(conn, payment_result_info);
+
+                    if (!response) printf("[SUCCESS] 결제정보 삽입 성공.");
                 }
 
 
-                response = insert_car_info(conn, car_info);
 
-                if (!response) printf("[SUCCESS] 차량정보 삽입 성공.");
+                //while (token != NULL)
+                //{
+                //    car_info[idx] = token;
+                //    //printf("[PARSING] 파싱 결과: [%s]\n", car_info[idx]);
+                //    idx++;
+                //    token = strtok_r(NULL, DELIM, &next_token);
+                //}
+
+
+                
 
             }
             else if (read_status == 0)
@@ -233,6 +256,69 @@ static int send_payment_id(char req_q[][PAYMENT_ID_SIZE], int size, int fd)
 
         
     }
+    return 1;
+}
+
+static int insert_payments_result(MYSQL* conn, const char** payments_result_info)
+{
+    // 0: payments_key
+    // 1: payments_id
+    // 2: payments_name
+    // 3: requested_at
+    // 4: approved_at
+    // 5: amount
+    // 6: car_number
+    char query_buffer[BUFFER_SIZE] = {0};
+
+    sprintf(
+        query_buffer,
+        "INSERT INTO "
+        "payments_result (payments_key, payments_id, payments_name, requested_at, approved_at, amount, car_number) "
+        "VALUES ('%s', '%s', '%s', STR_TO_DATE('%s', '%%Y%%m%%d%%H%%i%%s'), STR_TO_DATE('%s', '%%Y%%m%%d%%H%%i%%s'), %d, '%s');",
+        payments_result_info[0],// payments_key(토스가 응답한 고유 결제 키)
+        payments_result_info[1],// payments_id(우리가 만든 order id)
+        payments_result_info[2],// payment_name(우리가 만든 결제명)
+        payments_result_info[3],// requested_at(요청 시각)
+        payments_result_info[4],// approved_at(승인 시각)
+        atoi(payments_result_info[5]),
+        payments_result_info[6]// car_number(차량번호)
+
+    );
+
+    return (run_nonselect_query(conn, query_buffer));
+}
+
+static int parse_payment_result_info_data(char* data, char** payment_result_info)
+{
+    char* token = NULL;
+    char* next_token = NULL;
+    int idx = 0;
+
+    token = strtok_r(data, DELIM, &next_token);
+
+    while (token != NULL)
+    {
+        payment_result_info[idx++] = token;
+        token = strtok_r(NULL, DELIM, &next_token);
+    }
+
+    return 1;
+}
+
+static int parse_car_info_data(char* data, char** car_info)
+{
+    char* token = NULL;
+    char* next_token = NULL;
+    int idx = 0;
+
+    token = strtok_r(data, DELIM, &next_token);
+
+    while (token != NULL)
+    {
+        car_info[idx++] = token;
+        token = strtok_r(NULL, DELIM, &next_token);
+    }
+
     return 1;
 }
 

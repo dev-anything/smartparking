@@ -47,8 +47,10 @@ const connectSocketServer = () => {
         if (data.startsWith("PAYID:"))  // 결제 요청
         {
           const paymentId = data.slice("PAYID:".length);
-          const orderId = await handlePayment(paymentId);
-          console.log(`[DONE] 주문 ID: ${orderId} 결제 완료.`);
+          const paymentResult = await handlePayment(paymentId);
+          const paymentResultList = Object.values(paymentResult);
+          console.log(`[DONE] 주문 ID: ${paymentResult.payments_id} 결제 완료.`);
+          sendPaymentResult(paymentResultList);
         }
       }
     });
@@ -64,7 +66,7 @@ const connectSocketServer = () => {
   
 };
 
-// 소켓 서버로 데이터 보내기
+// 소켓 서버로 결제 정보 보내기
 const sendPaymentInfo = (dataList) => {
   if (socket === null || connected === false)
   {
@@ -74,8 +76,21 @@ const sendPaymentInfo = (dataList) => {
 
   const buffer = dataList.join(':');
 
-  socket.write(`${buffer}\n`);
+  socket.write(`PI:${buffer}\n`);
 };
+
+// 소켓 서버로 결제 완료 정보 보내기
+const sendPaymentResult = (dataList) => {
+  if (socket === null || connected === false)
+  {
+    console.log("연결 상태 불량.");
+    return;
+  }
+
+  const buffer = dataList.join(':');
+  socket.write(`PR:${buffer}\n`);
+}
+
 
 
 module.exports = {

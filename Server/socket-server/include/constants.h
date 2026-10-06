@@ -27,11 +27,11 @@
 #define GATE_OPEN 'O'
 #define GATE_CLOSE 'C'
 
-
-
-
 // 클라이언트 구분값
 #define SENSOR_CLIENT "S"
 #define MOTOR_CLIENT "M"
 #define IP_CLIENT "P"
 #define WEBSERVER_CLIENT "W"
+
+#define PAYMENT_INFO_CODE "PI"
+#define PAYMENT_RESULT_CODE "PR"

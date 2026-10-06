@@ -16,9 +16,20 @@ const handlePayment = async (id) => {
     const paymentInfo = await getPaymentInfo(id);
 
     // 실제 결제 요청
-    const { orderId } = await requestPayment(paymentInfo);
+    const paymentResult = { 
+      payments_key,
+      payments_id,
+      payments_name,
+      requested_at,
+      approved_at,
+      amount,
+      //car_number: paymentInfo.carNumber,
+    } = await requestPayment(paymentInfo);
 
-    return orderId;
+    paymentResult.car_number = paymentInfo.carNumber;
+
+
+    return paymentResult;
   } catch (err) {
     console.error(`[ERROR] 결제 오류 발생: ${err.message}`);
   }
@@ -33,8 +44,11 @@ const getPaymentInfo = async (id) => {
     "billing_key": selectedPaymentInfo.billing_key,
     "customer_key": selectedPaymentInfo.customer_key,
     "orderId": crypto.randomUUID(),
-    "orderName": `${selectedPaymentInfo.plate_number}-주차요금`,
+    "orderName": `${selectedPaymentInfo.car_number}-주차요금`,
+    "carNumber": selectedPaymentInfo.car_number,
   };
+
+  console.log(paymentInfo);
 
   console.log("[LOG] 결제 정보 발급 완료.");
   
@@ -69,9 +83,15 @@ const requestPayment = async (paymentInfo) => {
     }
   );
 
+  //console.log(paymentRes.data);
+
   return {
-    orderId: paymentInfo.orderId,
-    data: paymentRes.data
+    payments_key: paymentRes.data.paymentKey,
+    payments_id: paymentRes.data.orderId,
+    payments_name: paymentRes.data.orderName,
+    requested_at: (paymentRes.data.requestedAt).slice(0, 19).replace(/[-T:]/g, ""),
+    approved_at: (paymentRes.data.approvedAt).slice(0, 19).replace(/[-T:]/g, ""),
+    amount: paymentRes.data.card.amount,
   };
 };
 
