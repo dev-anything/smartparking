@@ -1,7 +1,13 @@
+import Content from "./layout/Content"
+import Sidebar from "./layout/Sidebar"
+
 function App() {
 
   return (
-    <h1>Hello, electron!</h1>
+    <div className="flex">
+      <Sidebar />
+      <Content />
+    </div>
   )
 }
 
