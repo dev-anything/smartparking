@@ -1,31 +1,36 @@
-CC = gcc
-FLAGS = -g -Wall
-LIBS = -lmysqlclient -lcurl -ljson-c -lmicrohttpd -lpthread
+CC      = gcc
+CFLAGS  = -g -Wall -Iinclude
+LDFLAGS = -lmysqlclient -lpthread
 
-OUTPUT_DIR = build
+SRC     = $(wildcard src/*.c)
+OBJ     = $(SRC:src/%.c=build/%.o)
+HEADERS = $(wildcard include/*.h)
+TARGET  = build/main
 
-TARGET = server
-OBJS = server.o
-RAW = server.c
+.PHONY: build run clean
 
-.PHONY: compile out run clean build
+build: $(TARGET)
 
+$(TARGET): $(OBJ)
+	$(CC) $(OBJ) -o $@ $(LDFLAGS)
 
+# 모든 .o는 모든 헤더에 의존: 헤더가 하나라도 바뀌면 전체 재컴파일
+$(OBJ): $(HEADERS)
 
-compile:
-	$(CC) -c $(FLAGS) $(RAW) -o $(OUTPUT_DIR)/$(OBJS)
+build/%.o: src/%.c
+	@mkdir -p build
+	$(CC) $(CFLAGS) -c $< -o $@
 
-out:
-	$(CC) -o $(OUTPUT_DIR)/$(TARGET) $(OUTPUT_DIR)/$(OBJS) $(LIBS)
-
-run:
-	./$(OUTPUT_DIR)/$(TARGET)
+run: build
+	./$(TARGET)
 
 clean:
-	rm -f $(OUTPUT_DIR)/*
+	rm -rf build/*
 
-build:
-	$(MAKE) clean
-	$(MAKE) compile
-	$(MAKE) out
-	$(MAKE) run
+# 순서 작성해보기
+# 1. 모든 build/%.o 파일은 src/%.c 파일에 의존한다.(% => 같은 이름)
+# 2. 모든 OBJ 파일(build/%.o)은 HEADERS(include/*.h)에 의존한다.
+# 3. TARGET(build/main)은 OBJ에 의존한다.
+# 4. build 명령은 TARGET에 의존한다.
+# 5. run 명령은 TARGET을 실행한다.
+# 6. build, run, clean은 파일이 아니라 명령이다.
