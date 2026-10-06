@@ -355,8 +355,7 @@ static int update_car_info(MYSQL* conn, const char** car_info)
 
     sprintf(
         query_buffer,
-        "UPDATE car_info "
-        "SET "
+        "UPDATE car_info SET "
         "billing_key='%s', customer_key='%s', card_number='%s', bank_info='%s', updated_at=curtime() "
         "WHERE car_number='%s'",
         car_info[1],
@@ -380,5 +379,5 @@ static int select_is_exist_car_info(MYSQL* conn, const char* plate_number)
         plate_number
     );
 
-    return (run_select_plate_number_query(conn, query_buffer));
+    return (run_select_exist_plate_number_query(conn, query_buffer));
 }

@@ -48,7 +48,6 @@ void sensor_data_thread(client_info *info)
 
             
             response = insert_parked_status(conn, status);
-            //response = mysql_query(conn, query_buffer);
 
             if (!response) printf("INSERTED %lu ROWS\n", (unsigned long)mysql_affected_rows(conn));
             else fprintf(stderr, "insert error %s[%d]\n", mysql_error(conn), mysql_errno(conn));

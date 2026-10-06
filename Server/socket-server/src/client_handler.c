@@ -61,7 +61,7 @@ void *handle_client(void *arg)
             }
             else if (strcmp(token, WEBSERVER_CLIENT) == 0)
             {
-                printf("[CONFIRMED] Web server confirmed.\n");
+                printf("[CONFIRMED] Web server client confirmed.\n");
                 web_server_thread(info);
             }
             else

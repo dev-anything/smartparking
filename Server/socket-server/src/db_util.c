@@ -47,7 +47,7 @@ int run_select_id_query(MYSQL* conn, const char* query, char* id)
     }
 }
 
-int run_select_plate_number_query(MYSQL* conn, const char* query)
+int run_select_exist_plate_number_query(MYSQL* conn, const char* query)
 {
     MYSQL_RES* res;
     MYSQL_ROW row;
