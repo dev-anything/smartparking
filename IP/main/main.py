@@ -136,17 +136,17 @@ def main():
     is_connected = client.server_connect(client_socket, config.SERVER_IP, config.SERVER_PORT, config.INIT_ID)
     if not is_connected:
         print("[ERROR] Cannot connect to server.")
-        return 1
+        #return 1
 
     # 스레드 설정 -----------
     stop_event = threading.Event()
     
-    entry_framebox = FrameBox("ENTRY")
-    exit_framebox = FrameBox("EXIT")
+    entry_framebox = camera.FrameBox("entry", config.GATE_ENTRY)
+    exit_framebox = camera.FrameBox("exit", config.GATE_EXIT)
     
     
     entry_cam_thread = threading.Thread(
-        target=run_camera,
+        target=camera.run_camera,
         args=(
             config.ENTRY_CAM_INDEX,
             config.FRAME_WIDTH,
@@ -160,7 +160,7 @@ def main():
     )
     
     exit_cam_thread = threading.Thread(
-        target=run_camera,
+        target=camera.run_camera,
         args=(
             config.EXIT_CAM_INDEX,
             config.FRAME_WIDTH,
@@ -177,138 +177,176 @@ def main():
     exit_cam_thread.start()
     
 
-    # cap : cv2.VideoCapture 또는 None
-    cap = camera.open_camera(
-        config.CAM_INDEX,
-        config.FRAME_WIDTH,
-        config.FRAME_HEIGHT,
-        config.TARGET_FPS
-    )
-    
-    if cap is None:
-        return 1
-    print("ROI: {} -> 처리 프레임 {}x{}".format(config.ROI, config.ROI[2], config.ROI[3]))
 
-    state = gate.initial_state()                    # gate.GateState
+    # 게이트 상태 딕셔너리
+    gate_states = {
+        "entry": gate.initial_state(),
+        "exit": gate.initial_state(),
+    }
+    
+    # 마지막 프레임 ID 딕셔너리
+    last_seen_ids = {
+        "entry": 0,
+        "exit": 0,
+    }
+    
+    # 마지막 프레임의 corners 값
+    last_corners = {
+        "entry": None,
+        "exit": None,
+    }
+    
+    # 번호판 이탈 시간
+    absent_sinces = {
+        "entry": None,
+        "exit": None
+    }
+    
+    # 마지막 인식 번호판 텍스트
+    current_plates = {
+        "entry": None,
+        "exit": None
+    }
+    
     period = 1.0 / config.TARGET_FPS                # float: 프레임 1장에 쓸 시간 (초)   예) 0.1
     exit_code = 0
     
-    open_time = 0   # 차단기 열린 시각
-    last_corners = None    # 마지막 번호판 인식 여부 -> 현재 상태와 마지막 상태 비교해서 차단기 닫기
-    absent_since = None    # 번호판 이탈 시작 시각
-    current_plate = None   # 마지막 저장된 번호판 텍스트
+
 
     try:
         while True:
             start = time.time()                     # float: 이번 프레임 시작 시각
             
-
-            # ----- 1. 프레임 읽기 -> ROI로 자르기 -----
-            # ok : bool,  frame : np.ndarray (720, 1280, 3) 또는 None
-            ok, frame = camera.read_frame(cap)
-            if not ok:
-                print("[카메라] 프레임을 읽을 수 없습니다. (USB 연결 확인)")
-                exit_code = 1                       # 카메라 문제로 종료
-                break
-            # frame : np.ndarray (288, 640, 3). 이후 모든 좌표는 이 ROI 프레임 기준
-            frame = camera.crop_roi(frame, config.ROI)
-
-            # ----- 2. 번호판 글자 줄 검출 -----
-            # corners : np.ndarray (4, 2), int32 또는 None
-            corners = detector.find_plate(frame)
-
-            # ----- 3. 진입 판정 -----
-            prev_phase = state.phase                # str: 단계가 바뀌었는지 출력하기 위해 기억
-            state = gate.track(state, corners, frame.shape)
-            if state.phase != prev_phase:
-                print("[게이트] {} -> {}".format(prev_phase, state.phase))
-
-            # ----- 4. READING 단계이고, 이번 프레임에 읽을 수 있는 번호판이 있을 때만 인식 -----
-            # 단계만 확인하면 안 됨: READING은 검출이 잠깐 끊겨도 유지되므로
-            # 이번 프레임의 corners가 None일 수 있음 (그 프레임은 건너뛰고 다음 프레임에 이어서 읽음)
-            if gate.should_read(state, corners, frame.shape):
-                now = time.time()                   # float: 캡쳐 시각 (파일 이름, 재인식 방지에 사용)
-
-                # 4-1. 글자 줄을 정면으로 펴서 잘라내기 (np.ndarray (높이, 폭, 3))
-                plate_img = detector.extract_plate_image(frame, corners)
-
-                # 4-2. 캡쳐 저장 -> 4-3. 불러오기
-                #   path : str 또는 None,  img : np.ndarray 또는 None
-                path = camera.save_capture([frame, plate_img], config.SAVE_DIR, now)
-                #original = camera.save_capture(frame, config.SAVE_DIR, now)
-                img = camera.load_capture(path)
-                if img is None:
-                    print("[캡쳐] 저장 또는 불러오기 실패 -> 메모리의 이미지로 인식")
-                    img = plate_img
-
-                # 4-4. 텍스트 추출 (result : recognizer.RecResult)
-                result = recognizer.recognize(model, img)
-                print_result(path, result)
-
-                # 4-5. 투표 (event : None 또는 tuple(str, ...))
-                state, event = gate.vote(state, result.plate, now)
-                if event is not None:
-                    kind, value = event
-                    current_plate = value
-                    if kind == "confirmed":
-                        # ★ 새 차량 번호 확정: 여기에서 DB 저장, 차단기 제어 등을 연결
-                        print("[확정] {}  (투표 {})".format(value, list(state.votes)))
-                        
-                        
-                        client.send_plate_text(client_socket, config.GATE_ENTRY, config.GATE_OPEN, value)
-                        
-                    elif kind == "duplicate":
-                        print("[중복] {}  최근 {}초 안에 이미 처리한 번호 -> 무시".format(
-                            value, config.COOLDOWN_SEC))
-                    else:
-                        print("[확인 필요] {}번 읽어도 확정 못 함: {}".format(
-                            config.MAX_READS, list(value)))
-                    print("[게이트] READING -> DONE (차량이 나갈 때까지 인식 중지)")
-
-            elif config.PRINT_EVERY_FRAME:
-                print("[DEBUG] 번호판 존재 --> {}  단계 {}".format(corners is not None, state.phase))
-
-            # ----- 5. 화면 표시 -----
-            if config.SHOW_WINDOW:
-                cv2.imshow(config.WINDOW_NAME, draw(frame, corners, state))
-                # waitKey(1) : 1ms 키 입력 대기 + 화면 갱신. & 0xFF : 하위 8비트만 사용
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
-            
-            
-            # 차단기 닫기 명령 전송 로직 - 번호판 이탈 감지 후 3초 유지
-            # 이번 프레임에 번호판이 감지되었다면
-            if corners is not None:
-                absent_since = None
-            # 이번 프레임에 번호판이 이탈했다면
-            else:
-                # 직전 프레임에 번호판이 감지되었다면
-                if last_corners is not None:
-                    if absent_since is None:
-                        absent_since = time.time()
-                    # 3초 이상 이탈이 유지된다면 명령 송신
-                else:
-                    if (absent_since is not None) and (time.time() - absent_since >= config.CLOSE_DELAY):
-                        print(f"[PLATE] CURRENT PLATE: {current_plate}")
-                        client.send_plate_text(client_socket, config.GATE_ENTRY, config.GATE_CLOSE, current_plate)
-                        current_plate = None
-                        absent_since = None
+            for name, framebox in (("entry", entry_framebox), ("exit", exit_framebox)):
                 
-            
-            # 상태값 대입
-            last_corners = corners
+                snap = framebox.snapshot() # 최신 상태의 framebox 가져오기
+                
+                
+                if snap.frame is None:      # snap에 frame 정보가 없다면
+                    continue                # 다음으로 (== 다음 framebox)
+                
+                if not snap.connected:      # 연결 안 되어 있다면
+                    continue                # 다음으로
+                
+                if not framebox.is_new(last_seen_ids[name]):     # 마지막 처리 프레임과 같은 프레임이라면
+                    continue                                    # 다음으로
+                
+                current_plate = current_plates[name]    # 현재 framebox의 마지막 번호판 텍스트 저장(끝에서 업데이트)
+                
+                
+                # ----- 1. 프레임을 roi로 자르기 -----
+                # frame : np.ndarray (288, 640, 3). 이후 모든 좌표는 이 ROI 프레임 기준
+                frame = camera.crop_roi(snap.frame, config.ROI)
 
-            # 10FPS 맞추기: 처리가 0.1초보다 빨리 끝나면 남은 시간만큼 대기
-            # (인식하는 프레임은 0.1초를 넘길 수 있음 -> 그 프레임만 느려지고 대기 없이 다음으로)
-            remain = period - (time.time() - start)   # float: 남은 시간 (초)
-            if remain > 0:
-                time.sleep(remain)
+                # ----- 2. 번호판 글자 줄 검출 -----
+                # corners : np.ndarray (4, 2), int32 또는 None
+                corners = detector.find_plate(frame)
+
+                # ----- 3. 진입 판정 -----
+                state = gate_states[name]               # 현재 framebox용 state 저장
+                prev_phase = state.phase                # str: 단계가 바뀌었는지 출력하기 위해 기억
+                state = gate.track(state, corners, frame.shape)
+                if state.phase != prev_phase:
+                    print("[게이트] {} -> {}".format(prev_phase, state.phase))
+
+                # ----- 4. READING 단계이고, 이번 프레임에 읽을 수 있는 번호판이 있을 때만 인식 -----
+                # 단계만 확인하면 안 됨: READING은 검출이 잠깐 끊겨도 유지되므로
+                # 이번 프레임의 corners가 None일 수 있음 (그 프레임은 건너뛰고 다음 프레임에 이어서 읽음)
+                if gate.should_read(state, corners, frame.shape):
+                    now = time.time()                   # float: 캡쳐 시각 (파일 이름, 재인식 방지에 사용)
+
+                    # 4-1. 글자 줄을 정면으로 펴서 잘라내기 (np.ndarray (높이, 폭, 3))
+                    plate_img = detector.extract_plate_image(frame, corners)
+
+                    # 4-2. 캡쳐 저장 -> 4-3. 불러오기
+                    #   path : str 또는 None,  img : np.ndarray 또는 None
+                    path = camera.save_capture([frame, plate_img], config.SAVE_DIR, now)
+                    #original = camera.save_capture(frame, config.SAVE_DIR, now)
+                    img = camera.load_capture(path)
+                    if img is None:
+                        print("[캡쳐] 저장 또는 불러오기 실패 -> 메모리의 이미지로 인식")
+                        img = plate_img
+
+                    # 4-4. 텍스트 추출 (result : recognizer.RecResult)
+                    result = recognizer.recognize(model, img)
+                    print_result(path, result)
+
+                    # 4-5. 투표 (event : None 또는 tuple(str, ...))                  
+                    
+                    state, event = gate.vote(state, result.plate, now)
+                    if event is not None:
+                        kind, value = event
+                        current_plate = value
+                        if kind == "confirmed":
+                            # ★ 새 차량 번호 확정: 여기에서 DB 저장, 차단기 제어 등을 연결
+                            print("[확정] {}  (투표 {})".format(value, list(state.votes)))
+
+                            # 게이트 정보 + 번호판 텍스트 정보 송신
+                            client.send_plate_text(client_socket, framebox.gate, config.GATE_OPEN, value)
+                            
+                        elif kind == "duplicate":
+                            print("[중복] {}  최근 {}초 안에 이미 처리한 번호 -> 무시".format(
+                                value, config.COOLDOWN_SEC))
+                        else:
+                            print("[확인 필요] {}번 읽어도 확정 못 함: {}".format(
+                                config.MAX_READS, list(value)))
+                        print("[게이트] READING -> DONE (차량이 나갈 때까지 인식 중지)")
+
+                elif config.PRINT_EVERY_FRAME:
+                    print("[DEBUG] 번호판 존재 --> {}  단계 {}".format(corners is not None, state.phase))
+
+                # ----- 5. 화면 표시 -----
+                if config.SHOW_WINDOW:
+                    cv2.imshow(config.WINDOW_NAME + "_" + name, draw(frame, corners, state))
+                    # waitKey(1) : 1ms 키 입력 대기 + 화면 갱신. & 0xFF : 하위 8비트만 사용
+                    if cv2.waitKey(1) & 0xFF == ord('q'):
+                        return
+                
+                
+                # 차단기 닫기 명령 전송 로직 - 번호판 이탈 감지 후 3초 유지
+                absent_since = absent_sinces[name]  # 현재 framebox의 번호판 이탈 시간 복사(끝에서 업데이트)
+                last_corner = last_corners[name]    # 현재 framebox의 마지막 번호판 위치 복사(끝에서 업데이트)
+                # 이번 프레임에 번호판이 감지되었다면
+                if corners is not None:
+                    absent_since = None
+                # 이번 프레임에 번호판이 이탈했다면
+                else:
+                    # 직전 프레임에 번호판이 감지되었다면
+                    if last_corner is not None:
+                        if absent_since is None:
+                            absent_since = time.time()
+                        # 3초 이상 이탈이 유지된다면 명령 송신
+                    else:
+                        if (absent_since is not None) and (time.time() - absent_since >= config.CLOSE_DELAY):
+                            print(f"[PLATE] CURRENT PLATE: {current_plate}")
+                            client.send_plate_text(client_socket, framebox.gate, config.GATE_CLOSE, current_plate)
+                            current_plate = None
+                            absent_since = None
+                    
+                
+                
+                
+                # 마지막에 딕셔너리 일괄 업데이트
+                gate_states[name] = state
+                last_seen_ids[name] = snap.frame_id
+                current_plates[name] = current_plate
+                last_corners[name] = corners
+                absent_sinces[name] = absent_since
+                
+
+                # 10FPS 맞추기: 처리가 0.1초보다 빨리 끝나면 남은 시간만큼 대기
+                # (인식하는 프레임은 0.1초를 넘길 수 있음 -> 그 프레임만 느려지고 대기 없이 다음으로)
+                remain = period - (time.time() - start)   # float: 남은 시간 (초)
+                if remain > 0:
+                    time.sleep(remain)
 
     except KeyboardInterrupt:
         print("\n종료합니다.")
     finally:
         # 정상 종료, 오류, Ctrl+C 어떤 경우든 카메라와 창을 정리
-        camera.close_camera(cap)
+        stop_event.set()
+        entry_cam_thread.join(timeout=2.0)
+        exit_cam_thread.join(timeout=2.0)
         cv2.destroyAllWindows()
 
     return exit_code

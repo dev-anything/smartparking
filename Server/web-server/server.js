@@ -38,6 +38,7 @@ const {
   issueCustomerKey,
   issueBillingKey
 } = require('./toss');
+
 const {
   sendPaymentInfo,
   connectSocketServer,
@@ -50,10 +51,6 @@ app.use(cors());
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws' });
-
-
-
-
 
 
 

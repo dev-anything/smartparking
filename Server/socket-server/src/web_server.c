@@ -108,6 +108,7 @@ void web_server_thread(client_info* info)
                 if (strcmp(token, PAYMENT_INFO_CODE) == 0)
                 {
                     char* car_info[5] = {0};
+                    // 저장할 차량번호가 DB에 있는지 없는지 확인 필요
                     parse_car_info_data(next_token, car_info);
                     response = insert_car_info(conn, car_info);
 
@@ -123,20 +124,6 @@ void web_server_thread(client_info* info)
 
                     if (!response) printf("[SUCCESS] 결제정보 삽입 성공.");
                 }
-
-
-
-                //while (token != NULL)
-                //{
-                //    car_info[idx] = token;
-                //    //printf("[PARSING] 파싱 결과: [%s]\n", car_info[idx]);
-                //    idx++;
-                //    token = strtok_r(NULL, DELIM, &next_token);
-                //}
-
-
-                
-
             }
             else if (read_status == 0)
             {
