@@ -14,6 +14,12 @@
 
 // 모터 제어 명령어를 저장할 큐 사이즈
 #define MOTOR_COMMAND_QUEUE_SIZE 16
+// 결제 ID를 저장할 큐 사이즈
+#define PAYMENT_REQ_QUEUE_SIZE 8
+// 결제 ID의 최대 사이즈
+#define PAYMENT_ID_SIZE 12
+// 차량번호 길이 최대 사이즈
+#define PLATE_NUMBER_SIZE 16
 
 // 모터 게이트와 열기/닫기 명령값
 #define GATE_ENTRY 'E'
@@ -21,8 +27,7 @@
 #define GATE_OPEN 'O'
 #define GATE_CLOSE 'C'
 
-#define PAYMENT_REQ_QUEUE_SIZE 8
-#define PAYMENT_ID_SIZE 12
+
 
 
 // 클라이언트 구분값
