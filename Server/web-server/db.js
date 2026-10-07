@@ -103,20 +103,22 @@ const selectAccount = async (account) => {
 
 const selectLlmQuery = async (query) => {
   const [rows, fields] = await pool.query(query);
+  console.log(`ROWS: ${rows[0].car_number}`);
 
-  const columns = fields.map((c) => c.name);
-  const lines = [`columns: ${columns.join(', ')}`];
+  //const columns = fields.map((c) => c.name);
+  //const lines = [`columns: ${columns.join(', ')}`];
 
-  for (const row of rows)
-  {
-    const values = columns.map((c) => {
-      const v = row[c];
-      return v === null || v === undefined ? "NULL" : String(v);
-    });
-    lines.push(values.join(", "));
-  }
-
-  return { text: lines.join('\n') };
+  //for (const row of rows)
+  //{
+  //  const values = columns.map((c) => {
+  //    const v = row[c];
+  //    return v === null || v === undefined ? "NULL" : String(v);
+  //  });
+  //  lines.push(values.join(", "));
+  //}
+  ////console.log(lines.join('\n'));
+  //return lines.join('\n');
+  return JSON.stringify(rows);
 };
 
 const selectPaymentInfo = async (id) => {

@@ -28,6 +28,7 @@ const {
   selectLlmQuery,
   selectRecordsUpdatedTime,
   selectPaymentResult,
+  selectPaymentsResultApprovedTime,
 } = require('./db');
 
 const {
