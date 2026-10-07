@@ -14,6 +14,7 @@ const {
   SERVER_PORT,
   PARKED_STATUS_POLL_MS,
   RECORDS_POLL_MS,
+  PAYMENTS_RESULT_POLL_MS,
 } = require("./constants");
 
 const {
