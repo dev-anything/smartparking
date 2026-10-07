@@ -9,6 +9,7 @@
 - HuggingFace 에서 코드에 특화된 경량 모델을 사용합니다.
 - https://huggingface.co/Kj0rdan/Qwen2.5-Coder-0.5B-Instruct-Q4_K_M-GGUF
 
+Here
 
 
 ## 데이터베이스
