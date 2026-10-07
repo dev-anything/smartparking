@@ -137,8 +137,9 @@ app.post("/api/llm-query", async (req, res) => {
 
       질문: ${question}
     `;
-    const rawSql = await callLLM(null, sqlPrompt);
-    const stripRawSql = stripCodeFence(rawSql);
+    //1차 호출:SQL 전용 system prompt 명시 지정
+    const rawSql = await callLLM("너는 MYSQL SELECT 쿼리만 생성하는 데이터베이스 전문 엔진이다. 마크다운이나 설명 없이 오직 실행 가능한 pure SQL문만 출력해.", sqlPrompt);
+    const stripRawSql = stripCodeFence(rawSql).trim();
 
     if (!isSafeSql(stripRawSql))
     {
@@ -147,13 +148,14 @@ app.post("/api/llm-query", async (req, res) => {
         message: "죄송합니다. 처리할 수 없는 요청입니다."
       });
     }
-
-    const queryText = await selectLlmQuery(stripRawSql);
+    const queryResult = await selectLlmQuery(stripRawSql)
+    console.log(queryResult)
+    //const queryText = typeof queryResult === 'object' ? JSON.stringify(stripRawSql);
 
     const summarizePrompt = `
       사용자 질문: ${question}
       조회 결과:
-      ${queryText}
+      ${queryResult}
 
       위 질문과 조회 결과를 바탕으로 친절한 한국어 문장으로 답변해.
       숫자나 값은 그대로 사용하고, 새로운 정보를 만들지 마.

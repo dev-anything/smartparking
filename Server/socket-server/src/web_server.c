@@ -103,7 +103,7 @@ void web_server_thread(client_info* info)
 
             if (read_status)
             {
-                //printf("[수신] -> %s\n", buffer);
+                printf("[수신] -> %s\n", buffer);
                 int idx = 0;
                 token = strtok_r(buffer, DELIM, &next_token);
 
@@ -114,7 +114,7 @@ void web_server_thread(client_info* info)
                     // 저장할 차량번호가 DB에 있는지 없는지 확인 필요
                     parse_car_info_data(next_token, car_info);
                     // 이미 해당 차량번호에 등록된 정보가 있다면
-                    if (select_is_exist_car_info(conn, car_info[0]))
+                    if (select_is_exist_car_info(conn, car_info[0]) == 1)
                     {
                         response = update_car_info(conn, car_info);
 

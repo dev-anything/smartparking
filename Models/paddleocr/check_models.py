@@ -19,8 +19,8 @@ import time
 import numpy as np
 import onnxruntime as ort
 
-MODEL = "models/rec.onnx"
-DICT = "models/korean_dict.txt"
+MODEL = "models_v5/rec.onnx"
+DICT = "models_v5/korean_dict.txt"
 
 
 def main():
