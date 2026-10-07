@@ -38,12 +38,50 @@ const selectEntryExitRecords = async () => {
   return rows;
 };
 
+const selectPaymentResult = async () => {
+  const [[rows], [summary]] = await Promise.all([
+    pool.query(
+      `
+        SELECT * FROM payments_result
+        ORDER BY approved_at DESC
+      `
+    ),
+    pool.query(
+      `
+        SELECT COUNT(*) AS payments_count,
+        COALESCE(SUM(amount), 0) AS total_amount
+        FROM payments_result
+      `
+    ),
+  ]);
+
+  return {
+    rows,
+    summary: {
+      payments_count: Number(summary.payments_count),
+      total_amount: Number(summary.total_amount),
+    }
+  };
+};
+
 const selectRecordsUpdatedTime = async () => {
   const [rows] = await pool.query(
     `
       SELECT COALESCE(MAX(updated_at), '')
       AS lastUpdatedAt
       FROM records
+    `
+  );
+
+  return rows;
+};
+
+const selectPaymentsResultApprovedTime = async () => {
+  const [rows] = await pool.query(
+    `
+      SELECT COALESCE(MAX(approved_at), '')
+      AS lastApprovedAt
+      FROM payments_result
     `
   );
 
@@ -102,8 +140,10 @@ const selectPaymentInfo = async (id) => {
 module.exports = {
   selectParkedStatus,
   selectEntryExitRecords,
+  selectPaymentResult,
   selectRecordsUpdatedTime,
   selectAccount,
+  selectPaymentsResultApprovedTime,
   selectLlmQuery,
   selectPaymentInfo,
 };

@@ -58,6 +58,7 @@ const SERVER_PORT = 10001;
 // 02. 웹소켓 - 폴링 시간 설정
 const PARKED_STATUS_POLL_MS = 1000;
 const RECORDS_POLL_MS = 3000;
+const PAYMENTS_RESULT_POLL_MS = 1000;
 
 
 
@@ -71,4 +72,5 @@ module.exports = {
   SERVER_PORT,
   PARKED_STATUS_POLL_MS,
   RECORDS_POLL_MS,
+  PAYMENTS_RESULT_POLL_MS
 };
