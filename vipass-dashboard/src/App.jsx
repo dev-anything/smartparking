@@ -1,13 +1,14 @@
-import Content from "./layout/Content"
+import Content from "./layout/ContentWrapper"
+import PageWrapper from "./layout/PageWrapper"
 import Sidebar from "./layout/Sidebar"
 
 function App() {
 
   return (
-    <div className="flex">
+    <PageWrapper>
       <Sidebar />
       <Content />
-    </div>
+    </PageWrapper>
   )
 }
 
