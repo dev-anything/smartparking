@@ -3,7 +3,7 @@ import Chatllm from "../components/Chatllm";
 import Parkinglot from "../components/Parkinglot";
 import PaymentResult from "../components/PaymentResult";
 
-const Content = () => {
+const Home = () => {
   return (
     <div>
       <Parkinglot />
@@ -14,4 +14,4 @@ const Content = () => {
   );
 };
 
-export default Content;
+export default Home;

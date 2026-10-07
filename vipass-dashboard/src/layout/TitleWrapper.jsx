@@ -1,6 +1,6 @@
-const TitleWrapper = () => {
+const TitleWrapper = ({ children }) => {
   return (
-    <div>Title area</div>
+    <div>{children}</div>
   );
 };
 
