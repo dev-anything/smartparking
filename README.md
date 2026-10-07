@@ -71,9 +71,65 @@ curl http://<서버IP>:10001/v1/chat/completions \
 | updated_at | DATETIME | NOT NULL | | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
 
 2. parked_status
+- 주차 구역(area_1 ~ area_6)별 점유 상태를 시간대별로 기록합니다. (1: 주차됨, 0: 비어 있음)
+- 테이블 구조
+
+| Field | Type | Null | Key | Default | Extra |
+|:------|:-----|:-----|:----|:--------|:------|
+| id | INT | NOT NULL | PRIMARY | NULL | AUTO_INCREMENT |
+| record_time | DATETIME | NULL | | NULL | |
+| area_1 | TINYINT(1) | NULL | | 0 | |
+| area_2 | TINYINT(1) | NULL | | 0 | |
+| area_3 | TINYINT(1) | NULL | | 0 | |
+| area_4 | TINYINT(1) | NULL | | 0 | |
+| area_5 | TINYINT(1) | NULL | | 0 | |
+| area_6 | TINYINT(1) | NULL | | 0 | |
 
 3. bank_info
+- 카드 결제에 사용하는 은행(카드사) 코드와 이름을 관리합니다.
+- 테이블 구조
+
+| Field | Type | Null | Key | Default | Extra |
+|:------|:-----|:-----|:----|:--------|:------|
+| bank_code | CHAR(2) | NOT NULL | PRIMARY | NULL | |
+| bank_name | VARCHAR(30) | NOT NULL | | NULL | |
 
 4. car_info
+- 차량별 자동 결제 정보(빌링키, 고객키, 카드번호, 은행)를 관리합니다.
+- 테이블 구조
+
+| Field | Type | Null | Key | Default | Extra |
+|:------|:-----|:-----|:----|:--------|:------|
+| car_number | VARCHAR(20) | NOT NULL | PRIMARY | NULL | |
+| billing_key | VARCHAR(255) | NOT NULL | | NULL | |
+| customer_key | VARCHAR(512) | NOT NULL | UNIQUE | NULL | |
+| card_number | VARCHAR(30) | NULL | | NULL | |
+| bank_info | CHAR(2) | NULL | MUL | NULL | |
+| created_at | DATETIME | NOT NULL | | NULL | |
+| updated_at | DATETIME | NOT NULL | | NULL | |
+
+- 인덱스: `uk_car_customer_key`(customer_key, UNIQUE), `idx_car_bank_info`(bank_info)
+- 외래 키: `fk_car_bank_info` — `bank_info` → `bank_info.bank_code` (ON UPDATE CASCADE, ON DELETE SET NULL)
 
 5. users
+- 로그인 사용자 계정 정보를 관리합니다.
+- 테이블 구조
+
+| Field | Type | Null | Key | Default | Extra |
+|:------|:-----|:-----|:----|:--------|:------|
+| id | VARCHAR(50) | NOT NULL | PRIMARY | NULL | |
+| password | VARCHAR(100) | NOT NULL | | NULL | |
+
+6. payments_result
+- 결제 요청/승인 결과를 저장합니다.
+- 테이블 구조
+
+| Field | Type | Null | Key | Default | Extra |
+|:------|:-----|:-----|:----|:--------|:------|
+| payments_key | VARCHAR(200) | NOT NULL | PRIMARY | NULL | |
+| payments_id | VARCHAR(64) | NOT NULL | | NULL | |
+| payments_name | VARCHAR(100) | NOT NULL | | NULL | |
+| requested_at | DATETIME | NOT NULL | | NULL | |
+| approved_at | DATETIME | NOT NULL | | NULL | |
+| amount | INT UNSIGNED | NOT NULL | | NULL | |
+| car_number | VARCHAR(20) | NOT NULL | | NULL | |
