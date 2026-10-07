@@ -26,6 +26,7 @@ const {
   selectAccount,
   selectLlmQuery,
   selectRecordsUpdatedTime,
+  selectPaymentResult,
 } = require('./db');
 
 const {
@@ -87,6 +88,19 @@ app.get('/api/entry-exit-records', async (req, res) => {
   } catch (err) {
     console.error(`[ERROR] 입출입 기록 조회 실패: ${err.message}`);
     res.status(500).json({ message: "조회 실패."});
+  }
+});
+
+
+// 결제 관련 기록 조회 API
+app.get("/api/payments-result", async (req, res) => {
+  console.log("결제기록 조회 요청 들어옴.");
+
+  try {
+    res.json(await selectPaymentResult());
+  } catch (err) {
+    console.error(`[ERROR] 결제기록 조회 실패: ${err.message}`);
+    res.status(500).json({ message: "조회 실패." });
   }
 });
 
@@ -361,6 +375,34 @@ const pollParkedStatus = async () => {
 
 // /api/parked_status / 웹소켓 전환
 
+// /api/payments-result / 웹소켓 전환
+
+let lastPaymentsResultApprovedAt = null;
+
+const pollPaymentsResult = async () => {
+  try {
+    const rows = await selectPaymentsResultApprovedTime();
+    const current = rows[0].lastApprovedAt;
+
+    if (lastPaymentsResultApprovedAt !== null && lastPaymentsResultApprovedAt !== current)
+    {
+      const { rows, summary } = await selectPaymentResult();
+
+      broadcast({
+        type: "payments_result_updated",
+        data:{ rows, summary },
+      });
+    }
+
+    lastPaymentsResultApprovedAt = current;
+  } catch (err) {
+    console.error(`payments_result 폴링 오류: ${err.message}`);
+  }
+}
+
+// /api/payments-result / 웹소켓 전환
+
+
 // /api/entry-exit-records / 웹소켓 전환
 
 let lastRecordsUpdatedAt = null;
@@ -391,6 +433,7 @@ const pollRecords = async () => {
 
 setInterval(pollParkedStatus, PARKED_STATUS_POLL_MS);
 setInterval(pollRecords, RECORDS_POLL_MS);
+setInterval(pollPaymentsResult, PAYMENTS_RESULT_POLL_MS);
 
 // app.listen -> server.listen
 server.listen(SERVER_PORT, '0.0.0.0', () => {
