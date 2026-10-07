@@ -23,7 +23,6 @@ const handlePayment = async (id) => {
       requested_at,
       approved_at,
       amount,
-      //car_number: paymentInfo.carNumber,
     } = await requestPayment(paymentInfo);
 
     paymentResult.car_number = paymentInfo.carNumber;
