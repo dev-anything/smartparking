@@ -2,12 +2,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 /* =========================================================
- * 설정 (.env: TOSS_CLIENT_KEY / SERVER_IP / ISSUE_CUSTOMER_KEY_URL)
+ * 설정 (.env: VITE_TOSS_CLIENT_KEY / VITE_SERVER_IP / VITE_ISSUE_CUSTOMER_KEY_URL / VITE_SAVE_TOSS_INFO_URL)
  * ========================================================= */
-const TOSS_CLIENT_KEY = import.meta.env.TOSS_CLIENT_KEY;
-const SERVER_IP = import.meta.env.SERVER_IP; // "http://IP:PORT"
-const ISSUE_CUSTOMER_KEY_URL = import.meta.env.ISSUE_CUSTOMER_KEY_URL; // customerKey 발급 (POST { carNumber } → { newCusKey })
-const SAVE_TOSS_INFO_URL = import.meta.env.SAVE_TOSS_INFO_URL; // authKey 전달 (POST { tossAuthKey, tossCustomerKey, carNumber }) — 빌링키는 서버가 발급
+const TOSS_CLIENT_KEY = import.meta.env.VITE_TOSS_CLIENT_KEY;
+const SERVER_IP = import.meta.env.VITE_SERVER_IP; // "http://IP:PORT"
+const ISSUE_CUSTOMER_KEY_URL = import.meta.env.VITE_ISSUE_CUSTOMER_KEY_URL; // customerKey 발급 (POST { carNumber } → { newCusKey })
+const SAVE_TOSS_INFO_URL = import.meta.env.VITE_SAVE_TOSS_INFO_URL; // authKey 전달 (POST { tossAuthKey, tossCustomerKey, carNumber }) — 빌링키는 서버가 발급
 const DONE_KEY = "tossAuthKeysSent"; // 새로고침 시 중복 전송 방지
 const ROUTE_HASH = "#/register/carinfo";
 
@@ -98,18 +98,18 @@ const RegisterForm = () => {
     const car = normalizeCarNumber(carNumber);
     const base = SERVER_IP;
 
-    if (location.protocol === "file:") {
-      return setMsg({ text: "file:// 로 열면 인증 후 이 페이지로 돌아올 수 없습니다. 개발 서버(localhost)로 실행하세요.", type: "err" });
-    }
-    if (!base || !ISSUE_CUSTOMER_KEY_URL) {
-      return setMsg({ text: ".env 의 SERVER_IP, ISSUE_CUSTOMER_KEY_URL 값을 확인하세요.", type: "err" });
-    }
-    if (!TOSS_CLIENT_KEY) {
-      return setMsg({ text: ".env 의 TOSS_CLIENT_KEY 값을 확인하세요.", type: "err" });
-    }
-    if (/_gck_/.test(TOSS_CLIENT_KEY)) {
-      return setMsg({ text: "결제위젯 연동 키(gck)는 자동결제에 쓸 수 없습니다. API 개별 연동 키(ck)를 사용하세요.", type: "err" });
-    }
+    //if (location.protocol === "file:") {
+    //  return setMsg({ text: "file:// 로 열면 인증 후 이 페이지로 돌아올 수 없습니다. 개발 서버(localhost)로 실행하세요.", type: "err" });
+    //}
+    //if (!base || !ISSUE_CUSTOMER_KEY_URL) {
+    //  return setMsg({ text: ".env 의 VITE_SERVER_IP, VITE_ISSUE_CUSTOMER_KEY_URL 값을 확인하세요.", type: "err" });
+    //}
+    //if (!TOSS_CLIENT_KEY) {
+    //  return setMsg({ text: ".env 의 VITE_TOSS_CLIENT_KEY 값을 확인하세요.", type: "err" });
+    //}
+    //if (/_gck_/.test(TOSS_CLIENT_KEY)) {
+    //  return setMsg({ text: "결제위젯 연동 키(gck)는 자동결제에 쓸 수 없습니다. API 개별 연동 키(ck)를 사용하세요.", type: "err" });
+    //}
     if (!car) return setMsg({ text: "차량번호를 입력하세요.", type: "err" });
     if (!CAR_PATTERN.test(car) && !confirm(`'${car}' 은(는) 일반적인 번호판 형식이 아닙니다. 그대로 진행할까요?`)) {
       return;
@@ -209,7 +209,7 @@ const RegisterResult = ({ params }) => {
       };
     }
     if (!authKey || !customerKey || !base || !SAVE_TOSS_INFO_URL) {
-      return { status: { text: "리다이렉트 정보가 부족합니다 (authKey, customerKey, SERVER_IP, SAVE_TOSS_INFO_URL 중 누락).", type: "err" }, info: [] };
+      return { status: { text: "리다이렉트 정보가 부족합니다 (authKey, customerKey, VITE_SERVER_IP, VITE_SAVE_TOSS_INFO_URL 중 누락).", type: "err" }, info: [] };
     }
     if (isDone(authKey)) {
       return { status: { text: "이 인증 건은 이미 서버로 전달했습니다. (새로고침으로 인한 중복 전송 방지)", type: "ok" }, info: [] };

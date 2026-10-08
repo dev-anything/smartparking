@@ -1,6 +1,8 @@
 const Chatllm = () => {
   return (
-    <div>Chat to llm.</div>
+    <div className="col-start-2 row-span-2 row-start-1 border-3">
+      Chat to llm.
+    </div>
   );
 };
 
