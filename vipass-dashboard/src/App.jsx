@@ -6,7 +6,7 @@ import Sidebar from "./layout/Sidebar"
 import CarRegister from "./pages/CarRegister";
 import Information from "./pages/Information";
 import { useEffect } from "react";
-import { WebSocketProvider } from "./components/WebSocketContext";
+import { WebSocketProvider } from "./context/WebSocketProvider";
 
 function App() {
 

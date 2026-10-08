@@ -1,35 +1,10 @@
-import axios from 'axios';
-import { useEffect, useState } from 'react';
 
-const getRecords = async () => {
-  try {
-    const res = await axios.get(
-      `${import.meta.env.VITE_SERVER_IP}:${import.meta.env.VITE_SERVER_PORT}${import.meta.env.VITE_API_ENTRY_EXIT_RECORD}`
-    );
-    //console.log(res.data);
-    return res.data;
-  } catch (err) {
-    console.error(`[ERROR] 입출입 기록 조회 오류: ${err.message}`)
-    return err.message;
-  }
-};
+import { useWebSocket } from '../hooks/useWebSocket';
+
 
 const EntryExitTable = () => {
+  const { records } = useWebSocket();
 
-  const [records, setRecords] = useState([]);
-
-  useEffect(() => {
-    const getData = async () => {
-      const response = await getRecords();
-      console.log(response);
-      setRecords(response);
-      
-    };
-
-    getData();
-
-    
-  }, []);
 
   return (
     <div>
