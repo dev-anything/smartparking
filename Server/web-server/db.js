@@ -31,7 +31,7 @@ const selectEntryExitRecords = async () => {
   const [rows] = await pool.query(
     `
       SELECT * FROM records
-      ORDER BY id DESC
+      ORDER BY entry_time DESC
     `
   );
 

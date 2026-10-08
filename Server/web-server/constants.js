@@ -9,8 +9,8 @@ const RULE = `
   2. 스키마에 없는 테이블이나 컬럼은 사용 금지.
   3. 세미콜론으로 끝낼 것.
   4. 답은 SQL 문장 그 자체만 출력. 다른 글자, 기호, 마크다운 코드블록('''sql)도 붙이지 마.
-  5. '현재 주차 중인 차량', '남아있는 차', '주차장에 있는 차 수' 질문은 records테이블에서 exit_time Is NULL 조건을 반드시 적용해. (예: SELECT COUNT(*) FROM records WHERE exit_time Is NULL;)
-  6. '실시간 주차면/구역 상태' 질문은 parked_states 테이블을 사용하되, 반드시 가장 최근 기록 1건만 조회하도록 ORDER BY id DESC LIMIT 1을 붙여. (전체 조회 금지)
+  5. [센서/주차면 기준]'현재 주차 중인 차량', '남아있는 차', '주차장에 있는 차 수' 질문은 parked_status 테이블을 사용하고, 반드시 최신 1건 조회를 위해 'ORDER BY id DESC LIMIT 1' 또는 'ORDER BY record_time DESC LIMIT 1'을 붙여.(예: SELECT * FROM parked_status ORDER BY id DESC LIMIT 1;)
+  6. [차단기/입출차 이력 기준] '안 나간 차 목록', '입차 후 남아있는 차량 수' 질문은 recodes 테이블에사 exit_time IS NULL 조건을 사용.(예 SELECT COUNT(*) FROM records WHERE exit_time IS NULL;)
   7. COUNT, SUM 등 집계함수와 일반 컬럼을 함께 SELECT하지 마.
 `;
 
@@ -22,7 +22,7 @@ const SCHEMA = `
     1) id: 자동 증가하는 기본키
     2) car_number: 차량번호
     3) entry_time: 주차장 입차 시각
-    4) exit_time: 주차장 출차 시각(미출차 차량 및 현재 주차 중인 차량은 exit_time이 NULL임)
+    4) exit_time: 주차장 출차 시각(미출차 차량 및 현재 남아있는 차량은 exit_time이 NULL임)
   
   2. parked_status 테이블
   - 테이블 정보: 주차장 각 칸의 현재 주차 여부를 표시하는 테이블(현재 실사간 상태는 id 기준 내림차순 최신 1건만 조회해야 함)

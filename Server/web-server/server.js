@@ -391,7 +391,7 @@ const pollPaymentsResult = async () => {
 
       broadcast({
         type: "payments_result_updated",
-        data:{ rows, summary },
+        data: { rows, summary },
       });
     }
 
