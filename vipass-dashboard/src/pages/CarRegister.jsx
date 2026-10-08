@@ -5,7 +5,7 @@ import { useSearchParams } from "react-router-dom";
  * 설정 (.env: TOSS_CLIENT_KEY / SERVER_IP / ISSUE_CUSTOMER_KEY_URL)
  * ========================================================= */
 const TOSS_CLIENT_KEY = import.meta.env.TOSS_CLIENT_KEY;
-const SERVER_IP = import.meta.env.SERVER_IP; // "IP:PORT"
+const SERVER_IP = import.meta.env.SERVER_IP; // "http://IP:PORT"
 const ISSUE_CUSTOMER_KEY_URL = import.meta.env.ISSUE_CUSTOMER_KEY_URL; // customerKey 발급 (POST { carNumber } → { newCusKey })
 const SAVE_TOSS_INFO_URL = import.meta.env.SAVE_TOSS_INFO_URL; // authKey 전달 (POST { tossAuthKey, tossCustomerKey, carNumber }) — 빌링키는 서버가 발급
 const DONE_KEY = "tossAuthKeysSent"; // 새로고침 시 중복 전송 방지
@@ -14,17 +14,7 @@ const ROUTE_HASH = "#/register/carinfo";
 const CAR_PATTERN = /^([가-힣]{2})?\d{2,3}[가-힣]\d{4}$/;
 const normalizeCarNumber = (raw) => (raw || "").replace(/\s+/g, "");
 
-// "192.168.0.10:8080" → "http://192.168.0.10:8080"
-function normalizeBackend(raw) {
-  let v = (raw || "").trim().replace(/\/+$/, "");
-  if (!v) return null;
-  if (!/^https?:\/\//i.test(v)) v = "http://" + v;
-  try {
-    return new URL(v).origin;
-  } catch {
-    return null;
-  }
-}
+
 
 function isDone(authKey) {
   try {
@@ -106,7 +96,7 @@ const RegisterForm = () => {
 
   const start = async () => {
     const car = normalizeCarNumber(carNumber);
-    const base = normalizeBackend(SERVER_IP);
+    const base = SERVER_IP;
 
     if (location.protocol === "file:") {
       return setMsg({ text: "file:// 로 열면 인증 후 이 페이지로 돌아올 수 없습니다. 개발 서버(localhost)로 실행하세요.", type: "err" });
@@ -160,8 +150,8 @@ const RegisterForm = () => {
 
   return (
     <div className="w-full max-w-md rounded-lg border border-gray-300 bg-white p-6">
-      <h1 className="text-xl font-bold">자동결제 카드 등록</h1>
-      <p className="mb-6 text-sm text-gray-500">카드를 인증한 뒤 서버에 인증 정보를 전달합니다.</p>
+      <h1 className="text-xl font-bold mb-4">차량 및 결제수단 등록</h1>
+      {/*<p className="mb-6 text-sm text-gray-500">카드를 인증한 뒤 서버에 인증 정보를 전달합니다.</p>*/}
 
       <label htmlFor="carNumber" className="mb-1 block text-sm font-semibold">차량번호</label>
       <div className="rounded-lg border-[3px] border-black bg-white p-1">

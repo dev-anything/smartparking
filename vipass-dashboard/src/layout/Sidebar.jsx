@@ -11,6 +11,11 @@ const menu = [
   },
   {
     id: 2,
+    url: "/info",
+    name: "정보조회"
+  },
+  {
+    id: 3,
     url: "/register/carinfo",
     name: "차량등록"
   }
