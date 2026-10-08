@@ -1,6 +1,8 @@
 const EntryExitTable = () => {
   return (
-    <div>table</div>
+    <div>
+      <h1>입출입 기록</h1>
+    </div>
   );
 };
 

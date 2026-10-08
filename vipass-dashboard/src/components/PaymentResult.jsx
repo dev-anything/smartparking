@@ -1,6 +1,8 @@
 const PaymentResult = () => {
   return (
-    <div>Payment result.</div>
+    <div>
+      <h1>주차요금 결제내역</h1>
+    </div>
   );
 };
 
