@@ -34,14 +34,19 @@ const EntryExitTable = () => {
   return (
     <div>
       <h1>입출입 기록</h1>
-      <table className="text-[5px]">
-        {records.map((record) => {
+      <table className="text-[8px]">
+        <tr>
+          <th>차량번호</th>
+          <th>입차시각</th>
+          <th>출차시각</th>
+          <th>기록시각</th>
+        </tr>
+        {records?.map((record) => {
           return (
             <tr id={record.id}>
-              <td>{record.id}</td>
               <td>{record.car_number}</td>
               <td>{record.entry_time}</td>
-              <td>{record.exit_time}</td>
+              <td>{record.exit_time ?? "미출차"}</td>
               <td>{record.updated_at}</td>
             </tr>
           );
