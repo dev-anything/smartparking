@@ -34,7 +34,7 @@ const EntryExitTable = () => {
   return (
     <div>
       <h1>입출입 기록</h1>
-      <table className="text-[8px]">
+      <table className="text-[8px] text-center">
         <tr>
           <th>차량번호</th>
           <th>입차시각</th>

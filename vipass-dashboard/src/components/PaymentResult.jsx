@@ -30,7 +30,7 @@ const PaymentResult = () => {
   return (
     <div>
       <h1>주차요금 결제내역</h1>
-      <table className="text-[8px]">
+      <table className="text-[8px] text-center">
         <tr>
           <th>결제명</th>
           <th>요청시각</th>
@@ -41,7 +41,7 @@ const PaymentResult = () => {
         {paymentsResult.rows?.map((payment) => {
           return (
             <tr key={payment.payments_key}>
-              <td>{payment.name}</td>
+              <td>{payment.payments_name}</td>
               <td>{payment.requested_at}</td>
               <td>{payment.approved_at}</td>
               <td>{payment.car_number}</td>

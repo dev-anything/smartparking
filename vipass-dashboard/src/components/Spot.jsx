@@ -1,7 +1,7 @@
 const Spot = ({ number, status }) => {
-  console.log("상태값: ", status);
+  //console.log("상태값: ", status);
   return (
-    <div className="">Spots {number}: {status}</div>
+    <div className={`${status ? "bg-red-100" : "bg-green-100"}`}>Spots {number}</div>
   );
 };
 

@@ -2,7 +2,6 @@
 import React, { createContext, useContext, useEffect, useRef } from 'react';
 
 const WebSocketContext = createContext(null);
-const websocketip = import.meta.env.VITE_SERVER_WEBSOCKET_IP;
 
 export const WebSocketProvider = ({ children }) => {
   const socketRef = useRef(null);

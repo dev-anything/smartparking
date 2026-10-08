@@ -43,11 +43,15 @@ const Chatllm = () => {
   };
 
   return (
-    <div className="col-start-2 row-span-2 row-start-1 border-3 flex flex-col justify-end items-center">
-      <div>{response}</div>
-      <input className="border mb-5 w-[50%]" placeholder="질문을 입력하세요" value={question} onChange={(e) => setQuestion(e.target.value)}/>
-      <button onClick={requestLLM} className="hover:pointer">전송</button>
-      
+    <div className="col-start-2 row-span-2 row-start-1 border-3 flex flex-col justify-between">
+      <h1 className="pt-5">VIPASS-AI</h1>
+      <div className="flex flex-col justify-baseline items-center border">
+        <div>{response}</div>
+        <form className="pb-5">
+          <input className="border w-[50%] focus:outline-none" placeholder="질문을 입력하세요" value={question} onChange={(e) => setQuestion(e.target.value)}/>
+          <button type="submit" onClick={requestLLM} className="hover:pointer">전송</button>
+        </form>
+      </div>
     </div>
   );
 };
