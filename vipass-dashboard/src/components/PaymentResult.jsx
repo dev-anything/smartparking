@@ -40,7 +40,7 @@ const PaymentResult = () => {
         </tr>
         {paymentsResult.rows?.map((payment) => {
           return (
-            <tr id={payment.payments_key}>
+            <tr key={payment.payments_key}>
               <td>{payment.name}</td>
               <td>{payment.requested_at}</td>
               <td>{payment.approved_at}</td>

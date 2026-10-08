@@ -43,7 +43,7 @@ const EntryExitTable = () => {
         </tr>
         {records?.map((record) => {
           return (
-            <tr id={record.id}>
+            <tr key={record.id}>
               <td>{record.car_number}</td>
               <td>{record.entry_time}</td>
               <td>{record.exit_time ?? "미출차"}</td>

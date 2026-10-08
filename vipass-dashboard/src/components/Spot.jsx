@@ -1,6 +1,7 @@
-const Spot = ({ number }) => {
+const Spot = ({ number, status }) => {
+  console.log("상태값: ", status);
   return (
-    <div>Spots {number}</div>
+    <div className="">Spots {number}: {status}</div>
   );
 };
 
