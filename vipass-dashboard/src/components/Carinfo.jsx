@@ -1,9 +1,11 @@
-const Carinfo = () => {
+const Carinfo = ({ gate }) => {
   return (
     <div className="border-2">
-      <div>카메라 사진</div>
+      <h1>{gate === "entry" ? "주차장 입구" : "주차장 출구"}</h1>
+      <img src="./a.png" alt="no images" />
+
       <div>차량번호</div>
-      <div>등록여부(OX)</div>
+      <div>차량등록여부(OX)</div>
     </div>
   );
 };

@@ -1,7 +1,5 @@
 import Carinfo from "../components/Carinfo";
-import Chatllm from "../components/Chatllm";
 import Parkinglot from "../components/Parkinglot";
-import PaymentResult from "../components/PaymentResult";
 
 const gates = [
   {gate: "entry"},
