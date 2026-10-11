@@ -8,6 +8,7 @@ const { handlePayment } = require('./paymentService');
 
 let socket = null;
 let connected = false;
+const pendingResult = new Map();
 
 // C 소켓 서버 연결
 const connectSocketServer = () => {
@@ -52,6 +53,17 @@ const connectSocketServer = () => {
           console.log(`[DONE] 주문 ID: ${paymentResult.payments_id} 결제 완료.`);
           sendPaymentResult(paymentResultList);
         }
+        else if (data.startsWith("PI:"))
+        {
+          const body = data.slice(3);
+          const idx = body.lastIndexOf(':');
+          const carNumber = body.slice(0, idx);
+          const result = body.slice(idx + 1);
+
+          const resolve = pendingResult.get(carNumber);
+          pendingResult.delete(carNumber);
+          resolve({ result });                           // 기다리던 await 가 풀림
+        }
       }
     });
 
@@ -67,7 +79,7 @@ const connectSocketServer = () => {
 };
 
 // 소켓 서버로 결제 정보 보내기
-const sendPaymentInfo = (dataList) => {
+const sendPaymentInfo = async (dataList) => {
   if (socket === null || connected === false)
   {
     console.log("연결 상태 불량.");
@@ -76,8 +88,16 @@ const sendPaymentInfo = (dataList) => {
 
   const buffer = dataList.join(':');
 
-  socket.write(`PI:${buffer}\n`);
+  return new Promise((resolve) => {
+    pendingResult.set(dataList[0], resolve);   // 먼저 등록
+    socket.write(`PI:${buffer}\n`);          // 그다음 전송
+  });
+
 };
+
+//const handlePI = () => {};
+
+
 
 // 소켓 서버로 결제 완료 정보 보내기
 const sendPaymentResult = (dataList) => {

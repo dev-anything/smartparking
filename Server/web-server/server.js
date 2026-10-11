@@ -45,6 +45,7 @@ const {
 const {
   sendPaymentInfo,
   connectSocketServer,
+  receivePaymentInfoResult,
 } = require('./socketClient');
 
 
@@ -296,14 +297,18 @@ app.post("/api/billing/issue", async (req, res) => {
       cardCompanyCode       // 카드회사 코드
     ]
 
-    sendPaymentInfo(dataList);
 
-    // 프론트엔드에게 성공 메시지 보내기
-    return res.status(200).json({
-      success: true,
-      message: "빌링키 발급 및 저장 완료!"
-    });
 
+    const result = await sendPaymentInfo(dataList);
+
+    if (result.result == "SUCCESS")
+    {
+      // 프론트엔드에게 성공 메시지 보내기
+      return res.status(200).json({
+        success: true,
+        message: "빌링키 발급 및 저장 완료!"
+      });
+    }
   } catch (err) {
     console.error(`[ERROR] 빌링키 발급/저장 오류 발생: ${err.message}`);
     return res.status(500).json({

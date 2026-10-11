@@ -28,6 +28,7 @@ static int parse_car_info_data(char* data, char** car_info);
 static int parse_payment_result_info_data(char* data, char** payment_result_info);
 static int select_is_exist_car_info(MYSQL* conn, const char* plate_number);
 static int update_car_info(MYSQL* conn, const char** car_info);
+static int send_saved_success(int fd, char* car_number);
 
 
 void web_server_thread(client_info* info)
@@ -119,6 +120,7 @@ void web_server_thread(client_info* info)
                         response = update_car_info(conn, car_info);
 
                         if (!response) printf("[SUCCESS] 차량정보 업데이트 성공.\n");
+                        else continue;
                     }
                     // 없다면
                     else
@@ -126,7 +128,11 @@ void web_server_thread(client_info* info)
                         response = insert_car_info(conn, car_info);
 
                         if (!response) printf("[SUCCESS] 차량정보 삽입 성공.\n");
+                        else continue;
                     }
+
+                    send_saved_success(fd, car_info[0]);
+
                     
 
                 }
@@ -206,7 +212,7 @@ void web_server_thread(client_info* info)
  
     close(efd);
     mysql_close(conn);
-    printf("[MOTOR] (fd=%d) 모터 클라이언트 종료\n", fd);
+    printf("[WEB] (fd=%d) 웹서버 클라이언트 종료\n", fd);
     
     
 }
@@ -236,6 +242,26 @@ int push_payment_request(const char* id)
     return ok;
 }
 
+static int send_saved_success(int fd, char* car_number)
+{
+    char packet[BUFFER_SIZE] = {0};
+
+    int len = snprintf(
+        packet,
+        sizeof(packet),
+        "PI:%s:SUCCESS\n",
+        car_number
+    );
+
+    if (send(fd, packet, (size_t)len, MSG_NOSIGNAL) != (ssize_t)len)
+    {
+        printf("[ID] 전송 실패.\n");
+        return 0;
+    }
+
+    printf("[WEB] (fd=%d) 전송: %s\n", fd, packet);
+}
+
 static int send_payment_id(char req_q[][PAYMENT_ID_SIZE], int size, int fd)
 {
     char packet[PAYMENT_ID_SIZE + 5] = {0};
@@ -256,7 +282,7 @@ static int send_payment_id(char req_q[][PAYMENT_ID_SIZE], int size, int fd)
             return 0;
         }
 
-        printf("[MOTOR] (fd=%d) 전송: %s\n", fd, packet);
+        printf("[WEB] (fd=%d) 전송: %s\n", fd, packet);
 
         
     }
