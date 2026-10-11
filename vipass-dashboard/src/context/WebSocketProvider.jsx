@@ -47,16 +47,30 @@ const getRecords = async () => {
   }
 };
 
+const getRegisteredInfo = async () => {
+  try {
+    const res = await axios.get(
+      `${import.meta.env.VITE_SERVER_IP}:${import.meta.env.VITE_SERVER_PORT}${import.meta.env.VITE_API_REGISTERED_INFO}`
+    );
+    console.log("등록된 차량: ", res.data);
+    return res.data;
+  } catch (err) {
+    console.error(`[ERROR] 입출입 기록 조회 오류: ${err.message}`)
+    return null;
+  }
+};
+
 export const WebSocketProvider = ({ children }) => {
   const [connected, setConnected] = useState(false);
   const [records, setRecords] = useState([]);
   const [parkedStatus, setParkedStatus] = useState([]);
+  const [registeredInfo, setRegisteredInfo] = useState([]);
   const [paymentsResult, setPaymentsResult] = useState([]);
 
   const initialLoad = async () => {
     try {
-      const [rec, pay, park] = await Promise.all([
-        getRecords(), getPaymentsResult(), getParkedStatus()
+      const [rec, pay, park, reg] = await Promise.all([
+        getRecords(), getPaymentsResult(), getParkedStatus(), getRegisteredInfo()
       ]);
 
       setRecords(rec);
@@ -69,6 +83,7 @@ export const WebSocketProvider = ({ children }) => {
         { id: 5, status: park.area_5 },
         { id: 6, status: park.area_6 },
       ]);
+      setRegisteredInfo(reg);
     } catch (err) {
       console.error(`[ERROR] 최초 1회 조회 오류: ${err.message}`);
     }
@@ -143,7 +158,9 @@ export const WebSocketProvider = ({ children }) => {
     };
   }, []);
 
-  const value = useMemo(() => ({ connected, records, parkedStatus, paymentsResult }), [connected, records, parkedStatus, paymentsResult]);
+  const value = useMemo(() => ({
+    connected, records, parkedStatus, registeredInfo, paymentsResult
+  }), [connected, records, parkedStatus, registeredInfo, paymentsResult]);
 
   return <WebSocketContext.Provider value={value}>{children}</WebSocketContext.Provider>;
 };
