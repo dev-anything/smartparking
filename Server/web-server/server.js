@@ -29,6 +29,7 @@ const {
   selectRecordsUpdatedTime,
   selectPaymentResult,
   selectPaymentsResultApprovedTime,
+  selectRegisteredInfo,
 } = require('./db');
 
 const {
@@ -69,7 +70,7 @@ app.get('/api/test', (req, res) => {
 
 // 주차 현황 조회 API
 app.get('/api/parked-status', async (req, res) => {
-  console.log("주차 현황 조회 요청 들어옴.");
+  console.log(`[REQUESTED] 주차 현황 조회 요청`);
   
   try {
     res.json(await selectParkedStatus());
@@ -81,7 +82,7 @@ app.get('/api/parked-status', async (req, res) => {
 
 // 전체 입출입 기록 조회 API
 app.get('/api/entry-exit-records', async (req, res) => {
-  console.log("전체 입출입 기록 조회 요청 들어옴.");
+  console.log(`[REQUESTED] 입출입 기록 조회 요청`);
 
   try {
     res.json(await selectEntryExitRecords());
@@ -91,10 +92,21 @@ app.get('/api/entry-exit-records', async (req, res) => {
   }
 });
 
+// 등록된 차량 정보 조회 API
+app.get("/api/registered-info", async (req, res) => {
+  console.log(`[REQUESTED] 등록 차량 조회 요청`);
+  try {
+    res.json(await selectRegisteredInfo());
+  } catch (err) {
+    console.error(`[ERROR] 등록 차량 조회 실패: ${err.message}`);
+    res.status(500).json({ message: "조회 실패."});
+  }
+});
+
 
 // 결제 관련 기록 조회 API
 app.get("/api/payments-result", async (req, res) => {
-  console.log("결제기록 조회 요청 들어옴.");
+  console.log(`[REQUESTED] 결제내역 조회 요청`);
 
   try {
     res.json(await selectPaymentResult());

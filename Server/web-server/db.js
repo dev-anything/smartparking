@@ -38,6 +38,19 @@ const selectEntryExitRecords = async () => {
   return rows;
 };
 
+const selectRegisteredInfo = async () => {
+  const [rows] = await pool.query(
+    `
+      SELECT
+      c.car_number, c.card_number, b.bank_name, c.updated_at
+      FROM car_info c
+      LEFT JOIN bank_info b ON b.bank_code=c.bank_info
+    `
+  );
+
+  return rows;
+};
+
 const selectPaymentResult = async () => {
   const [[rows], [summary]] = await Promise.all([
     pool.query(
@@ -143,6 +156,7 @@ module.exports = {
   selectParkedStatus,
   selectEntryExitRecords,
   selectPaymentResult,
+  selectRegisteredInfo,
   selectRecordsUpdatedTime,
   selectAccount,
   selectPaymentsResultApprovedTime,
