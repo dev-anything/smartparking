@@ -1,10 +1,9 @@
+const { toss } = require("./config");
 const express = require('express');
 const cors = require('cors');
-const mysql = require('mysql2/promise');
 const http = require('http');
 const { WebSocketServer, WebSocket } = require('ws');
 
-require('dotenv').config();
 
 const {
   RULE,
@@ -48,6 +47,7 @@ const {
   connectSocketServer,
   receivePaymentInfoResult,
 } = require('./socketClient');
+const { toss } = require('./config');
 
 
 const app = express();
@@ -288,7 +288,7 @@ app.post("/api/billing/issue", async (req, res) => {
     const { tossAuthKey, tossCustomerKey, carNumber } = req.body;
 
     // 시크릿 키 인코딩
-    const encodedSecretKey = Buffer.from(process.env.TOSS_SECRET_KEY + ':').toString("base64");
+    const encodedSecretKey = Buffer.from(toss.secretKey + ':').toString("base64");
 
     const { 
       billingKey,
@@ -297,7 +297,7 @@ app.post("/api/billing/issue", async (req, res) => {
     } = await issueBillingKey(tossAuthKey, tossCustomerKey, encodedSecretKey);
 
     // 빌링키 암호화
-    const encryptedBillingKey = billingKeyEncrypt(billingKey, process.env.BILLING_ENC_KEY);
+    const encryptedBillingKey = billingKeyEncrypt(billingKey);
 
 
     // DB 저장 로직 구현

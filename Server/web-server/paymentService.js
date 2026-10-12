@@ -1,5 +1,5 @@
 // 결제 관련 로직 담당
-
+const { toss, billing } = require("./config");
 const { default: axios } = require("axios");
 const crypto = require('crypto');
 
@@ -58,9 +58,9 @@ const getPaymentInfo = async (id) => {
 const requestPayment = async (paymentInfo) => {
   
   // 시크릿 키 인코딩
-  const encodedSecretKey = Buffer.from(process.env.TOSS_SECRET_KEY + ':').toString("base64");
+  const encodedSecretKey = Buffer.from(toss.secretKey + ':').toString("base64");
   // 빌링키 복호화
-  const decodedBillingKey = billingKeyDecrypt(paymentInfo.billing_key, process.env.BILLING_ENC_KEY);
+  const decodedBillingKey = billingKeyDecrypt(paymentInfo.billing_key, billing.encKey);
 
   console.log(`[LOG] 모의결제 시도.`);
 

@@ -1,7 +1,7 @@
+const { socket } = require("./config");
 const net = require('net');
 const readline = require('readline');
 
-require('dotenv').config();
 
 const { handlePayment } = require('./paymentService');
 
@@ -14,7 +14,7 @@ const pendingResult = new Map();
 const connectSocketServer = () => {
   
   try {
-    socket = net.createConnection(process.env.SOCKET_SERVER_PORT, process.env.SOCKET_SERVER_HOST, () => {
+    socket = net.createConnection(socket.port, socket.host, () => {
       socket.write("ID:W\n");
     });
 
