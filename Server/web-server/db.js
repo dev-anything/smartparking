@@ -45,6 +45,7 @@ const selectRegisteredInfo = async () => {
       c.car_number, c.card_number, b.bank_name, c.updated_at
       FROM car_info c
       LEFT JOIN bank_info b ON b.bank_code=c.bank_info
+      ORDER BY c.updated_at DESC
     `
   );
 

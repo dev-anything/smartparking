@@ -65,9 +65,10 @@ int run_select_exist_plate_number_query(MYSQL* conn, const char* query)
         return -1;
     }
 
+    res = mysql_store_result(conn);
     row_nums = (unsigned long)mysql_num_rows(res);
 
-    res = mysql_store_result(conn);
+    mysql_free_result(res);
 
     return row_nums;    // 새 차량이라면 0, 이미 등록된 차량이라면 1
 }

@@ -400,8 +400,9 @@ static int select_is_exist_car_info(MYSQL* conn, const char* plate_number)
 
     sprintf(
         query_buffer,
-        "SELECT * FROM car_info "
-        "WHERE car_number='%s';",
+        "SELECT 1 FROM car_info "
+        "WHERE car_number='%s'"
+        "LIMIT 1",
         plate_number
     );
 

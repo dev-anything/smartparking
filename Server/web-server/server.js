@@ -315,10 +315,11 @@ app.post("/api/billing/issue", async (req, res) => {
 
     if (result.result == "SUCCESS")
     {
+      getRegisteredInfo();
       // 프론트엔드에게 성공 메시지 보내기
       return res.status(200).json({
         success: true,
-        message: "빌링키 발급 및 저장 완료!"
+        message: "빌링키 발급 및 저장 완료!",
       });
     }
   } catch (err) {
@@ -361,6 +362,33 @@ const broadcast = (payload) => {
 };
 
 // 웹소켓 설정
+
+// api/registered-info / 웹소켓 전환(폴링 아님)
+
+let lastRegisteredUpdatedAt = null;
+
+const getRegisteredInfo = async () => {
+  try {
+    const rows = await selectRegisteredInfo();
+
+    const latest = rows[0];
+
+    if (lastRegisteredUpdatedAt !== latest.updated_at)
+    {
+      console.log(`[WEBSOCKET] 차량정보 브로드캐스트.`);
+      broadcast({
+        type: "car_info_updated",
+        data: rows
+      });
+    }
+  } catch (err) {
+    console.error(`[ERROR] car_info 폴링 오류: ${err.message}`);
+  }
+};
+
+// api/registered-info / 웹소켓 전환(폴링 아님)
+
+
 
 
 // /api/parked_status / 웹소켓 전환
