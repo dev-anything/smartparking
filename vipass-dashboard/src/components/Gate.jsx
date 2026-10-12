@@ -18,6 +18,9 @@ const Gate = ({ gate }) => {
       <img src={`${config.server.url}/captured/${path}`} alt="no images" />
 
       <div>{carNumber}</div>
+      <div>
+        {gate === "entry" ? "입차시각" : "출차시각"}: {gate === "entry" ? latest?.[`entry_time`] : latest?.[`exit_time`]}
+      </div>
     </div>
   );
 };
