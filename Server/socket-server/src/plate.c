@@ -10,10 +10,10 @@
 #include "db_util.h"
 #include "net_util.h"
 
-static int parse_plate_data(const char* buf, char* gate, char* action, char* plate);
-static int insert_record(MYSQL* conn, const char* plate_number);
+static int parse_plate_data(const char* buf, char* gate, char* action, char* plate, char* image_path);
+static int insert_record(MYSQL* conn, const char* plate_number, const char* image_path);
 static int select_payment_id(MYSQL* conn, const char* plate_number, char* id);
-static int update_records(MYSQL* conn, const char* id);
+static int update_records(MYSQL* conn, const char* id, const char* image_path);
 
 
 
@@ -24,6 +24,7 @@ void plate_number_thread(client_info *info)
     char gate = '\0';                     // 입구 / 출구 구분
     char action = '\0';                   // 열기 / 닫기 구분
     char plate[PLATE_NUMBER_SIZE] = {0};  // 번호판 텍스트
+    char image_path[BUFFER_SIZE] = {0};   // 캡쳐 이미지 경로
     int read_status = 0;                  // 개행까지 잘 읽었는지 판단
 
     if (!(mysql_real_connect(conn, MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DB, 3306, NULL, 0)))
@@ -48,22 +49,28 @@ void plate_number_thread(client_info *info)
         {
             printf("[RECEIVED] 수신 데이터: %s\n", buffer);
 
-            if (!parse_plate_data(buffer, &gate, &action, plate))
+            if (!parse_plate_data(buffer, &gate, &action, plate, image_path))
             {
                 fprintf(stderr, "[ERROR] 잘못된 형식: %s\n", buffer);
                 mysql_close(conn);
                 return;
             }
 
+            printf("[DEBUG] 게이트: %c\n", gate);
+            printf("[DEBUG] 동작: %c\n", action);
+            printf("[DEBUG] 번호판: %s\n", plate);
+            printf("[DEBUG] 경로: %s\n", image_path);
+            
+
             if (gate == GATE_ENTRY && action == GATE_OPEN)     // 입구 처리: insert
             {
-                insert_record(conn, plate);
+                insert_record(conn, plate, image_path);
             }
             else if (gate == GATE_EXIT && action == GATE_OPEN) // 출구 처리: select - update
             {
                 char id[PAYMENT_ID_SIZE] = {0};
                 select_payment_id(conn, plate, id);
-                update_records(conn, id);
+                update_records(conn, id, image_path);
                 push_payment_request(id);
             }
         }
@@ -82,42 +89,50 @@ void plate_number_thread(client_info *info)
 }
 
 
-static int parse_plate_data(const char* buf, char* gate, char* action, char* plate)
+static int parse_plate_data(const char* buf, char* gate, char* action, char* plate, char* image_path)
 {
+    char* token = NULL;
+    char* next_token = NULL;
+    int idx = 0;
     // 유효한 게이트인지 점검
-    if (buf[0] != GATE_ENTRY && buf[0] != GATE_EXIT)
-    {
-        return 0;
-    }
-
+    if (buf[0] != GATE_ENTRY && buf[0] != GATE_EXIT) return 0;
 
     // 유효한 명령인지 점검
-    if (buf[2] != GATE_OPEN && buf[2] != GATE_CLOSE)
-    {
-        return 0;
-    }
+    if (buf[2] != GATE_OPEN && buf[2] != GATE_CLOSE) return 0;
 
     // 번호판 텍스트가 최소 존재하는지 점검
     if (buf[4] == '\0') return 0;
 
+    token = strtok_r(buf, DELIM, &next_token);
 
-    *gate = buf[0];
-    *action = buf[2];    
-    strcpy(plate, buf + 4);
+    while (idx < 4)
+    {
+        // 게이트 정보
+        if (idx == 0) *gate = token[0];
+        // 동작 정보
+        else if (idx == 1) *action = token[0];
+        // 번호판 텍스트
+        else if (idx == 2) strcpy(plate, token);
+        // 캡쳐 이미지 경로
+        else if (idx == 3) strcpy(image_path, token);
+
+        token = strtok_r(NULL, DELIM, &next_token);
+        idx++;
+    }
 
     return 1;
 }
 
-static int insert_record(MYSQL* conn, const char* plate_number)
+static int insert_record(MYSQL* conn, const char* plate_number, const char* image_path)
 {
     printf("[TRY] Insert 시도.\n");
     char query_buffer[BUFFER_SIZE] = {0};
 
     sprintf(
         query_buffer,
-        "INSERT INTO records (id, car_number, entry_time, exit_time, updated_at)"
-        "VALUES (null, '%s', curtime(), null, curtime());",
-        plate_number
+        "INSERT INTO records (id, car_number, entry_time, exit_time, updated_at, entry_image_path)"
+        "VALUES (null, '%s', curtime(), null, curtime(), '%s');",
+        plate_number, image_path
     );
 
     return (run_nonselect_query(conn, query_buffer));
@@ -144,15 +159,15 @@ static int select_payment_id(MYSQL* conn, const char* plate_number, char* id)
     else return -1;
 }
 
-static int update_records(MYSQL* conn, const char* id)
+static int update_records(MYSQL* conn, const char* id, const char* image_path)
 {
     char query_buffer[BUFFER_SIZE] = {0};
 
     sprintf(
         query_buffer,
-        "UPDATE records SET exit_time=curtime(), updated_at=curtime() "
+        "UPDATE records SET exit_time=curtime(), updated_at=curtime(), exit_image_path='%s'"
         "WHERE id=%s AND exit_time IS NULL;",
-        id
+        image_path, id
     );
 
     return (run_nonselect_query(conn, query_buffer));

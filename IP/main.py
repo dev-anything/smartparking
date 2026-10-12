@@ -208,6 +208,12 @@ def main():
         "exit": None
     }
     
+    # 마지막 저장 이미지 경로
+    current_image_paths = {
+        "entry": None,
+        "exit": None
+    }
+    
     period = 1.0 / config.TARGET_FPS                # float: 프레임 1장에 쓸 시간 (초)   예) 0.1
     exit_code = 0
     
@@ -282,8 +288,10 @@ def main():
                             # ★ 새 차량 번호 확정: 여기에서 DB 저장, 차단기 제어 등을 연결
                             print("[확정] {}  (투표 {})".format(value, list(state.votes)))
 
+                            current_image_paths[name] = path[1]    
+                            
                             # 게이트 정보 + 번호판 텍스트 정보 + 캡쳐 경로 송신
-                            client.send_plate_text(client_socket, framebox.gate, config.GATE_OPEN, value, path[1])
+                            client.send_plate_text(client_socket, framebox.gate, config.GATE_OPEN, value, current_image_paths[name])
                             
                         elif kind == "duplicate":
                             print("[중복] {}  최근 {}초 안에 이미 처리한 번호 -> 무시".format(
@@ -320,7 +328,7 @@ def main():
                     else:
                         if (absent_since is not None) and (time.time() - absent_since >= config.CLOSE_DELAY):
                             print(f"[PLATE] CURRENT PLATE: {current_plate}")
-                            client.send_plate_text(client_socket, framebox.gate, config.GATE_CLOSE, current_plate)
+                            client.send_plate_text(client_socket, framebox.gate, config.GATE_CLOSE, current_plate, current_image_paths[name])
                             current_plate = None
                             absent_since = None
                     
@@ -333,6 +341,7 @@ def main():
                 current_plates[name] = current_plate
                 last_corners[name] = corners
                 absent_sinces[name] = absent_since
+                
                 
 
                 # 10FPS 맞추기: 처리가 0.1초보다 빨리 끝나면 남은 시간만큼 대기
