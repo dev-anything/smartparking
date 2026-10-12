@@ -1,12 +1,13 @@
 import { useState } from "react";
 import axios from 'axios';
+import config from "../config";
 
 const askLLM = async ( question ) => {
   if (!question.trim()) return;
 
   try {
     const res = await axios.post(
-      `${import.meta.env.VITE_SERVER_IP}:${import.meta.env.VITE_SERVER_PORT}${import.meta.env.VITE_API_LLM_QUERY}`,
+      `${config.server.url}${config.api.post.llmQuery}`,
       {
         question: question
       },

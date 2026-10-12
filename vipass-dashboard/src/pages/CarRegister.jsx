@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import config from "../config";
 import RegisteredTable from "../components/CarInfoTable";
 
 /* =========================================================
- * 설정 (.env: VITE_TOSS_CLIENT_KEY / VITE_SERVER_IP / VITE_SERVER_PORT / VITE_API_ISSUE_CUSTOMER_KEY_URL / VITE_API_SAVE_TOSS_INFO_URL)
+ * 설정 (.env: VITE_TOSS_CLIENT_KEY / VITE_SERVER_IP / VITE_SERVER_PORT / VITE_API_ISSUE_CUSTOMER_KEY / VITE_API_SAVE_TOSS_INFO)
  * ========================================================= */
-const TOSS_CLIENT_KEY = import.meta.env.VITE_TOSS_CLIENT_KEY;
-const SERVER_URL = `${import.meta.env.VITE_SERVER_IP}:${import.meta.env.VITE_SERVER_PORT}`; // "http://IP:PORT"
-const ISSUE_CUSTOMER_KEY_URL = import.meta.env.VITE_API_ISSUE_CUSTOMER_KEY_URL; // customerKey 발급 (POST { carNumber } → { newCusKey })
-const SAVE_TOSS_INFO_URL = import.meta.env.VITE_API_SAVE_TOSS_INFO_URL; // authKey 전달 (POST { tossAuthKey, tossCustomerKey, carNumber }) — 빌링키는 서버가 발급
+const TOSS_CLIENT_KEY = config.key.tossClientKey;
+const SERVER_URL = config.server.url; // "http://IP:PORT"
+const ISSUE_CUSTOMER_KEY_URL = config.api.post.issueCusKey; // customerKey 발급 (POST { carNumber } → { newCusKey })
+const SAVE_TOSS_INFO_URL = config.api.post.saveTossInfo; // authKey 전달 (POST { tossAuthKey, tossCustomerKey, carNumber }) — 빌링키는 서버가 발급
 const DONE_KEY = "tossAuthKeysSent"; // 새로고침 시 중복 전송 방지
 const ROUTE_HASH = "#/register/carinfo";
 
@@ -103,7 +104,7 @@ const RegisterForm = () => {
     //  return setMsg({ text: "file:// 로 열면 인증 후 이 페이지로 돌아올 수 없습니다. 개발 서버(localhost)로 실행하세요.", type: "err" });
     //}
     //if (!base || !ISSUE_CUSTOMER_KEY_URL) {
-    //  return setMsg({ text: ".env 의 VITE_SERVER_IP, VITE_SERVER_PORT, VITE_API_ISSUE_CUSTOMER_KEY_URL 값을 확인하세요.", type: "err" });
+    //  return setMsg({ text: ".env 의 VITE_SERVER_IP, VITE_SERVER_PORT, VITE_API_ISSUE_CUSTOMER_KEY 값을 확인하세요.", type: "err" });
     //}
     //if (!TOSS_CLIENT_KEY) {
     //  return setMsg({ text: ".env 의 VITE_TOSS_CLIENT_KEY 값을 확인하세요.", type: "err" });
@@ -210,7 +211,7 @@ const RegisterResult = ({ params }) => {
       };
     }
     if (!authKey || !customerKey || !base || !SAVE_TOSS_INFO_URL) {
-      return { status: { text: "리다이렉트 정보가 부족합니다 (authKey, customerKey, VITE_SERVER_IP, VITE_SERVER_PORT, VITE_API_SAVE_TOSS_INFO_URL 중 누락).", type: "err" }, info: [] };
+      return { status: { text: "리다이렉트 정보가 부족합니다 (authKey, customerKey, VITE_SERVER_IP, VITE_SERVER_PORT, VITE_API_SAVE_TOSS_INFO 중 누락).", type: "err" }, info: [] };
     }
     if (isDone(authKey)) {
       return { status: { text: "이 인증 건은 이미 서버로 전달했습니다. (새로고침으로 인한 중복 전송 방지)", type: "ok" }, info: [] };

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { WebSocketContext } from "./WebSocketContext";
 import axios from 'axios';
+import config from "../config";
 
-const WS_URL = import.meta.env.VITE_SERVER_WEBSOCKET_IP;
+const WS_URL = config.sock.ip;
 
 // 재연결 간격: 1초 → 2초 → 4초 … 최대 10초
 const RECONNECT_BASE_MS = 1000;
@@ -11,7 +12,7 @@ const RECONNECT_MAX_MS = 10000;
 const getPaymentsResult = async () => {
   try {
     const res = await axios.get(
-      `${import.meta.env.VITE_SERVER_IP}:${import.meta.env.VITE_SERVER_PORT}${import.meta.env.VITE_API_PAYMENTS_RESULT}`
+      `${config.server.url}${config.api.get.paymentsResult}`
     );
     //console.log("결제내역", res.data);
     return res.data;
@@ -24,7 +25,7 @@ const getPaymentsResult = async () => {
 const getParkedStatus = async () => {
   try {
     const res = await axios.get(
-      `${import.meta.env.VITE_SERVER_IP}:${import.meta.env.VITE_SERVER_PORT}${import.meta.env.VITE_API_PARKED_STATUS}`,
+      `${config.server.url}${config.api.get.parkedStatus}`,
     );
     //console.log("주차현황: ", res);
     return res.data[0];
@@ -37,7 +38,7 @@ const getParkedStatus = async () => {
 const getRecords = async () => {
   try {
     const res = await axios.get(
-      `${import.meta.env.VITE_SERVER_IP}:${import.meta.env.VITE_SERVER_PORT}${import.meta.env.VITE_API_ENTRY_EXIT_RECORD}`
+      `${config.server.url}${config.api.get.entryExitRecords}`
     );
     console.log("입출입기록: ", res.data);
     return res.data;
@@ -50,7 +51,7 @@ const getRecords = async () => {
 const getRegisteredInfo = async () => {
   try {
     const res = await axios.get(
-      `${import.meta.env.VITE_SERVER_IP}:${import.meta.env.VITE_SERVER_PORT}${import.meta.env.VITE_API_REGISTERED_INFO}`
+      `${config.server.url}${config.api.get.registeredInfo}`
     );
     console.log("등록된 차량: ", res.data);
     return res.data;
