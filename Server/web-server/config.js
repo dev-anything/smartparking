@@ -18,6 +18,9 @@ module.exports = {
     secretKey: process.env.TOSS_SECRET_KEY,
   },
   billing: {
-    encKey: process.env.TOSS_SECRET_KEY,
+    encKey: process.env.BILLING_ENC_KEY,
+  },
+  url: {
+    images: process.env.IMAGES_PATH,
   }
 };

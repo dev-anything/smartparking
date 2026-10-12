@@ -1,4 +1,4 @@
-const { toss } = require("./config");
+const { toss, url } = require("./config");
 const express = require('express');
 const cors = require('cors');
 const http = require('http');
@@ -52,6 +52,8 @@ const {
 const app = express();
 app.use(express.json());
 app.use(cors());
+
+app.use("/images", express.static(url.images));
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws' });

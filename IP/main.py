@@ -253,16 +253,17 @@ def main():
                 # 단계만 확인하면 안 됨: READING은 검출이 잠깐 끊겨도 유지되므로
                 # 이번 프레임의 corners가 None일 수 있음 (그 프레임은 건너뛰고 다음 프레임에 이어서 읽음)
                 if gate.should_read(state, corners, frame.shape):
-                    now = time.time()                   # float: 캡쳐 시각 (파일 이름, 재인식 방지에 사용)
+                    now = round(time.time())                   # float: 캡쳐 시각 (파일 이름, 재인식 방지에 사용)
 
                     # 4-1. 글자 줄을 정면으로 펴서 잘라내기 (np.ndarray (높이, 폭, 3))
                     plate_img = detector.extract_plate_image(frame, corners)
 
                     # 4-2. 캡쳐 저장 -> 4-3. 불러오기
                     #   path : str 또는 None,  img : np.ndarray 또는 None
-                    path = camera.save_capture([frame, plate_img], config.SAVE_DIR, now)
+                    path = camera.save_capture([frame, plate_img], config.SAVE_DIR, name, now)
+                    
                     #original = camera.save_capture(frame, config.SAVE_DIR, now)
-                    img = camera.load_capture(path)
+                    img = camera.load_capture(path[2])
                     if img is None:
                         print("[캡쳐] 저장 또는 불러오기 실패 -> 메모리의 이미지로 인식")
                         img = plate_img
@@ -281,8 +282,8 @@ def main():
                             # ★ 새 차량 번호 확정: 여기에서 DB 저장, 차단기 제어 등을 연결
                             print("[확정] {}  (투표 {})".format(value, list(state.votes)))
 
-                            # 게이트 정보 + 번호판 텍스트 정보 송신
-                            client.send_plate_text(client_socket, framebox.gate, config.GATE_OPEN, value)
+                            # 게이트 정보 + 번호판 텍스트 정보 + 캡쳐 경로 송신
+                            client.send_plate_text(client_socket, framebox.gate, config.GATE_OPEN, value, path[1])
                             
                         elif kind == "duplicate":
                             print("[중복] {}  최근 {}초 안에 이미 처리한 번호 -> 무시".format(
