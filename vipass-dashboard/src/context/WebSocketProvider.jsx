@@ -64,7 +64,7 @@ export const WebSocketProvider = ({ children }) => {
   const [connected, setConnected] = useState(false);
   const [records, setRecords] = useState([]);
   const [parkedStatus, setParkedStatus] = useState([]);
-  const [registeredInfo, setRegisteredInfo] = useState([]);
+  const [carInfo, setCarInfo] = useState([]);
   const [paymentsResult, setPaymentsResult] = useState([]);
 
   const initialLoad = async () => {
@@ -83,7 +83,7 @@ export const WebSocketProvider = ({ children }) => {
         { id: 5, status: park.area_5 },
         { id: 6, status: park.area_6 },
       ]);
-      setRegisteredInfo(reg);
+      setCarInfo(reg);
     } catch (err) {
       console.error(`[ERROR] 최초 1회 조회 오류: ${err.message}`);
     }
@@ -130,7 +130,10 @@ export const WebSocketProvider = ({ children }) => {
         {
           setRecords(data.data);
         }
-
+        else if (type === "car_info_updated")
+        {
+          setCarInfo(data.data);
+        }
 
       };
 
@@ -159,8 +162,8 @@ export const WebSocketProvider = ({ children }) => {
   }, []);
 
   const value = useMemo(() => ({
-    connected, records, parkedStatus, registeredInfo, paymentsResult
-  }), [connected, records, parkedStatus, registeredInfo, paymentsResult]);
+    connected, records, parkedStatus, carInfo, paymentsResult
+  }), [connected, records, parkedStatus, carInfo, paymentsResult]);
 
   return <WebSocketContext.Provider value={value}>{children}</WebSocketContext.Provider>;
 };

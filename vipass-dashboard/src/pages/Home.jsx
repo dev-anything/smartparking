@@ -1,4 +1,4 @@
-import Carinfo from "../components/Carinfo";
+import Gate from "../components/Gate";
 import Parkinglot from "../components/Parkinglot";
 
 const gates = [
@@ -12,7 +12,7 @@ const Home = () => {
       {/* 1열: 입구/출구 차량 정보 (1행 entry, 2행 exit) */}
       {gates.map((g) => {
         return (
-          <Carinfo
+          <Gate
             key={g.gate}
             gate={g.gate}
           />

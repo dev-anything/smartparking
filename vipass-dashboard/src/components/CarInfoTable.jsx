@@ -2,8 +2,8 @@
 import { useWebSocket } from '../hooks/useWebSocket';
 
 
-const RegisteredTable = () => {
-  const { registeredInfo } = useWebSocket();
+const CarInfoTable = () => {
+  const { carInfo } = useWebSocket();
 
 
   return (
@@ -16,13 +16,13 @@ const RegisteredTable = () => {
           <th>카드회사</th>
           <th>업데이트 시각</th>
         </tr>
-        {registeredInfo?.map((info) => {
+        {carInfo?.map((c) => {
           return (
-            <tr key={info.car_number}>
-              <td>{info.car_number}</td>
-              <td>{info.card_number}</td>
-              <td>{info.bank_name}</td>
-              <td>{info.updated_at}</td>
+            <tr key={c.car_number}>
+              <td>{c.car_number}</td>
+              <td>{c.card_number}</td>
+              <td>{c.bank_name}</td>
+              <td>{c.updated_at}</td>
             </tr>
           );
         })}
@@ -31,4 +31,4 @@ const RegisteredTable = () => {
   );
 };
 
-export default RegisteredTable;
+export default CarInfoTable;

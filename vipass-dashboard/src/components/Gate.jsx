@@ -1,4 +1,4 @@
-const Carinfo = ({ gate }) => {
+const Gate = ({ gate }) => {
   return (
     <div className="border-2">
       <h1>{gate === "entry" ? "주차장 입구" : "주차장 출구"}</h1>
@@ -10,4 +10,4 @@ const Carinfo = ({ gate }) => {
   );
 };
 
-export default Carinfo;
+export default Gate;

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import RegisteredTable from "../components/RegisteredTable";
+import RegisteredTable from "../components/CarInfoTable";
 
 /* =========================================================
  * 설정 (.env: VITE_TOSS_CLIENT_KEY / VITE_SERVER_IP / VITE_SERVER_PORT / VITE_API_ISSUE_CUSTOMER_KEY_URL / VITE_API_SAVE_TOSS_INFO_URL)
