@@ -1,30 +1,33 @@
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 
 import Home from "./pages/Home";
-import PageWrapper from "./layout/PageWrapper"
-import Sidebar from "./layout/Sidebar"
+import Login from "./pages/Login";
 import CarRegister from "./pages/CarRegister";
 import Information from "./pages/Information";
-import { useEffect } from "react";
-import { WebSocketProvider } from "./context/WebSocketProvider";
+import MainLayout from "./layout/MainLayout";
+import ProtectedRoute from "./components/ProtectedRoute";
+import { AuthProvider } from "./context/AuthProvider";
 
 function App() {
-
-  useEffect(() => {
-
-  }, []);
-
   return (
-    <WebSocketProvider>
-      <PageWrapper>
-        <Sidebar />
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/info" element={<Information />} />
-          <Route path="/register/carinfo" element={<CarRegister />} />
-        </Routes>
-      </PageWrapper>
-    </WebSocketProvider>
+    <AuthProvider>
+      <Routes>
+        {/* 진입점: 로그인 화면 */}
+        <Route path="/login" element={<Login />} />
+
+        {/* 로그인한 사용자만 접근 */}
+        <Route element={<ProtectedRoute />}>
+          <Route element={<MainLayout />}>
+            <Route path="/" element={<Home />} />
+            <Route path="/info" element={<Information />} />
+            <Route path="/register/carinfo" element={<CarRegister />} />
+          </Route>
+        </Route>
+
+        {/* 없는 주소는 대시보드로 (비로그인이면 로그인 화면으로 이어짐) */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </AuthProvider>
   )
 }
 
