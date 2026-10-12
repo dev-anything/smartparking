@@ -47,7 +47,6 @@ const {
   connectSocketServer,
   receivePaymentInfoResult,
 } = require('./socketClient');
-const { toss } = require('./config');
 
 
 const app = express();

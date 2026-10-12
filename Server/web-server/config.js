@@ -10,7 +10,7 @@ module.exports = {
     password: process.env.MYSQL_PASSWORD,
     database: process.env.MYSQL_DB,
   },
-  socket: {
+  sock: {
     host: process.env.SOCKET_SERVER_HOST,
     port: process.env.SOCKET_SERVER_PORT,
   },

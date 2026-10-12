@@ -1,4 +1,4 @@
-const { socket } = require("./config");
+const { sock } = require("./config");
 const net = require('net');
 const readline = require('readline');
 
@@ -14,7 +14,7 @@ const pendingResult = new Map();
 const connectSocketServer = () => {
   
   try {
-    socket = net.createConnection(socket.port, socket.host, () => {
+    socket = net.createConnection(sock.port, sock.host, () => {
       socket.write("ID:W\n");
     });
 
