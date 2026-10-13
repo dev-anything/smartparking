@@ -12,14 +12,14 @@
 // 명시적 핸드셰이크용 데이터
 #define HANDSHAKE "OK\n"
 
-// 모터 제어 명령어를 저장할 큐 사이즈
-#define MOTOR_COMMAND_QUEUE_SIZE 16
-// 결제 ID를 저장할 큐 사이즈
-#define PAYMENT_REQ_QUEUE_SIZE 8
+// 사용하는 큐 사이즈 통일
+#define QUEUE_SIZE 8
 // 결제 ID의 최대 사이즈
 #define PAYMENT_ID_SIZE 12
 // 차량번호 길이 최대 사이즈
 #define PLATE_NUMBER_SIZE 16
+// 대시보드 게이트 상태 명령어 최대 사이즈(E/X + SHOW, HIDE)
+#define DASH_GATE_STATUS_SIZE 8
 
 // 모터 게이트와 열기/닫기 명령값
 #define GATE_ENTRY 'E'
@@ -33,5 +33,7 @@
 #define IP_CLIENT "P"
 #define WEBSERVER_CLIENT "W"
 
-#define PAYMENT_INFO_CODE "PI"
-#define PAYMENT_RESULT_CODE "PR"
+// 기타 통신 예약어 설정
+#define PAYMENT_INFO_CODE "PI"      // 결제 정보 
+#define PAYMENT_RESULT_CODE "PR"    // 결제 결과
+#define STATUE_COMMAND "VI"         // 대시보드 차량정보 표시(SHOW, HIDE) 요청

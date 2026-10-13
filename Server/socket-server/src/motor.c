@@ -20,7 +20,7 @@ typedef struct
 static pthread_mutex_t g_motor_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static int g_motor_efd = -1;                              // 접속 중인 모터 스레드의 eventfd 번호
-static motor_cmd_t motor_cmd_q[MOTOR_COMMAND_QUEUE_SIZE]; // 모터 명령 저장 큐
+static motor_cmd_t motor_cmd_q[QUEUE_SIZE]; // 모터 명령 저장 큐
 static int motor_cmd_q_front = 0;                         // 큐 헤드
 static int motor_cmd_q_rear = 0;                          // 큐 꼬리
 static int motor_cmd_q_count = 0;                         // 큐 데이터 수
@@ -99,7 +99,7 @@ void motor_control_thread(client_info *info)
 
 
             // 실제 큐의 명령을 지역 변수 큐로 복사
-            motor_cmd_t cmd_batch[MOTOR_COMMAND_QUEUE_SIZE];
+            motor_cmd_t cmd_batch[QUEUE_SIZE];
             int cmd_batch_size = pop_motor_command(cmd_batch);
 
 
@@ -166,7 +166,7 @@ static int pop_motor_command(motor_cmd_t* batch)
     while (motor_cmd_q_count > 0)   // 메인 큐가 공백일 때까지
     {
         batch[batch_size++] = motor_cmd_q[motor_cmd_q_front];                             // 헤드 위치의 명령 복사
-        motor_cmd_q_front = (motor_cmd_q_front + 1) % MOTOR_COMMAND_QUEUE_SIZE;  // 헤드 이동
+        motor_cmd_q_front = (motor_cmd_q_front + 1) % QUEUE_SIZE;  // 헤드 이동
         motor_cmd_q_count--;                                                     // 개수 감소
     }
 
@@ -185,11 +185,11 @@ int push_motor_command(char gate, char action)
     pthread_mutex_lock(&g_motor_lock);
 
     // efd 열려 있음 and 큐 포화 상태 확인
-    if (g_motor_efd >= 0 && motor_cmd_q_count < MOTOR_COMMAND_QUEUE_SIZE)
+    if (g_motor_efd >= 0 && motor_cmd_q_count < QUEUE_SIZE)
     {
         motor_cmd_q[motor_cmd_q_rear].gate = gate;
         motor_cmd_q[motor_cmd_q_rear].action = action;
-        motor_cmd_q_rear = (motor_cmd_q_rear + 1) % MOTOR_COMMAND_QUEUE_SIZE;
+        motor_cmd_q_rear = (motor_cmd_q_rear + 1) % QUEUE_SIZE;
         motor_cmd_q_count++;
 
         if (write(g_motor_efd, &one, sizeof(one)) < 0)

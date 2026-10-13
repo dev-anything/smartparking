@@ -62,16 +62,26 @@ void plate_number_thread(client_info *info)
             printf("[DEBUG] 경로: %s\n", image_path);
             
 
-            if (gate == GATE_ENTRY && action == GATE_OPEN)     // 입구 처리: insert
+            if (gate == GATE_ENTRY && action == GATE_OPEN)        // 입구 + 열림 처리: insert, 대시보드에 차량정보 띄우기(SHOW)
             {
                 insert_record(conn, plate, image_path);
+                push_visible_command();
             }
-            else if (gate == GATE_EXIT && action == GATE_OPEN) // 출구 처리: select - update
+            else if (gate == GATE_ENTRY && action == GATE_CLOSE)  // 입구 + 닫힘 처리: 대시보드에서 차량정보 제거(HIDE)
+            {
+                push_visible_command();
+            }
+            else if (gate == GATE_EXIT && action == GATE_OPEN)    // 출구 + 열림 처리: select - update, 대시보드에 차량정보 띄우기(SHOW)
             {
                 char id[PAYMENT_ID_SIZE] = {0};
                 select_payment_id(conn, plate, id);
                 update_records(conn, id, image_path);
                 push_payment_request(id);
+                push_visible_command();
+            }
+            else if (gate == GATE_EXIT && action == GATE_CLOSE)   // 출구 + 닫힘 처리: 대시보드에서 차량정보 제거(HIDE)
+            {
+                push_visible_command();
             }
         }
         else if (read_status == 0)

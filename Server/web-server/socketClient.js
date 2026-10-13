@@ -75,7 +75,6 @@ const connectSocketServer = () => {
   } catch (err) {
     console.error(`[ERROR] 소켓서버 연결 오류: ${err.message}`);
   }
-  
 };
 
 // 소켓 서버로 결제 정보 보내기

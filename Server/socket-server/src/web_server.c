@@ -13,13 +13,23 @@
 #include "net_util.h"
 #include "db_util.h"
 
-static int g_payment_efd = -1;                     // 웹서버 통신 스레드를 깨울 eventfd 번호
-static char payment_req_q[PAYMENT_REQ_QUEUE_SIZE][PAYMENT_ID_SIZE];  // 결제 요청 id 저장 큐
-static int payment_req_q_front = 0;                // 큐 헤드
-static int payment_req_q_rear = 0;                 // 큐 꼬리
-static int payment_req_q_count = 0;                // 큐 데이터 수
 
+// 결제 요청 신호용 eventfd & mutex 선언 ==================================================
+static int g_payment_efd = -1;                           // 웹서버 통신 스레드를 깨울 eventfd 번호
+static char payment_req_q[QUEUE_SIZE][PAYMENT_ID_SIZE];  // 결제 요청 id 저장 큐
+static int payment_req_q_front = 0;                      // 큐 헤드
+static int payment_req_q_rear = 0;                       // 큐 꼬리
+static int payment_req_q_count = 0;                      // 큐 데이터 수
 static pthread_mutex_t g_payment_lock = PTHREAD_MUTEX_INITIALIZER;
+
+// 대시보드 게이트 정보 신호용 eventfd & mutex 선언 =========================================
+static int g_visible_efd = -1;                           // 웹서버 통신 스레드를 깨울 eventfd 번호
+static char visible_command_q[QUEUE_SIZE][DASH_GATE_STATUE_SIZE];  // 상태 요청 명령 저장 큐
+static int visible_command_q_front = 0;                      // 큐 헤드
+static int visible_command_q_rear = 0;                       // 큐 꼬리
+static int visible_command_q_count = 0;                      // 큐 데이터 수
+static pthread_mutex_t g_visible_lock = PTHREAD_MUTEX_INITIALIZER;
+
 
 static int send_payment_id(char req_q[][PAYMENT_ID_SIZE], int size, int fd);
 static int insert_car_info(MYSQL* conn, const char** car_info);
@@ -40,6 +50,7 @@ void web_server_thread(client_info* info)
     char *next_token = NULL;
     //int idx = 0;
     int response;
+    int fd = info->client_fd;
 
     conn = mysql_init(NULL);
     if (!(mysql_real_connect(conn, MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DB, 3306, NULL, 0)))
@@ -50,41 +61,53 @@ void web_server_thread(client_info* info)
     mysql_set_character_set(conn, "utf8mb4");
     printf("MySQL Connected!\n\n");
     
-    send_ok(info->client_fd);
+    send_ok(fd);
 
 
-    int fd = info->client_fd;
-    int efd = eventfd(0, 0);
-
-    if (efd < 0)
+    // 결제 요청 신호용 eventfd
+    int payment_efd = eventfd(0, 0);
+    if (payment_efd < 0)
     {
-        perror("eventfd");
+        perror("payment_efd");
+        return;
+    }
+
+    // 대시보드 게이트 정보 신호용 eventfd
+    int visible_efd = eventfd(0, 0);
+    if (visible_efd < 0)
+    {
+        perror("visible_efd");
         return;
     }
 
     // 뮤텍스 독점 시작
     pthread_mutex_lock(&g_payment_lock);
 
-    g_payment_efd = efd;  // 현재 스레드의 fd 번호를 등록
+    g_payment_efd = payment_efd;  // 현재 스레드의 fd 번호를 등록
     payment_req_q_front = payment_req_q_rear = payment_req_q_count = 0;   // 명령어 큐 초기화
 
     pthread_mutex_unlock(&g_payment_lock);
     // 뮤텍스 독점 종료
 
     //pollfd 구조체 배열로 수신/송신 동시 처리(0 - 수신 | 1 - 송신)
+    struct pollfd fds[2];
+
+    // 1. 수신 소켓
+    fds[0].fd = fd;         // 수신 소켓 fd
+    fds[0].events = POLLIN;
+    fds[0].revents = 0;
+
+    // 2. 결제 요청 신호(eventfd)
+    fds[1].fd = payment_efd;     // eventfd
+    fds[1].events = POLLIN;
+    fds[1].revents = 0;
+
+    // 3. 
+
+
     while (1)
     {
-        struct pollfd fds[2];
-
-        // 1. 수신 소켓
-        fds[0].fd = fd;         // 수신 소켓 fd
-        fds[0].events = POLLIN;
-        fds[0].revents = 0;
-
-        // 2. 명령 요청 신호(eventfd)
-        fds[1].fd = efd;        // eventfd
-        fds[1].events = POLLIN;
-        fds[1].revents = 0;
+        
 
         // 둘 중 하나라도 일이 생기지 않으면 잠든 상태
         // poll(배열, 개수, 제한시간): 제한시간 == -1 이면 무한 대기
@@ -100,7 +123,7 @@ void web_server_thread(client_info* info)
         // 수신 데이터가 있다면
         if (fds[0].revents & (POLLIN | POLLHUP | POLLERR))
         {
-            read_status = read_line(info->client_fd, buffer, BUFFER_SIZE);
+            read_status = read_line(fd, buffer, BUFFER_SIZE);
 
             if (read_status)
             {
@@ -132,9 +155,6 @@ void web_server_thread(client_info* info)
                     }
 
                     send_saved_success(fd, car_info[0]);
-
-                    
-
                 }
                 // 결제 결과 저장
                 else if (strcmp(token, PAYMENT_RESULT_CODE) == 0)
@@ -169,11 +189,11 @@ void web_server_thread(client_info* info)
             uint64_t counter;
 
             // eventfd는 항상 8바이트 단위로 읽으므로 8바이트가 아니면 비정상 종료
-            if (read(efd, &counter, sizeof(counter)) != (ssize_t)sizeof(counter)) break;
+            if (read(payment_efd, &counter, sizeof(counter)) != (ssize_t)sizeof(counter)) break;
 
 
             // 실제 큐의 명령을 지역 변수 큐로 복사
-            char batch[PAYMENT_REQ_QUEUE_SIZE][PAYMENT_ID_SIZE];
+            char batch[QUEUE_SIZE][PAYMENT_ID_SIZE];
             int size = 0;  // 명령 개수
 
             pthread_mutex_lock(&g_payment_lock);
@@ -182,7 +202,7 @@ void web_server_thread(client_info* info)
             {
                 strcpy(batch[size++], payment_req_q[payment_req_q_front]);
                 //batch[size++] = payment_req_q[payment_req_q_front];                             // 헤드 위치의 명령 복사
-                payment_req_q_front = (payment_req_q_front + 1) % PAYMENT_REQ_QUEUE_SIZE;  // 헤드 이동
+                payment_req_q_front = (payment_req_q_front + 1) % QUEUE_SIZE;  // 헤드 이동
                 payment_req_q_count--;                                                     // 개수 감소
             }
 
@@ -203,18 +223,16 @@ void web_server_thread(client_info* info)
     //    (== efd 검사: 이 연결이 끊기는 사이 ESP가 재접속해 새 연결이 이미 등록됐다면,
     //     그 등록과 큐까지 지워 버리지 않기 위해서다)
     pthread_mutex_lock(&g_payment_lock);
-    if (g_payment_efd == efd)
+    if (g_payment_efd == payment_efd)
     {
         g_payment_efd = -1;
         payment_req_q_front = payment_req_q_rear = payment_req_q_count = 0;      // 보내지 못한 명령은 버린다
     }
     pthread_mutex_unlock(&g_payment_lock);
  
-    close(efd);
+    close(payment_efd);
     mysql_close(conn);
     printf("[WEB] (fd=%d) 웹서버 클라이언트 종료\n", fd);
-    
-    
 }
 
 
@@ -225,10 +243,10 @@ int push_payment_request(const char* id)
 
     pthread_mutex_lock(&g_payment_lock);
 
-    if (g_payment_efd >= 0 && payment_req_q_count < PAYMENT_REQ_QUEUE_SIZE)
+    if (g_payment_efd >= 0 && payment_req_q_count < QUEUE_SIZE)
     {
         strcpy(payment_req_q[payment_req_q_rear], id);
-        payment_req_q_rear = (payment_req_q_rear + 1) % PAYMENT_REQ_QUEUE_SIZE;
+        payment_req_q_rear = (payment_req_q_rear + 1) % QUEUE_SIZE;
         payment_req_q_count++;
 
         if (write(g_payment_efd, &one, sizeof(one)) < 0)
