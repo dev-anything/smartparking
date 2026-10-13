@@ -50,7 +50,6 @@ int run_select_id_query(MYSQL* conn, const char* query, char* id)
 int run_select_exist_plate_number_query(MYSQL* conn, const char* query)
 {
     MYSQL_RES* res;
-    MYSQL_ROW row;
     int row_nums;
 
     if (mysql_query(conn, query))
@@ -59,13 +58,15 @@ int run_select_exist_plate_number_query(MYSQL* conn, const char* query)
         return -1;
     }
 
+    res = mysql_store_result(conn);
+
     if (res == NULL)
     {
         fprintf(stderr, "[ERROR] 결과 없음: %s[%u]\n", mysql_error(conn), mysql_errno(conn));
         return -1;
     }
 
-    res = mysql_store_result(conn);
+    
     row_nums = (unsigned long)mysql_num_rows(res);
 
     mysql_free_result(res);

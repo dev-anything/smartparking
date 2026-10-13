@@ -28,7 +28,7 @@ ENTRY_CAM_INDEX = 0             # 입구 카메라 장치 번호
 EXIT_CAM_INDEX = 1              # 출구 카메라 장치 번호
 FRAME_WIDTH = 1280              # int: 요청 해상도 가로 (카메라가 지원하지 않으면 다른 값으로 열릴 수 있음)
 FRAME_HEIGHT = 720              # int: 요청 해상도 세로
-TARGET_FPS = 20                 # int: 초당 처리할 프레임 수
+TARGET_FPS = 10                 # int: 초당 처리할 프레임 수
 WINDOW_NAME = "Smart Parking"   # str: 화면 창 이름
 SHOW_WINDOW = True              # bool: 화면 창 표시 여부 (모니터 없이 운영할 때 False)
 PRINT_EVERY_FRAME = True        # bool: 매 프레임 상태를 터미널에 출력할지 (운영 시 False 권장)
@@ -124,7 +124,7 @@ VOTE_MIN = 2            # int: 같은 번호가 이만큼 나오면 확정
 MAX_READS = 5           # int: 이만큼 읽어도 확정 못 하면 "확인 필요"로 종료
 
 # ---- 재인식 방지 ----
-EXIT_FRAMES = 30        # int: 확정 후 번호판이 이만큼 연속으로 안 보이면 차가 나간 것으로 봄 (10FPS 기준 1.5초)
+EXIT_FRAMES = 15        # int: 확정 후 번호판이 이만큼 연속으로 안 보이면 차가 나간 것으로 봄 (10FPS 기준 1.5초)
 COOLDOWN_SEC = 10       # int: 최근 이 시간(초) 안에 확정한 번호는 다시 들어와도 새로 처리하지 않음
                         #      (사람이 지나가며 번호판을 잠시 가려 "나감"으로 오판한 경우 대비)
                         #      같은 차의 정상적인 재입차를 막지 않도록 너무 길게 잡지 말 것

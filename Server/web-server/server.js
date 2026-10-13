@@ -46,6 +46,7 @@ const {
   sendPaymentInfo,
   connectSocketServer,
   receivePaymentInfoResult,
+  setBroadcast,
 } = require('./socketClient');
 
 
@@ -361,6 +362,8 @@ const broadcast = (payload) => {
     }
   }
 };
+
+setBroadcast(broadcast);
 
 // 웹소켓 설정
 

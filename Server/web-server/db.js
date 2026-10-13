@@ -33,7 +33,7 @@ const selectEntryExitRecords = async () => {
   const [rows] = await pool.query(
     `
       SELECT * FROM records
-      ORDER BY entry_time DESC
+      ORDER BY updated_at DESC
     `
   );
 
@@ -69,6 +69,7 @@ const selectPaymentResult = async () => {
         FROM payments_result
       `
     ),
+
   ]);
 
   return {

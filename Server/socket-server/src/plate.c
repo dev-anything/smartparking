@@ -9,6 +9,7 @@
 #include "motor.h"
 #include "db_util.h"
 #include "net_util.h"
+#include "web_server.h"
 
 static int parse_plate_data(const char* buf, char* gate, char* action, char* plate, char* image_path);
 static int insert_record(MYSQL* conn, const char* plate_number, const char* image_path);
@@ -45,9 +46,11 @@ void plate_number_thread(client_info *info)
         memset(buffer, 0, BUFFER_SIZE);
         read_status = read_line(info->client_fd, buffer, BUFFER_SIZE);
 
+
         if (read_status)
         {
             printf("[RECEIVED] 수신 데이터: %s\n", buffer);
+            char command_buffer[BUFFER_SIZE] = {0};
 
             if (!parse_plate_data(buffer, &gate, &action, plate, image_path))
             {
@@ -56,20 +59,21 @@ void plate_number_thread(client_info *info)
                 return;
             }
 
-            printf("[DEBUG] 게이트: %c\n", gate);
-            printf("[DEBUG] 동작: %c\n", action);
-            printf("[DEBUG] 번호판: %s\n", plate);
-            printf("[DEBUG] 경로: %s\n", image_path);
+            //printf("[DEBUG] 게이트: %c\n", gate);
+            //printf("[DEBUG] 동작: %c\n", action);
+            //printf("[DEBUG] 번호판: %s\n", plate);
+            //printf("[DEBUG] 경로: %s\n", image_path);
+            
             
 
             if (gate == GATE_ENTRY && action == GATE_OPEN)        // 입구 + 열림 처리: insert, 대시보드에 차량정보 띄우기(SHOW)
             {
                 insert_record(conn, plate, image_path);
-                push_visible_command();
+                
             }
             else if (gate == GATE_ENTRY && action == GATE_CLOSE)  // 입구 + 닫힘 처리: 대시보드에서 차량정보 제거(HIDE)
             {
-                push_visible_command();
+                
             }
             else if (gate == GATE_EXIT && action == GATE_OPEN)    // 출구 + 열림 처리: select - update, 대시보드에 차량정보 띄우기(SHOW)
             {
@@ -77,12 +81,22 @@ void plate_number_thread(client_info *info)
                 select_payment_id(conn, plate, id);
                 update_records(conn, id, image_path);
                 push_payment_request(id);
-                push_visible_command();
+                
             }
             else if (gate == GATE_EXIT && action == GATE_CLOSE)   // 출구 + 닫힘 처리: 대시보드에서 차량정보 제거(HIDE)
             {
-                push_visible_command();
+                
             }
+            // 일단 4가지 상황 한번에 처리
+            sprintf(
+                command_buffer,
+                "%c%s%c",
+                gate, DELIM, action
+            );
+            push_visible_command(command_buffer);
+            push_motor_command(gate, action);
+
+
         }
         else if (read_status == 0)
         {

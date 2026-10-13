@@ -316,7 +316,7 @@ def load_model(model_path=config.MODEL_PATH, dict_path=config.DICT_PATH):
     opts.log_severity_level = config.ORT_LOG_LEVEL
     # GPU(CUDA) 우선, 안 되면 CPU
     session = ort.InferenceSession(model_path, sess_options=opts,
-                                   providers=["CUDAExecutionProvider", "CPUExecutionProvider"])
+                                   providers=[("CUDAExecutionProvider", {"cudnn_conv_algo_search": "HEURISTIC"}), "CPUExecutionProvider"])
     inp = session.get_inputs()[0]                       # 모델 입력 정보 (이름, 모양)
     img_h = inp.shape[2] if isinstance(inp.shape[2], int) else 48   # int: 입력 높이
 
@@ -367,18 +367,24 @@ def to_input(model, img):
     return batch, total_w, resized_w
 
 
-def infer(model, batch):
-    """
-    [6] 모델 실행.
+#def infer(model, batch):
+#    """
+#    [6] 모델 실행.
 
-    인자:
-        model - RecModel
-        batch - np.ndarray (1, 3, 48, 폭), float32  to_input()의 결과
-    반환:
-        np.ndarray (가로 위치 수 T, 글자 수), float32, 확률표
-        각 행 = 해당 가로 위치에서 "각 글자일 확률" (행의 합 = 1)
-    """
-    return model.session.run(None, {model.input_name: batch})[0][0]
+#    인자:
+#        model - RecModel
+#        batch - np.ndarray (1, 3, 48, 폭), float32  to_input()의 결과
+#    반환:
+#        np.ndarray (가로 위치 수 T, 글자 수), float32, 확률표
+#        각 행 = 해당 가로 위치에서 "각 글자일 확률" (행의 합 = 1)
+#    """
+#    return model.session.run(None, {model.input_name: batch})[0][0]
+
+def infer(model, batch):
+    t0 = time.time()
+    out = model.session.run(None, {model.input_name: batch})[0][0]
+    print("[추론] 입력 {} -> {:.0f}ms".format(batch.shape, (time.time() - t0) * 1000))
+    return out
 
 
 # =========================================================

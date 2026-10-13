@@ -19,7 +19,7 @@
 // 차량번호 길이 최대 사이즈
 #define PLATE_NUMBER_SIZE 16
 // 대시보드 게이트 상태 명령어 최대 사이즈(E/X + SHOW, HIDE)
-#define DASH_GATE_STATUS_SIZE 8
+#define VISIBLE_COMMAND_SIZE 8
 
 // 모터 게이트와 열기/닫기 명령값
 #define GATE_ENTRY 'E'
@@ -36,4 +36,4 @@
 // 기타 통신 예약어 설정
 #define PAYMENT_INFO_CODE "PI"      // 결제 정보 
 #define PAYMENT_RESULT_CODE "PR"    // 결제 결과
-#define STATUE_COMMAND "VI"         // 대시보드 차량정보 표시(SHOW, HIDE) 요청
+#define VISIBLE_COMMAND "VI"         // 대시보드 차량정보 표시(SHOW, HIDE) 요청

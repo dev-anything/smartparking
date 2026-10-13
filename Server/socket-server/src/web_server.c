@@ -24,14 +24,16 @@ static pthread_mutex_t g_payment_lock = PTHREAD_MUTEX_INITIALIZER;
 
 // 대시보드 게이트 정보 신호용 eventfd & mutex 선언 =========================================
 static int g_visible_efd = -1;                           // 웹서버 통신 스레드를 깨울 eventfd 번호
-static char visible_command_q[QUEUE_SIZE][DASH_GATE_STATUE_SIZE];  // 상태 요청 명령 저장 큐
+static char visible_command_q[QUEUE_SIZE][VISIBLE_COMMAND_SIZE];  // 상태 요청 명령 저장 큐
 static int visible_command_q_front = 0;                      // 큐 헤드
 static int visible_command_q_rear = 0;                       // 큐 꼬리
 static int visible_command_q_count = 0;                      // 큐 데이터 수
 static pthread_mutex_t g_visible_lock = PTHREAD_MUTEX_INITIALIZER;
 
 
-static int send_payment_id(char req_q[][PAYMENT_ID_SIZE], int size, int fd);
+//void web_server_thread(client_info* info);      // 스레드 실행 함수 4. 웹서버 통신
+//int push_payment_request(const char* id);       // 결제 요청 큐에 id 삽입
+//int push_visible_command(const char* command);  // 대시보드 게이트 상태 명령 큐에 명령 삽입
 static int insert_car_info(MYSQL* conn, const char** car_info);
 static int insert_payments_result(MYSQL* conn, const char** payments_result_info);
 static int parse_car_info_data(char* data, char** car_info);
@@ -39,6 +41,8 @@ static int parse_payment_result_info_data(char* data, char** payment_result_info
 static int select_is_exist_car_info(MYSQL* conn, const char* plate_number);
 static int update_car_info(MYSQL* conn, const char** car_info);
 static int send_saved_success(int fd, char* car_number);
+static int send_payment_id(char req_q[][PAYMENT_ID_SIZE], int size, int fd);
+static int send_visible_command(char command_q[][VISIBLE_COMMAND_SIZE], int size, int fd);
 
 
 void web_server_thread(client_info* info)
@@ -89,8 +93,15 @@ void web_server_thread(client_info* info)
     pthread_mutex_unlock(&g_payment_lock);
     // 뮤텍스 독점 종료
 
+    pthread_mutex_lock(&g_visible_lock);
+    g_visible_efd = visible_efd;
+    visible_command_q_front = visible_command_q_rear = visible_command_q_count = 0;
+    pthread_mutex_unlock(&g_visible_lock);
+
+
+
     //pollfd 구조체 배열로 수신/송신 동시 처리(0 - 수신 | 1 - 송신)
-    struct pollfd fds[2];
+    struct pollfd fds[3];
 
     // 1. 수신 소켓
     fds[0].fd = fd;         // 수신 소켓 fd
@@ -102,19 +113,20 @@ void web_server_thread(client_info* info)
     fds[1].events = POLLIN;
     fds[1].revents = 0;
 
-    // 3. 
+    // 3. 게이트 표시 상태 요청 신호(eventfd)
+    fds[2].fd = visible_efd;
+    fds[2].events = POLLIN;
+    fds[2].revents = 0;
 
 
     while (1)
     {
-        
-
         // 둘 중 하나라도 일이 생기지 않으면 잠든 상태
         // poll(배열, 개수, 제한시간): 제한시간 == -1 이면 무한 대기
         //  - 모터 소켓: 읽을 데이터가 옴 / 연결 끊김 / 오류
         //  - eventfd: 커널 내부 카운터가 0보다 커짐 == 번호판 스레드가 write로 신호를 보냄
         //  - 반환값: 일이 생긴 fd 개수(양수), 오류 == -1
-        if (poll(fds, 2, -1) < 0)
+        if (poll(fds, 3, -1) < 0)
         {
             if (errno == EINTR) continue;
             break;
@@ -128,7 +140,6 @@ void web_server_thread(client_info* info)
             if (read_status)
             {
                 printf("[수신] -> %s\n", buffer);
-                int idx = 0;
                 token = strtok_r(buffer, DELIM, &next_token);
 
                 // 결제 정보 저장
@@ -182,7 +193,7 @@ void web_server_thread(client_info* info)
         }
 
 
-        // 큐에 결제 id가 채워졌다면
+        // 결제 큐에 결제 id가 채워졌다면
         if (fds[1].revents & POLLIN)
         {
             // eventfd의 카운터를 읽고 0으로 되돌리기(read 하면 자동으로 0이 됨)
@@ -193,15 +204,15 @@ void web_server_thread(client_info* info)
 
 
             // 실제 큐의 명령을 지역 변수 큐로 복사
-            char batch[QUEUE_SIZE][PAYMENT_ID_SIZE];
+            char payment_batch[QUEUE_SIZE][PAYMENT_ID_SIZE];
             int size = 0;  // 명령 개수
 
             pthread_mutex_lock(&g_payment_lock);
 
             while (payment_req_q_count > 0)   // 메인 큐가 공백일 때까지
             {
-                strcpy(batch[size++], payment_req_q[payment_req_q_front]);
-                //batch[size++] = payment_req_q[payment_req_q_front];                             // 헤드 위치의 명령 복사
+                strcpy(payment_batch[size++], payment_req_q[payment_req_q_front]);
+                //payment_batch[size++] = payment_req_q[payment_req_q_front];                             // 헤드 위치의 명령 복사
                 payment_req_q_front = (payment_req_q_front + 1) % QUEUE_SIZE;  // 헤드 이동
                 payment_req_q_count--;                                                     // 개수 감소
             }
@@ -209,13 +220,41 @@ void web_server_thread(client_info* info)
             pthread_mutex_unlock(&g_payment_lock);
 
 
-            if (!send_payment_id(batch, size, fd))
+            if (!send_payment_id(payment_batch, size, fd))
             {
-                printf("[SEND ID] ID 전송 실패.\n");
+                printf("[FAILED] 결제 ID 전송 실패.\n");
                 break;
             }
         }
 
+        // 명령어 큐에 명령어가 채워졌다면
+        if (fds[2].revents & POLLIN)
+        {
+            uint64_t counter;
+
+            if (read(visible_efd, &counter, sizeof(counter)) != (ssize_t)sizeof(counter)) break;
+
+            // 실제 큐의 명령어를 지역 변수 큐로 복사
+            char command_batch[QUEUE_SIZE][VISIBLE_COMMAND_SIZE];
+            int size = 0;
+
+            pthread_mutex_lock(&g_visible_lock);
+
+            while (visible_command_q_count > 0)
+            {
+                strcpy(command_batch[size++], visible_command_q[visible_command_q_front]);
+                visible_command_q_front = (visible_command_q_front + 1) % QUEUE_SIZE;
+                visible_command_q_count--;
+            }
+
+            pthread_mutex_unlock(&g_visible_lock);
+
+            if (!send_visible_command(command_batch, size, fd))
+            {
+                printf("[FAILED] 상태 명령어 전송 실패.\n");
+                break;
+            }
+        }
     }
 
     // 5. 등록 해제 -> eventfd 닫기 (순서가 중요: 먼저 -1로 돌려놓고, 그 다음에 닫는다)
@@ -231,6 +270,18 @@ void web_server_thread(client_info* info)
     pthread_mutex_unlock(&g_payment_lock);
  
     close(payment_efd);
+
+    pthread_mutex_lock(&g_visible_lock);
+    if (g_visible_efd == visible_efd)
+    {
+        g_visible_efd = -1;
+        visible_command_q_front = visible_command_q_rear = visible_command_q_count = 0;      // 보내지 못한 명령은 버린다
+    }
+    pthread_mutex_unlock(&g_visible_lock);
+ 
+    close(g_visible_efd);
+
+
     mysql_close(conn);
     printf("[WEB] (fd=%d) 웹서버 클라이언트 종료\n", fd);
 }
@@ -260,6 +311,31 @@ int push_payment_request(const char* id)
     return ok;
 }
 
+int push_visible_command(const char* command)
+{
+    uint64_t one = 1;
+    int ok = 0;
+
+    pthread_mutex_lock(&g_visible_lock);
+
+    if (g_visible_efd >= 0 && visible_command_q_count < QUEUE_SIZE)
+    {
+        strcpy(visible_command_q[visible_command_q_rear], command);
+        visible_command_q_rear = (visible_command_q_rear + 1) % QUEUE_SIZE;
+        visible_command_q_count++;
+
+        if (write(g_visible_efd, &one, sizeof(one)) < 0)
+        {
+            perror("push_visible_command: eventfd write failed");
+        }
+        ok = 1;
+    }
+
+    pthread_mutex_unlock(&g_visible_lock);
+
+    return ok;
+}
+
 static int send_saved_success(int fd, char* car_number)
 {
     char packet[BUFFER_SIZE] = {0};
@@ -278,6 +354,33 @@ static int send_saved_success(int fd, char* car_number)
     }
 
     printf("[WEB] (fd=%d) 전송: %s\n", fd, packet);
+    return 1;
+}
+
+static int send_visible_command(char command_q[][VISIBLE_COMMAND_SIZE], int size, int fd)
+{
+    char packet[VISIBLE_COMMAND_SIZE] = {0};
+
+    for (int i = 0; i < size; i++)
+    {
+        memset(packet, 0, VISIBLE_COMMAND_SIZE);
+
+        int len = snprintf(
+            packet,
+            sizeof(packet),
+            "%s%s%s\n",
+            VISIBLE_COMMAND, DELIM, command_q[i]
+        );
+
+        if (send(fd, packet, (size_t)len, MSG_NOSIGNAL) != (ssize_t)len)
+        {
+            printf("[FAILED] VISIBLE COMMAND 송신 실패\n");
+            return 0;
+        }
+
+        printf("[WEB] (fd=%d) 전송: %s\n", fd, packet);
+    }
+    return 1;
 }
 
 static int send_payment_id(char req_q[][PAYMENT_ID_SIZE], int size, int fd)
@@ -290,13 +393,13 @@ static int send_payment_id(char req_q[][PAYMENT_ID_SIZE], int size, int fd)
         int len = snprintf(
             packet,
             sizeof(packet),
-            "PAYID:%s\n",
-            req_q[i]
+            "PAYID%s%s\n",
+            DELIM, req_q[i]
         );
 
         if (send(fd, packet, (size_t)len, MSG_NOSIGNAL) != (ssize_t)len)
         {
-            printf("[ID] 전송 실패.\n");
+            printf("[FAILED] 결제 ID 송신 실패.\n");
             return 0;
         }
 

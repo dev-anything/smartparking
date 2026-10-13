@@ -105,7 +105,7 @@ void motor_control_thread(client_info *info)
 
             // 복사한 명령어를 순서대로 ESP로 송신(뮤텍스 독점 필요 없음)
             // 참인 경우 -> 전송 실패
-            if (!send_motor_control(cmd_batch, cmd_batch_size - 1, fd))
+            if (!send_motor_control(cmd_batch, cmd_batch_size, fd))
             {
                 printf("[ERROR] 모터 명령어 전송 실패. 시스템을 점검하세요.");
                 break;
@@ -178,6 +178,7 @@ static int pop_motor_command(motor_cmd_t* batch)
 
 int push_motor_command(char gate, char action)
 {
+    printf("[DEBUG] 모터 명령 큐 삽입 시도.\n");
     uint64_t one = 1;
     int ok = 0;
 
@@ -203,7 +204,7 @@ int push_motor_command(char gate, char action)
 
     pthread_mutex_unlock(&g_motor_lock);
     // 뮤텍스 독점 종료
-
+    printf("[DEBUG] 모터 명령 큐 삽입 완료.\n");
     return ok;
 }
 
@@ -221,6 +222,7 @@ static int send_motor_control(motor_cmd_t* cmd_batch, int size, int fd)
         // MSG_NOSIGNAL: 이미 끊긴 소켓에 보내도 SIGPIPE로 프로세스가 죽지 않는다
         if (send(fd, packet, (size_t)len, MSG_NOSIGNAL) != (ssize_t)len)
         {
+            printf("[ERROR] (fd=%d) 모터 명령어 송신 실패.\n", fd);
             return 0;   // 송신 실패
         }
 
