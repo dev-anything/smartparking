@@ -307,6 +307,7 @@ def main():
                 # ----- 5. 화면 표시 -----
                 if config.SHOW_WINDOW:
                     cv2.imshow(config.WINDOW_NAME + "_" + name, draw(frame, corners, state))
+                    #cv2.imshow(config.WINDOW_NAME + "_" + name, draw(snap.frame, corners, state))
                     # waitKey(1) : 1ms 키 입력 대기 + 화면 갱신. & 0xFF : 하위 8비트만 사용
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         return
