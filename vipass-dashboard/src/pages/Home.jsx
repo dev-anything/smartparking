@@ -8,20 +8,20 @@ const gates = [
 
 const Home = () => {
   return (
-    <div className="grid flex-1 grid-cols-2 grid-rows-2 gap-4 p-4">
-      {/* 1열: 입구/출구 차량 정보 (1행 entry, 2행 exit) */}
-      {gates.map((g) => {
-        return (
-          <Gate
-            key={g.gate}
-            gate={g.gate}
-          />
-        );
-      })}
-      {/* 2열: 1~2행 병합 */}
-      <div className="col-start-2 row-span-2 row-start-1">
-        <Parkinglot />
+    // 부모(main)의 높이를 꽉 채운다: 입구/출구 카메라(좌우) → 주차장 배치도
+    <div className="grid h-full grid-rows-[minmax(0,1.15fr)_minmax(0,1fr)] gap-4">
+      <div className="grid min-h-0 grid-cols-2 gap-4">
+        {gates.map((g) => {
+          return (
+            <Gate
+              key={g.gate}
+              gate={g.gate}
+            />
+          );
+        })}
       </div>
+
+      <Parkinglot />
     </div>
   );
 };

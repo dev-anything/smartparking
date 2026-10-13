@@ -1,22 +1,19 @@
 import { useState } from "react";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
+import Title from "../components/Title";
 import { useAuth } from "../hooks/useAuth";
 
 const Login = () => {
   const { isLoggedIn, login } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
   const [id, setId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // 로그인 성공 후 이동할 곳: 원래 가려던 화면이 있으면 그곳, 없으면 대시보드
-  const from = location.state?.from?.pathname || "/";
-
-  // 이미 로그인한 상태로 이 화면에 오면 바로 이동
-  if (isLoggedIn) return <Navigate to={from} replace />;
+  // 이미 로그인한 상태로 이 화면에 오면 대시보드로 이동
+  if (isLoggedIn) return <Navigate to="/" replace />;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -30,25 +27,30 @@ const Login = () => {
     const result = await login(id, password);
     setLoading(false);
 
-    if (result.ok) navigate(from, { replace: true });
+    if (result.ok) navigate("/", { replace: true }); // 로그인 성공 시 항상 대시보드(홈)로 이동
     else setError(result.message);
   };
 
   return (
-    <div>
-      <h1>VIPASS console</h1>
-      <form onSubmit={handleSubmit}>
-        <div>
-          <label htmlFor="id">아이디</label>
-          <input id="id" type="text" value={id} onChange={(e) => setId(e.target.value)} autoComplete="username" />
-        </div>
-        <div>
-          <label htmlFor="password">비밀번호</label>
-          <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
-        </div>
-        <button type="submit" disabled={loading}>로그인</button>
-        <div role="alert">{error}</div>
-      </form>
+    // 화면 가운데 카드(400px, 그림자 패널). 사이드바 없음.
+    <div className="flex h-dvh items-center justify-center overflow-hidden bg-surface px-6">
+      <div className="panel w-full max-w-[400px] p-8">
+        <Title className="mb-1 text-center text-[28px]" />
+        <p className="mb-8 text-center text-sm text-mute">주차 관제 콘솔</p>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div>
+            <label htmlFor="id" className="mb-2 block text-sm font-medium">아이디</label>
+            <input id="id" type="text" className="field" value={id} onChange={(e) => setId(e.target.value)} autoComplete="username" />
+          </div>
+          <div>
+            <label htmlFor="password" className="mb-2 block text-sm font-medium">비밀번호</label>
+            <input id="password" type="password" className="field" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+          </div>
+          <button type="submit" disabled={loading} className="btn-primary mt-2 w-full">로그인</button>
+          <div role="alert" className="min-h-[1.5em] text-sm text-sale">{error}</div>
+        </form>
+      </div>
     </div>
   );
 };

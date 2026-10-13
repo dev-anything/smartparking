@@ -74,18 +74,19 @@ async function fetchCustomerKey(base, carNumber) {
   return data.newCusKey;
 }
 
-const STATUS_STYLE = {
-  ok: "bg-green-50 text-green-700",
-  err: "bg-red-50 text-red-700",
-  wait: "bg-blue-50 text-blue-700",
-  warn: "bg-orange-50 text-orange-700",
+// 결과 상태 점 색
+const STATUS_DOT = {
+  ok: "bg-success",
+  err: "bg-sale",
+  wait: "bg-mute",
+  warn: "bg-mute",
 };
 
 const MSG_STYLE = {
-  err: "text-red-700",
-  warn: "text-orange-700",
-  ok: "text-green-700",
-  "": "text-gray-500",
+  err: "text-sale",
+  warn: "text-ash",
+  ok: "text-success",
+  "": "text-mute",
 };
 
 /* =========================================================
@@ -151,33 +152,31 @@ const RegisterForm = () => {
   };
 
   return (
-    <div className="w-full max-w-md rounded-lg border border-gray-300 bg-white p-6">
-      <h1 className="text-xl font-bold mb-4">차량 및 결제수단 등록</h1>
+    <div className="panel">
+      <h1 className="panel-title">차량 및 결제수단 등록</h1>
       {/*<p className="mb-6 text-sm text-gray-500">카드를 인증한 뒤 서버에 인증 정보를 전달합니다.</p>*/}
 
-      <label htmlFor="carNumber" className="mb-1 block text-sm font-semibold">차량번호</label>
-      <div className="rounded-lg border-[3px] border-black bg-white p-1">
-        <input
-          id="carNumber"
-          type="text"
-          value={carNumber}
-          onChange={(e) => setCarNumber(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && !loading && start()}
-          placeholder="12가 3456"
-          maxLength={12}
-          autoComplete="off"
-          className="w-full px-1 py-2 text-center text-3xl font-extrabold tracking-wider text-black outline-none placeholder:text-gray-300"
-        />
-      </div>
-      <p className="mt-1 text-xs text-gray-500">예: 12가3456, 123가4567, 서울12가3456 (공백은 자동 제거)</p>
+      <label htmlFor="carNumber" className="mb-2 block text-sm font-medium">차량번호</label>
+      <input
+        id="carNumber"
+        type="text"
+        value={carNumber}
+        onChange={(e) => setCarNumber(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && !loading && start()}
+        placeholder="12가3456"
+        maxLength={12}
+        autoComplete="off"
+        className="field h-16 text-center font-mono text-3xl font-bold tracking-wider"
+      />
+      <p className="mt-2 text-xs text-mute">● 이미 등록된 차량번호는 새 정보로 업데이트됩니다.</p>
 
       <button
         type="button"
         onClick={start}
         disabled={loading}
-        className="mt-5 w-full rounded-md bg-blue-600 py-3 font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
+        className="btn-primary mt-6 w-full"
       >
-        카드 등록하기
+        결제수단 등록하기
       </button>
       <div role="status" aria-live="polite" className={`mt-3 min-h-[1em] text-sm ${MSG_STYLE[msg.type]}`}>
         {msg.text}
@@ -272,23 +271,22 @@ const RegisterResult = ({ params }) => {
   }, []);
 
   return (
-    <div className="w-full max-w-md rounded-lg border border-gray-300 bg-white p-6">
-      <h2 className="mb-3 text-lg font-bold">{failed ? "카드 인증 실패" : "카드 인증 결과"}</h2>
+    <div className="panel">
+      <h2 className="panel-title">{failed ? "카드 인증 실패" : "카드 인증 결과"}</h2>
 
-      <div className="rounded-lg border-[3px] border-black bg-white p-1">
-        <div className="px-1 py-2 text-center text-3xl font-extrabold tracking-wider text-black">
-          {carNumber || "차량번호 없음"}
-        </div>
+      <div className="flex h-16 items-center justify-center rounded-[6px] border border-hairline font-mono text-3xl font-bold tracking-wider">
+        {carNumber || "차량번호 없음"}
       </div>
 
-      <div role="status" aria-live="polite" className={`my-4 rounded-md px-3 py-2.5 text-sm font-bold ${STATUS_STYLE[status.type]}`}>
-        {status.text}
+      <div role="status" aria-live="polite" className="my-5 flex items-start gap-2 text-sm font-medium">
+        <span className={`mt-1.5 size-2 shrink-0 rounded-full ${STATUS_DOT[status.type]}`} />
+        <span>{status.text}</span>
       </div>
 
       <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1.5 text-sm">
         {info.filter(([, v]) => v).map(([k, v]) => (
           <div key={k} className="contents">
-            <dt className="text-gray-500">{k}</dt>
+            <dt className="text-mute">{k}</dt>
             <dd className={`break-all ${/key/i.test(k) ? "font-mono" : ""}`}>{v}</dd>
           </div>
         ))}
@@ -298,7 +296,7 @@ const RegisterResult = ({ params }) => {
         <button
           type="button"
           onClick={sendToServer}
-          className="mt-4 w-full rounded-md bg-blue-600 py-3 font-bold text-white hover:bg-blue-700"
+          className="btn-secondary mt-4 w-full"
         >
           서버로 다시 전달
         </button>
@@ -306,7 +304,7 @@ const RegisterResult = ({ params }) => {
       <button
         type="button"
         onClick={goHome}
-        className="mt-2.5 w-full rounded-md border border-gray-300 bg-white py-3 font-bold hover:bg-gray-50"
+        className="btn-secondary mt-3 w-full"
       >
         {status.type === "err" ? "카드 등록 다시 하기" : "처음으로"}
       </button>
@@ -330,9 +328,14 @@ const CarRegister = () => {
   const isRedirect = params.has("result") || params.has("authKey") || params.has("code");
 
   return (
-    <div className="flex flex-1 justify-center p-10">
-      {isRedirect ? <RegisterResult params={params} /> : <RegisterForm />}
-      <RegisteredTable />
+    // 좌우 2열: 등록 폼 1 : 등록 차량 표 2. 표는 패널 안에서 스크롤된다.
+    <div className="grid h-full grid-cols-[minmax(0,1fr)_minmax(0,2fr)] items-start gap-4">
+      <div className="min-h-0">
+        {isRedirect ? <RegisterResult params={params} /> : <RegisterForm />}
+      </div>
+      <div className="h-full min-h-0">
+        <RegisteredTable />
+      </div>
     </div>
   );
 };

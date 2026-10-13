@@ -1,35 +1,45 @@
-import axios from 'axios';
-import { useEffect, useState } from 'react';
 import { useWebSocket } from '../hooks/useWebSocket';
-
+import DateTime from './DateTime';
 
 const PaymentResult = () => {
   const { paymentsResult } = useWebSocket();
- 
+
   return (
-    <div>
-      <h1>주차요금 결제내역</h1>
-      <table className="text-[8px] text-center">
-        <tr>
-          <th>결제명</th>
-          <th>요청시각</th>
-          <th>승인시각</th>
-          <th>차량번호</th>
-          <th>결제금액</th>
-        </tr>
-        {paymentsResult?.map((payment) => {
-          return (
-            <tr key={payment.payments_key}>
-              <td>{payment.payments_name}</td>
-              <td>{payment.requested_at}</td>
-              <td>{payment.approved_at}</td>
-              <td>{payment.car_number}</td>
-              <td>{payment.amount}</td>
+    <section className="panel col-start-1">
+      <h2 className="panel-title">주차요금 결제내역</h2>
+      <div className="@container min-h-0 flex-1 overflow-auto">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>결제명</th>
+              <th>요청시각</th>
+              <th>승인시각</th>
+              <th>차량번호</th>
+              <th>결제금액</th>
             </tr>
-          );
-        })}
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {paymentsResult?.length ? (
+              paymentsResult.map((payment) => {
+                return (
+                  <tr key={payment.payments_key}>
+                    <td>{payment.payments_name}</td>
+                    <td><DateTime value={payment.requested_at} fallback="-" /></td>
+                    <td><DateTime value={payment.approved_at} fallback="-" /></td>
+                    <td>{payment.car_number}</td>
+                    <td>{payment.amount}</td>
+                  </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <td colSpan={5} className="empty">결제내역이 없습니다</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 };
 
