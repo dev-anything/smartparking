@@ -241,7 +241,7 @@ def find_plate(img, pad_x=config.PAD_X, pad_y=config.PAD_Y, min_char_h=config.MI
             #   숫자 7개(앞 3 + 뒤 4) + 한글 1개 = 8개가 기본.
             #   앞번호 2자리 번호판은 7개, 한글이 자모로 쪼개져 잡히면 최대 9개.
             #   짧은 단어(4글자 등)와 긴 문장은 여기서 탈락
-            if not 7 <= len(line) <= 9:
+            if not 6 <= len(line) <= 9:
                 continue
 
             # 줄의 글자 정보를 항목별 배열로 분리 (계산을 한 번에 하기 위해)

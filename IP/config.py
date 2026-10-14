@@ -43,7 +43,7 @@ PRINT_EVERY_FRAME = True        # bool: 매 프레임 상태를 터미널에 출
 #   카메라 프레임은 읽자마자 이 영역으로 잘리고, 이후 모든 좌표는 ROI 기준
 ROI = (
     int(FRAME_WIDTH * 0.25),
-    int(FRAME_HEIGHT * 0.6),
+    int(FRAME_HEIGHT * 0.3),
     int(FRAME_WIDTH * 0.5),
     int(FRAME_HEIGHT * 0.4)
 )
@@ -114,7 +114,8 @@ CHAR_TO_DIGIT = {
 
 # ---- 진입 판정: 아래를 모두 만족하면 "번호판이 ROI에 들어왔다"로 보고 인식 시작 ----
 EDGE_MARGIN = 5         # int: 번호판 사각형이 ROI 가장자리에서 이 픽셀 이상 안쪽에 있어야 함
-MIN_PLATE_W = 160       # int: 번호판(글자 줄) 사각형 폭이 이 픽셀 이상 (멀리 있으면 글자가 작아 오인식 위험)
+#MIN_PLATE_W = 160       # int: 번호판(글자 줄) 사각형 폭이 이 픽셀 이상 (멀리 있으면 글자가 작아 오인식 위험)
+MIN_PLATE_W = 100
 MOVE_TOL = 40           # int: 프레임 사이 번호판 중심 이동이 이 픽셀 이하면 "천천히 움직이는 중(추적 유지)" (정지 기준 아님)
 MOVE_RESET = 120        # int: 인식 중 이 픽셀 이상 갑자기 움직이면 다른 대상으로 보고 추적부터 다시
 STABLE_FRAMES = 2       # int: 연속으로 이만큼 같은 위치 근처에서 잡히면 인식 시작 (10FPS 기준 0.2초)
