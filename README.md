@@ -69,9 +69,11 @@ curl http://<서버IP>:10001/v1/chat/completions \
 | entry_time | DATETIME | NULL | | NULL | |
 | exit_time | DATETIME | NULL | | NULL | |
 | updated_at | DATETIME | NOT NULL | | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| entry_image_path | VARCHAR(512) | NULL | | NULL | |
+| exit_image_path | VARCHAR(512) | NULL | | NULL | |
 
 2. parked_status
-- 주차 구역(area_1 ~ area_6)별 점유 상태를 시간대별로 기록합니다. (1: 주차됨, 0: 비어 있음)
+- 주차 구역(area_1 ~ area_3)별 점유 상태를 시간대별로 기록합니다. (1: 주차됨, 0: 비어 있음)
 - 테이블 구조
 
 | Field | Type | Null | Key | Default | Extra |
@@ -81,9 +83,6 @@ curl http://<서버IP>:10001/v1/chat/completions \
 | area_1 | TINYINT(1) | NULL | | 0 | |
 | area_2 | TINYINT(1) | NULL | | 0 | |
 | area_3 | TINYINT(1) | NULL | | 0 | |
-| area_4 | TINYINT(1) | NULL | | 0 | |
-| area_5 | TINYINT(1) | NULL | | 0 | |
-| area_6 | TINYINT(1) | NULL | | 0 | |
 
 3. bank_info
 - 카드 결제에 사용하는 은행(카드사) 코드와 이름을 관리합니다.
