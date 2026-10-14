@@ -119,6 +119,17 @@ def print_result(path, result):
 # 메인 루프
 # =========================================================
 
+def sharpness(img):
+    """
+    번호판 이미지의 선명도 (움직임으로 흐린 프레임을 걸러내는 데 사용).
+
+    인자:  img - np.ndarray (높이, 폭, 3), uint8, BGR  잘라낸 번호판 이미지
+    반환:  float, 라플라시안 분산. 클수록 선명 (크기를 config.SHARP_SIZE로 맞춘 뒤 계산)
+    """
+    gray = cv2.cvtColor(cv2.resize(img, config.SHARP_SIZE), cv2.COLOR_BGR2GRAY)
+    return float(cv2.Laplacian(gray, cv2.CV_64F).var())
+
+
 def main():
     """
     카메라를 열고 무한 루프로 번호판을 검출·인식.
@@ -126,10 +137,6 @@ def main():
         int, 종료 코드 (0: 정상 종료, 1: 카메라 문제)
         -> 자동 실행(systemd 등)에서 "오류로 끝나면 재시작" 판단에 쓰임
     """
-    # ----- 시작 준비 (1회) -----
-    # 인식 모델은 무겁기 때문에 루프 밖에서 한 번만 불러옴 (첫 GPU 준비에 수십 초 걸릴 수 있음)
-    print("인식 모델 불러오는 중...")
-    model = recognizer.load_model()                 # recognizer.RecModel
     
     # 소켓 서버 연결 및 최초 ID 송신, 핸드셰이크
     client_socket = client.create_socket()
@@ -137,6 +144,14 @@ def main():
     if not is_connected:
         print("[ERROR] Cannot connect to server.")
         #return 1
+    
+    
+    # ----- 시작 준비 (1회) -----
+    # 인식 모델은 무겁기 때문에 루프 밖에서 한 번만 불러옴 (첫 GPU 준비에 수십 초 걸릴 수 있음)
+    print("인식 모델 불러오는 중...")
+    model = recognizer.load_model()                 # recognizer.RecModel
+    
+    
 
     # 스레드 설정 -----------
     stop_event = threading.Event()
@@ -258,25 +273,34 @@ def main():
                 # ----- 4. READING 단계이고, 이번 프레임에 읽을 수 있는 번호판이 있을 때만 인식 -----
                 # 단계만 확인하면 안 됨: READING은 검출이 잠깐 끊겨도 유지되므로
                 # 이번 프레임의 corners가 None일 수 있음 (그 프레임은 건너뛰고 다음 프레임에 이어서 읽음)
-                if gate.should_read(state, corners, frame.shape):
-                    now = round(time.time())                   # float: 캡쳐 시각 (파일 이름, 재인식 방지에 사용)
-
-                    # 4-1. 글자 줄을 정면으로 펴서 잘라내기 (np.ndarray (높이, 폭, 3))
+                readable = gate.should_read(state, corners, frame.shape)
+                plate_img = None
+                if readable:
+                    # 글자 줄을 정면으로 펴서 잘라내기 (np.ndarray (높이, 폭, 3)) + 선명도 검사
+                    # 움직이는 중에는 흐린 프레임이 섞이므로, 흐리면 이번 프레임은 읽지 않음 (저장, 인식, 투표 모두 건너뜀)
                     plate_img = detector.extract_plate_image(frame, corners)
+                    sharp = sharpness(plate_img)
+                    if sharp < config.MIN_SHARPNESS:
+                        print("[선명도] {:.1f} < {} -> 흐린 프레임, 건너뜀".format(sharp, config.MIN_SHARPNESS))
+                        readable = False
+                    else:
+                        print("[선명도] {:.1f}".format(sharp))
+                if readable:
+                    now = round(time.time())                   # float: 캡쳐 시각 (파일 이름, 재인식 방지에 사용)
 
                     # 4-2. 캡쳐 저장 -> 4-3. 불러오기
                     #   path : str 또는 None,  img : np.ndarray 또는 None
-                    path = camera.save_capture([frame, plate_img], config.SAVE_DIR, name, now)
+                    #path = camera.save_capture([frame, plate_img], config.SAVE_DIR, name, now)
                     
-                    #original = camera.save_capture(frame, config.SAVE_DIR, now)
-                    img = camera.load_capture(path[2])
+                    #i/mg = camera.load_capture(path[2])
+                    img = plate_img
                     if img is None:
                         print("[캡쳐] 저장 또는 불러오기 실패 -> 메모리의 이미지로 인식")
                         img = plate_img
 
                     # 4-4. 텍스트 추출 (result : recognizer.RecResult)
                     result = recognizer.recognize(model, img)
-                    print_result(path, result)
+                    #print_result(path, result)
 
                     # 4-5. 투표 (event : None 또는 tuple(str, ...))                  
                     
@@ -287,11 +311,14 @@ def main():
                         if kind == "confirmed":
                             # ★ 새 차량 번호 확정: 여기에서 DB 저장, 차단기 제어 등을 연결
                             print("[확정] {}  (투표 {})".format(value, list(state.votes)))
+                            path = camera.save_capture([frame, plate_img], config.SAVE_DIR, name, now)
+                    
 
                             current_image_paths[name] = path[1]    
                             
                             # 게이트 정보 + 번호판 텍스트 정보 + 캡쳐 경로 송신
                             client.send_plate_text(client_socket, framebox.gate, config.GATE_OPEN, value, current_image_paths[name])
+                            
                             
                         elif kind == "duplicate":
                             print("[중복] {}  최근 {}초 안에 이미 처리한 번호 -> 무시".format(
@@ -330,6 +357,7 @@ def main():
                         if (absent_since is not None) and (time.time() - absent_since >= config.CLOSE_DELAY):
                             print(f"[PLATE] CURRENT PLATE: {current_plate}")
                             client.send_plate_text(client_socket, framebox.gate, config.GATE_CLOSE, current_plate, current_image_paths[name])
+                            current_image_paths[name] = None
                             current_plate = None
                             absent_since = None
                     

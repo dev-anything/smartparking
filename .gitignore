@@ -9,6 +9,7 @@ progress.txt
 
 # Image Processing
 IP/images
+IP/test
 example/
 *.jpg
 *.png

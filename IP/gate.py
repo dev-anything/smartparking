@@ -28,7 +28,8 @@ gate.py : 진입 판정 / 재인식 방지
     1. 번호판(글자 줄)이 검출됨
     2. 번호판 사각형 전체가 ROI 가장자리에서 EDGE_MARGIN 이상 안쪽 (걸쳐 들어오는 중이면 제외)
     3. 번호판 사각형 폭이 MIN_PLATE_W 이상 (멀리 있어 글자가 작으면 제외)
-    4. STABLE_FRAMES 프레임 연속으로 거의 움직이지 않음 (차가 멈춤 -> 흔들림 없는 선명한 이미지)
+    4. STABLE_FRAMES 프레임 연속으로 같은 대상으로 추적됨 (프레임 간 이동 MOVE_TOL 이하; 천천히 움직이는 차도 통과)
+       ※ 정지를 요구하지 않음. 흐린 프레임은 main.py가 선명도(MIN_SHARPNESS)로 걸러냄
 
 [재인식 방지] 두 겹
     1차 (상태) : DONE 상태에서는 번호판이 EXIT_FRAMES 동안 안 보일 때까지 인식하지 않음
@@ -194,7 +195,7 @@ def track(state, corners, roi_shape):
         return state._replace(phase=phase, center=center, stable=stable, absent=0)
 
     # ---- READING: 인식 중 차가 다시 크게 움직이면 추적부터 다시 ----
-    if moved > config.MOVE_TOL * 3:
+    if moved > config.MOVE_RESET:
         return state._replace(phase="TRACKING", center=center, stable=1, absent=0, votes=())
     return state._replace(center=center, absent=0)
 
