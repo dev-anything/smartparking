@@ -3,7 +3,7 @@
 // ----------------------------------------------------
 // 네트워크 및 C 서버 설정
 // ----------------------------------------------------
-const char* ssid = "iptime222";
+const char* ssid     = "iptime222";
 const char* password = "12345678";
 
 // 초음파 전용 ESP32 고정 IP
@@ -21,31 +21,31 @@ WiFiClient client;
 bool isServerAuthenticated = false; // 서버 OK 응답 인증 여부
 
 // ----------------------------------------------------
-// 핀 설정 (6개 구역 - 100% 충돌 방지 배치)
+// 핀 설정 (3개 구역)
 // ----------------------------------------------------
-// Trig 핀: 18, 19, 4번을 2개씩 중복 사용
-const int TRIG_PINS[6] = {18, 18, 19, 19, 4, 4};
+// Trig 핀 3개
+const int TRIG_PINS[3] = {18, 19, 4};
 
-// Echo 핀 6개 (6번: 35번 - 입력 전용 핀 활용)
-const int ECHO_PINS[6] = {5, 17, 16, 22, 2, 35};
+// Echo 핀 3개
+const int ECHO_PINS[3] = {5, 17, 16};
 
-// Red LED 핀 6개 (6번: 16번 사용)
-const int RED_LED_PINS[6]   = {13, 25, 27, 21, 32, 16};
+// Red LED 핀 3개
+const int RED_LED_PINS[3]   = {13, 25, 27};
 
-// Green LED 핀 6개 (6번: 15번 사용)
-const int GREEN_LED_PINS[6] = {14, 26, 33, 23, 12, 15};
+// Green LED 핀 3개
+const int GREEN_LED_PINS[3] = {14, 26, 33};
 
 // ----------------------------------------------------
-// 주차 상태 및 타이머 관리 변수 (6구역)
+// 주차 상태 및 타이머 관리 변수 (3구역)
 // ----------------------------------------------------
-int confirmedStatus[6] = {0, 0, 0, 0, 0, 0};     
-int lastStatus[6]      = {-1, -1, -1, -1, -1, -1}; 
+int confirmedStatus[3] = {0, 0, 0};     
+int lastStatus[3]      = {-1, -1, -1}; 
 
 // 5초 타이머 관련 변수
-unsigned long timerStartTime[6] = {0, 0, 0, 0, 0, 0};
-bool isWaitingTimer[6]          = {false, false, false, false, false, false};
-int waitingTargetStatus[6]      = {0, 0, 0, 0, 0, 0}; 
-unsigned long lastLogTime[6]    = {0, 0, 0, 0, 0, 0};
+unsigned long timerStartTime[3] = {0, 0, 0};
+bool isWaitingTimer[3]          = {false, false, false};
+int waitingTargetStatus[3]      = {0, 0, 0}; 
+unsigned long lastLogTime[3]    = {0, 0, 0};
 
 // 초음파 거리 측정 함수
 long readDistance(int index) {
@@ -71,9 +71,9 @@ long readDistance(int index) {
   return total / validReadings;
 }
 
-// LED 전체 상태 업데이트 함수
+// LED 전체 상태 업데이트 함수 (3구역)
 void updateLEDs() {
-  for (int i = 0; i < 6; i++) {
+  for (int i = 0; i < 3; i++) {
     if (confirmedStatus[i] == 1) {
       // 주차 있음 -> 빨간색 ON, 초록색 OFF
       digitalWrite(RED_LED_PINS[i], HIGH);
@@ -143,12 +143,12 @@ bool sendStatusData(String payload) {
   return true;
 }
 
-// 시리얼 현황판 출력
+// 시리얼 현황판 출력 (3구역)
 void printDashboard() {
   Serial.print("\n[현재 주차 현황판] [ ");
-  for (int i = 0; i < 6; i++) {
+  for (int i = 0; i < 3; i++) {
     Serial.print(confirmedStatus[i]);
-    if (i < 5) Serial.print(" : ");
+    if (i < 2) Serial.print(" : ");
   }
   Serial.println(" ]");
 }
@@ -156,8 +156,8 @@ void printDashboard() {
 void setup() {
   Serial.begin(115200);
 
-  // 6개 구역 핀 모드 초기화
-  for (int i = 0; i < 6; i++) {
+  // 3개 구역 핀 모드 초기화
+  for (int i = 0; i < 3; i++) {
     pinMode(TRIG_PINS[i], OUTPUT);
     pinMode(ECHO_PINS[i], INPUT);
 
@@ -181,7 +181,7 @@ void setup() {
   }
 
   Serial.println("\n=========================================");
-  Serial.print("★ 6-구역 주차 감지 & LED 노드 준비 완료 (IP: ");
+  Serial.print("★ 3-구역 주차 감지 & LED 노드 준비 완료 (IP: ");
   Serial.print(WiFi.localIP());
   Serial.println(")");
   Serial.println("=========================================");
@@ -206,8 +206,8 @@ void loop() {
 
   unsigned long currentMillis = millis();
 
-  // 1. 6개 초음파 감지 및 5초 필터링 타이머
-  for (int i = 0; i < 6; i++) {
+  // 1. 3개 초음파 감지 및 5초 필터링 타이머
+  for (int i = 0; i < 3; i++) {
     long dist = readDistance(i);
     bool isDetected = (dist > 0 && dist <= 10); // 10cm 이하 감지
     int currentDetectedState = isDetected ? 1 : 0;
@@ -249,9 +249,9 @@ void loop() {
     }
   }
 
-  // 2. 주차 상태 변동 시 C 서버로 6자리 수신 전송 ("1:0:0:0:0:1")
+  // 2. 주차 상태 변동 시 C 서버로 3자리 전송 ("1:0:1")
   bool isChanged = false;
-  for (int i = 0; i < 6; i++) {
+  for (int i = 0; i < 3; i++) {
     if (confirmedStatus[i] != lastStatus[i]) {
       isChanged = true;
       break;
@@ -261,20 +261,14 @@ void loop() {
   if (isChanged) {
     String payload = String(confirmedStatus[0]) + ":" +
                      String(confirmedStatus[1]) + ":" +
-                     String(confirmedStatus[2]) + ":" +
-                     String(confirmedStatus[3]) + ":" +
-                     String(confirmedStatus[4]) + ":" +
-                     String(confirmedStatus[5]);
+                     String(confirmedStatus[2]);
 
     if (sendStatusData(payload)) {
-      for (int i = 0; i < 6; i++) {
+      for (int i = 0; i < 3; i++) {
         lastStatus[i] = confirmedStatus[i];
       }
     }
   }
 
   delay(200); 
-}
-  //  1초 간격 모니터링
-  delay(1000);
 }
