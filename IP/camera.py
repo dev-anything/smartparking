@@ -219,8 +219,8 @@ def save_capture(img_list, save_dir, gate_name, now):
     path.append(os.path.join(new_save_dir, f"original_{capture_name(now)}"))      # str: 저장 경로
     ok = cv2.imwrite(path[1], img_list[0])                                     # bool: 저장 성공 여부
     
-    path.append(os.path.join(new_save_dir, f"crop_{capture_name(now)}"))     # str: 저장 경로
-    ok = cv2.imwrite(path[2], img_list[1])                                     # bool: 저장 성공 여부
+    #path.append(os.path.join(new_save_dir, f"crop_{capture_name(now)}"))     # str: 저장 경로
+    #ok = cv2.imwrite(path[2], img_list[1])                                     # bool: 저장 성공 여부
     
     print(f"저장된 리스트: {path}")
     

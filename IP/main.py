@@ -255,13 +255,17 @@ def main():
                 current_plate = current_plates[name]    # 현재 framebox의 마지막 번호판 텍스트 저장(끝에서 업데이트)
                 
                 
+                
                 # ----- 1. 프레임을 roi로 자르기 -----
                 # frame : np.ndarray (288, 640, 3). 이후 모든 좌표는 이 ROI 프레임 기준
                 frame = camera.crop_roi(snap.frame, config.ROI)
+                #frame = cv2.imread("./images/test/original_20261014_193722_705.png")
 
                 # ----- 2. 번호판 글자 줄 검출 -----
                 # corners : np.ndarray (4, 2), int32 또는 None
                 corners = detector.find_plate(frame)
+                
+                #camera.save_capture([frame], config.SAVE_DIR, name, time.time())
 
                 # ----- 3. 진입 판정 -----
                 state = gate_states[name]               # 현재 framebox용 state 저장
@@ -292,8 +296,9 @@ def main():
                     #   path : str 또는 None,  img : np.ndarray 또는 None
                     #path = camera.save_capture([frame, plate_img], config.SAVE_DIR, name, now)
                     
-                    #i/mg = camera.load_capture(path[2])
+                    #img = camera.load_capture(path[2])
                     img = plate_img
+                    
                     if img is None:
                         print("[캡쳐] 저장 또는 불러오기 실패 -> 메모리의 이미지로 인식")
                         img = plate_img
@@ -334,7 +339,7 @@ def main():
                 # ----- 5. 화면 표시 -----
                 if config.SHOW_WINDOW:
                     cv2.imshow(config.WINDOW_NAME + "_" + name, draw(frame, corners, state))
-                    #cv2.imshow(config.WINDOW_NAME + "_" + name, draw(snap.frame, corners, state))
+                    #cv2.imshow(config.WINDOW_NAME + "_" + name, frame)
                     # waitKey(1) : 1ms 키 입력 대기 + 화면 갱신. & 0xFF : 하위 8비트만 사용
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         return
