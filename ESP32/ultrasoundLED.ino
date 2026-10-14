@@ -41,7 +41,7 @@ const int GREEN_LED_PINS[3] = {14, 26, 33};
 int confirmedStatus[3] = {0, 0, 0};     
 int lastStatus[3]      = {-1, -1, -1}; 
 
-// 5초 타이머 관련 변수
+// 3초 타이머 관련 변수
 unsigned long timerStartTime[3] = {0, 0, 0};
 bool isWaitingTimer[3]          = {false, false, false};
 int waitingTargetStatus[3]      = {0, 0, 0}; 
@@ -206,7 +206,7 @@ void loop() {
 
   unsigned long currentMillis = millis();
 
-  // 1. 3개 초음파 감지 및 5초 필터링 타이머
+  // 1. 3개 초음파 감지 및 3초 필터링 타이머
   for (int i = 0; i < 3; i++) {
     long dist = readDistance(i);
     bool isDetected = (dist > 0 && dist <= 10); // 10cm 이하 감지
@@ -220,18 +220,18 @@ void loop() {
         lastLogTime[i] = currentMillis;
 
         if (currentDetectedState == 1) {
-          Serial.printf("[%d번 자리] 차량 진입 감지! (5초 카운트 시작)\n", i + 1);
+          Serial.printf("[%d번 자리] 차량 진입 감지! (3초 카운트 시작)\n", i + 1);
         } else {
-          Serial.printf("[%d번 자리] 차량 이동 감지! (5초 카운트 시작)\n", i + 1);
+          Serial.printf("[%d번 자리] 차량 이동 감지! (3초 카운트 시작)\n", i + 1);
         }
       } else {
         if (currentMillis - lastLogTime[i] >= 1000) {
           int elapsedSec = (currentMillis - timerStartTime[i]) / 1000;
-          Serial.printf("[%d번 자리] 상태 변경 대기 중... (%d초 / 5초)\n", i + 1, elapsedSec);
+          Serial.printf("[%d번 자리] 상태 변경 대기 중... (%d초 / 3초)\n", i + 1, elapsedSec);
           lastLogTime[i] = currentMillis;
         }
 
-        if (currentMillis - timerStartTime[i] >= 5000) {
+        if (currentMillis - timerStartTime[i] >= 3000) {
           confirmedStatus[i] = currentDetectedState;
           isWaitingTimer[i] = false;
           Serial.printf("★ [%d번 자리] 상태 확정 -> %d\n", i + 1, confirmedStatus[i]);
@@ -262,6 +262,16 @@ void loop() {
     String payload = String(confirmedStatus[0]) + ":" +
                      String(confirmedStatus[1]) + ":" +
                      String(confirmedStatus[2]);
+
+    if (sendStatusData(payload)) {
+      for (int i = 0; i < 3; i++) {
+        lastStatus[i] = confirmedStatus[i];
+      }
+    }
+  }
+
+  delay(200); 
+}
 
     if (sendStatusData(payload)) {
       for (int i = 0; i < 3; i++) {
