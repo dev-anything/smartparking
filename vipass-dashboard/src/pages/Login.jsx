@@ -34,7 +34,7 @@ const Login = () => {
   return (
     // 화면 가운데 카드(400px, 그림자 패널). 사이드바 없음.
     <div className="flex h-dvh items-center justify-center overflow-hidden bg-surface px-6">
-      <div className="panel w-full max-w-[400px] p-8">
+      <div className="panel w-full max-w-100 p-8">
         <Title className="mb-1 text-center text-[28px]" />
         <p className="mb-8 text-center text-sm text-mute">주차 관제 콘솔</p>
 

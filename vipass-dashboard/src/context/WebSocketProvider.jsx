@@ -9,6 +9,14 @@ const WS_URL = config.sock.ip;
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 10000;
 
+// visible_command 의 서버 코드 → 화면에서 쓰는 값
+const GATE_BY_CODE = { E: "entry", X: "exit" }; // 게이트: E(입구), X(출구)
+const OPEN_BY_CODE = { O: true, C: false };     // 차단기: O(열림), C(닫힘)
+const CLOSED_GATES = Object.freeze({ entry: false, exit: false }); // 초기값이자 연결이 끊겼을 때의 값
+
+// 표에 있는 코드만 변환한다. 없으면 undefined (일반 객체의 내장 속성 이름이 오는 경우도 걸러냄)
+const lookup = (table, code) => (Object.hasOwn(table, code) ? table[code] : undefined);
+
 const getPaymentsResult = async () => {
   try {
     const res = await axios.get(
@@ -61,12 +69,18 @@ const getRegisteredInfo = async () => {
   }
 };
 
+// 주차면 수: 3면. 서버 행의 area_1 ~ area_3 만 사용한다 (area_4 이후 값이 와도 무시).
+const SPOT_COUNT = 3;
+const toSpots = (row) =>
+  Array.from({ length: SPOT_COUNT }, (_, i) => ({ id: i + 1, status: row?.[`area_${i + 1}`] }));
+
 export const WebSocketProvider = ({ children }) => {
   const [connected, setConnected] = useState(false);
   const [records, setRecords] = useState([]);
   const [parkedStatus, setParkedStatus] = useState([]);
   const [carInfo, setCarInfo] = useState([]);
   const [paymentsResult, setPaymentsResult] = useState([]);
+  const [gateOpen, setGateOpen] = useState(CLOSED_GATES); // { entry: boolean, exit: boolean } 차단기 열림 여부
 
   const initialLoad = async () => {
     try {
@@ -76,14 +90,7 @@ export const WebSocketProvider = ({ children }) => {
 
       setRecords(rec);
       setPaymentsResult(pay.rows);
-      setParkedStatus([
-        { id: 1, status: park.area_1 },
-        { id: 2, status: park.area_2 },
-        { id: 3, status: park.area_3 },
-        { id: 4, status: park.area_4 },
-        { id: 5, status: park.area_5 },
-        { id: 6, status: park.area_6 },
-      ]);
+      setParkedStatus(toSpots(park));
       setCarInfo(reg);
     } catch (err) {
       console.error(`[ERROR] 최초 1회 조회 오류: ${err.message}`);
@@ -114,14 +121,7 @@ export const WebSocketProvider = ({ children }) => {
 
         if (type === "parked_status_updated")
         {
-          setParkedStatus([
-            { id: 1, status: data.data[0].area_1 },
-            { id: 2, status: data.data[0].area_2 },
-            { id: 3, status: data.data[0].area_3 },
-            { id: 4, status: data.data[0].area_4 },
-            { id: 5, status: data.data[0].area_5 },
-            { id: 6, status: data.data[0].area_6 },
-          ]);
+          setParkedStatus(toSpots(data.data[0]));
         }
         else if (type === "payments_result_updated")
         {
@@ -135,6 +135,18 @@ export const WebSocketProvider = ({ children }) => {
         {
           setCarInfo(data.data);
         }
+        else if (type === "visible_command")
+        {
+          const gate = lookup(GATE_BY_CODE, data.data?.gate);
+          const open = lookup(OPEN_BY_CODE, data.data?.action);
+
+          // 알 수 없는 코드는 무시한다. 닫힘(false)은 정상 값이므로 undefined 로 구분한다.
+          if (gate !== undefined && open !== undefined)
+          {
+            // 해당 게이트 한 칸만 바꾼다. 값이 같으면 이전 객체를 그대로 두어 다시 그리지 않는다.
+            setGateOpen((prev) => (prev[gate] === open ? prev : { ...prev, [gate]: open }));
+          }
+        }
 
       };
 
@@ -144,6 +156,7 @@ export const WebSocketProvider = ({ children }) => {
 
       socket.onclose = () => {
         setConnected(false);
+        setGateOpen(CLOSED_GATES); // 끊긴 동안 닫힘 명령을 놓쳐도 열림 상태가 남지 않게 되돌린다
         if (disposed) return;
 
         const delay = Math.min(RECONNECT_BASE_MS * 2 ** attempts, RECONNECT_MAX_MS);
@@ -163,8 +176,8 @@ export const WebSocketProvider = ({ children }) => {
   }, []);
 
   const value = useMemo(() => ({
-    connected, records, parkedStatus, carInfo, paymentsResult
-  }), [connected, records, parkedStatus, carInfo, paymentsResult]);
+    connected, records, parkedStatus, carInfo, paymentsResult, gateOpen
+  }), [connected, records, parkedStatus, carInfo, paymentsResult, gateOpen]);
 
   return <WebSocketContext.Provider value={value}>{children}</WebSocketContext.Provider>;
 };

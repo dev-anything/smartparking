@@ -1,5 +1,5 @@
 // 점유 = 연빨강 면 + 빨강 번호, 공석 = 연초록 면 + 초록 번호. 칸에는 번호만 표시한다.
-// 크기는 부모 그리드 칸에 맞춰 채우고, 위치는 className(그리드 위치)으로 받는다.
+// 크기·비율은 className 으로 받는다.
 const Spot = ({ number, status, className = "" }) => {
   const occupied = Boolean(status);
 
