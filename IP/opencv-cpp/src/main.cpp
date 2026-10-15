@@ -3,6 +3,7 @@
 #include <cstdlib>
 
 #include "constants.h"
+#include "client.h"
 
 
 using namespace std;
@@ -10,6 +11,8 @@ using namespace std;
 
 int main(int argc, char** argv)
 {
+    int res = connect_server();
+
     cv::VideoCapture cap(ENTRY_CAM_INDEX, cv::CAP_V4L2);
 
     if (!cap.isOpened())
