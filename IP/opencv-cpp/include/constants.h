@@ -1,0 +1,6 @@
+#define ENTRY_CAM_INDEX 0
+#define EXIT_CAM_INDEX 1
+
+#define FRAME_WIDTH 1280
+#define FRAME_HEIGHT 720
+#define TARGET_FPS 30

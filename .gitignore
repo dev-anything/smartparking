@@ -8,9 +8,9 @@ progress.txt
 
 
 # Image Processing
-IP/images
-IP/test
+images/
 example/
+build/
 *.jpg
 *.png
 
