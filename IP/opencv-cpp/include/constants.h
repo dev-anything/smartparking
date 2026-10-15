@@ -16,14 +16,18 @@
 #define TARGET_FPS 30
 
 
-#define PLATE_MIN_AREA 0.005 // 사각형 최소 넓이
-#define PLATE_MAX_AREA 0.07  // 사각형 최대 넓이
-#define PLATE_MIN_RATIO 3.0  // 가로세로 최소 비율
-#define PLATE_MAX_RATIO 6.0  // 가로세로 최대 비율
+// 번호판 검출 기준 상수
+#define PLATE_MIN_RATIO 0.200   // 최소 비율(h / w)
+#define PLATE_MAX_RATIO 0.305   // 최대 비율(h / w)
+#define PLATE_MIN_WIDTH 150     // 최소 너비(px)
+#define PLATE_MAX_WIDTH 430     // 최대 너비(px)
+#define PLATE_MIN_AREA 8820     // 최소 넓이(w * w * ratio)
+#define PLATE_MAX_AREA 56395    // 최대 넓이(w * w * ratio)
+
 
 
 // 이미지 전처리 관련 상수값
-#define BLUR_KERNEL 9
+#define BLUR_KERNEL 5
 #define BLUR_SIGMA 1.7
 #define CANNY_LOW 80
 #define CANNY_HIGH 150

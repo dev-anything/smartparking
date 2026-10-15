@@ -9,7 +9,7 @@ OBJ     = $(SRC:src/%.cpp=build/%.o)
 HEADERS = $(wildcard include/*.h)
 TARGET  = build/main
 
-.PHONY: build run clean
+.PHONY: build run clean delete
 
 build: $(TARGET)
 
@@ -28,6 +28,9 @@ run: build
 
 clean:
 	rm -rf build/*
+
+delete:
+	rm -f images/*
 
 # 순서 작성해보기
 # 1. 모든 build/%.o 파일은 src/%.c 파일에 의존한다.(% => 같은 이름)

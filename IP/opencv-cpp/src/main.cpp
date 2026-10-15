@@ -1,6 +1,7 @@
 #include <iostream>
 #include <opencv2/opencv.hpp>
 #include <cstdlib>
+#include <algorithm>
 
 #include "constants.h"
 #include "client.h"
@@ -8,7 +9,6 @@
 #include "camera.h"
 
 
-using namespace std;
 
 
 int main(int argc, char** argv)
@@ -44,43 +44,77 @@ int main(int argc, char** argv)
 
 
 
-        std::string adj_path = "images/" + parse_path.substr(0, dot) + "_morphed" + parse_path.substr(dot);
+        std::string adj_path = "images/" + parse_path.substr(0, dot) + "_preprocessed" + parse_path.substr(dot);
         cv::imwrite(adj_path, preprocessed);
 
 
 
-        // 사각형 꼭짓점 찾기 - findContours
+        // 윤곽선 좌표 찾기 - findContours
         std::vector<std::vector<cv::Point>> contours;
         cv::findContours(preprocessed, contours, cv::RETR_LIST, cv::CHAIN_APPROX_SIMPLE);
 
-        // 최소/최대 영역 넓이로 후보 사각형 검출
-        //double img_area = target.cols * target.rows;   // 원본 이미지 넓이(1280 * 720 = 921600)
-        //cv::Mat vis = target.clone();
 
-        //for (const auto& c: contours)   // 각 윤곽선 좌표들을 가져옴(c -> vector)
-        //{
-        //    // 윤곽선 좌표들이 이루는 도형의 넓이 구하기
-        //    double c_area = cv::contourArea(c);
+        typedef struct
+        {
+            cv::RotatedRect rect;
+            double w, h, area, ratio;
+        } Candidate;
+        std::vector<Candidate> cds;
 
-        //    if (c_area < PLATE_MIN_AREA || c_area > PLATE_MAX_AREA)
-        //    {
-        //        printf("[PASS] 최소 또는 최대 넓이를 벗어남.\n");
-        //        continue;
-        //    }
+        // 조건을 충족하는 윤곽선 좌표 목록만 걸러내기
+        for (const auto& contour: contours)
+        {
+            // 윤곽선 좌표가 4개 미만이라면 사각형이 될 수 없음
+            if (contour.size() < 4) continue;
 
-        //    // 기울어진 사각형 처리
-        //    cv::RotatedRect rr = cv.minAreaRect(c);
-        //    double w = std::max(rr.size.width, rr.size.height); // 가로/세로 중 긴 변
-        //    double h = std::min(rr.size.width, rr.size.height); // 가로/세로 중 짧은 변
+            // 기울어진 사각형으로 너비와 높이 구하기(w > h)
+            cv::RotatedRect rr = cv::minAreaRect(contour);
+            double w = std::max(rr.size.width, rr.size.height);
+            double h = std::min(rr.size.width, rr.size.height);
+            double area = w * h;
+            double ratio = h / w;
+
+            // 1. 넓이 조건 걸러내기
+            
+            if (area < PLATE_MIN_AREA || area > PLATE_MAX_AREA) continue;
+
+            // 2. 너비 조건 걸러내기
+            if (w < PLATE_MIN_WIDTH || w > PLATE_MAX_WIDTH) continue;
+
+            // 3. 비율 조건 걸러내기
+            if (ratio < PLATE_MIN_RATIO || ratio > PLATE_MAX_RATIO) continue;
+
+            cds.push_back({ rr, w, h, area, ratio });
+        }
+
+        // 후보 사각형 출력
+        std::cout << parse_path << ": 후보 " << cds.size() << "개" << std::endl;
+        for (const auto& c: cds)
+        {
+            std::cout << "  w=" << c.w << " h=" << c.h << " area=" << c.area
+                 << " ratio=" << c.ratio << std::endl;
+        }
+
+        // 결과 표시: 빨간색
+        cv::Mat vis = target.clone();
+        for (const auto& c: cds)
+        {
+            cv::Point2f pts[4];
+            c.rect.points(pts);
+
+            for (int i = 0; i < 4; i++)
+            {
+                cv::line(vis, pts[i], pts[(i + 1) % 4], cv::Scalar(0, 0, 255), 2);
+            }
+        }
+
+        adj_path = "images/" + parse_path.substr(0, dot) + "_candidate" + parse_path.substr(dot);
+        cv::imwrite(adj_path, vis);
+
+        cv::imshow("Candidate", vis);
 
 
-        //    // 사각형 가로세로 비율 확인
-        //    double angle = rr.angle; 
-
-
-
-        //}
-
+        
 
         // 원본 이미지 위에 후보군 표시
         //cv::Mat vis = target.clone();
