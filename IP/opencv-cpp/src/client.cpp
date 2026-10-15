@@ -51,7 +51,13 @@ int connect_server()
 
     while (true)
     {
+        memset(buffer, 0, BUFFER_SIZE);
+        ssize_t receive = read(sock, buffer, BUFFER_SIZE - 1);
 
+        if (receive > 0)
+        {
+            std::cout << "[RECEIVED] 서버 응답: " << buffer << std::endl;
+        }
     }
 
     close(sock);
