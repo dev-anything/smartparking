@@ -10,7 +10,7 @@
 #define TARGET_FPS 30
 
 // 차영상 기준값
-const int DIFF_THRESHOLD = 25;      // 픽셀 밝기 차이가 이 값보다 크면 "변함"
+const int DIFF_THRESHOLD = 40;      // 픽셀 밝기 차이가 이 값보다 크면 "변함"
 const int DILATE_ITER = 2;          // 조각난 덩어리 이어 붙이는 횟수
 const double MIN_AREA_RATIO = 0.10; // 덩어리 최소 넓이: ROI 넓이의 10%
 const double MIN_W_RATIO = 0.25;    // 덩어리 최소 너비: ROI 너비의 25%
@@ -55,14 +55,14 @@ namespace
         // stats: 출력 | 덩어리 당 박스와 넓이(n행 X 5열, int)
         // centroids: 출력 | 덩어리 당 중심점
         // n: 반환값 | 덩어리 개수 + 1(배경 포함)
-        int n = cv.connectedComponentsWithStats(mask, labels, stats, centroids, 8);
+        int n = cv::connectedComponentsWithStats(mask, labels, stats, centroids, 8);
 
         std::vector<cv::Rect> blobs;
         for (int i = 1; i < n; i++) // 0번 인덱스는 배경이므로 제외
         {
             int area = stats.at<int>(i, cv::CC_STAT_AREA);
             int x = stats.at<int>(i, cv::CC_STAT_LEFT);
-            int y = stats.at<int>(i, cv::CC:STAT_TOP);
+            int y = stats.at<int>(i, cv::CC_STAT_TOP);
             int w = stats.at<int>(i, cv::CC_STAT_WIDTH);
             int h = stats.at<int>(i, cv::CC_STAT_HEIGHT);
 
@@ -87,7 +87,7 @@ namespace
             return;
         }
 
-        cv::Mat update_mask(gray.size(), CV_8CU1, cv::Scalar(255)); // 255 = 갱신할 곳
+        cv::Mat update_mask(gray.size(), CV_8UC1, cv::Scalar(255)); // 255 = 갱신할 곳
         const cv::Rect whole(0, 0, gray.cols, gray.rows);
 
         for (const auto& b: blobs)
@@ -96,13 +96,13 @@ namespace
                 b.x - BLOB_MARGIN,
                 b.y - BLOB_MARGIN,
                 b.width + 2 * BLOB_MARGIN,
-                b.height + 2 * BLOB_MARGIN,
+                b.height + 2 * BLOB_MARGIN
             );
             grown &= whole;
             update_mask(grown).setTo(0);
         }
 
-        cv.accumulateWeighted(gray, criteria_f, BG_LEARN_RATE, update_mask);
+        cv::accumulateWeighted(gray, criteria_f, BG_LEARN_RATE, update_mask);
 
         if (++detected_frames > STUCK_FRAMES)
         {
@@ -125,7 +125,7 @@ int main()
     cv::Mat criteria, criteria_f;
     int detected_frames = 0;
 
-    cv::Mat loaded = cv::imread("image_roi/roi_criteria_home.jpg");
+    cv::Mat loaded = cv::imread("image_roi/roi_criteria.jpg");
 
     if (loaded.empty())
     {
@@ -210,6 +210,16 @@ int main()
 
         // 5. 표시: 감지되면 ROI 빨간색 / 감지 없으면 초록색 / 덩어리는 노란색
         bool detected = !blobs.empty();
+
+        // 이제 여기에다가
+        // detected 조건문 붙여서 캡쳐 및 저장하고
+        // 저장된 걸로 이미지 전처리해서
+        // 모델에 넣어서 번호판 추출하면
+        // 서버로 던지면 되겠다!
+        // 구조체 큐 만들어서 번호판 push하고
+        // efd 같은 걸로 신호 줘서 서버로 보내고
+        // 이제 자야지..
+
         cv::rectangle(vis, roi, detected ? cv::Scalar(0, 0, 255) : cv::Scalar(0, 255, 0), 2);
         for (const auto& b: blobs)
         {
