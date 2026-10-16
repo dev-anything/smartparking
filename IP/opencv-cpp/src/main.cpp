@@ -3,12 +3,15 @@
 #include <cstdlib>
 #include <algorithm>
 #include <string>
+#include <fstream>
 
 #include "constants.h"
 #include "client.h"
 #include "preprocess.h"
 #include "camera.h"
 #include "detector.h"
+#include "rectify.h"
+#include "recognizer.h"
 
 
 
@@ -30,6 +33,10 @@ int main(int argc, char** argv)
     cv::glob("../confirm/*.png", files);
     int count = 1;
 
+    // 파일 저장 관련 설정
+    std::ofstream ofs;
+
+    if (!model_initialize()) return -1;
 
     
 
@@ -87,6 +94,34 @@ int main(int argc, char** argv)
         cv::imwrite(adj_path, vis);
 
         cv::imshow("Candidate", vis);
+
+        //번호판 영역으로 잘라내고 직사각형으로 펴기
+        for (const auto& c: cands)
+        {
+            cv::Mat plate = rectify_plate(target, c.corners);
+
+            adj_path = "images/" + parse_path.substr(0, dot) + "_cropped" + parse_path.substr(dot);
+            cv::imwrite(adj_path, plate);
+
+            PlateResult result = recognizer(plate);
+
+            if (result.valid)
+            {
+                std::cout << "[DETECTED] 번호판 추출됨: " << result.plate_number << std::endl;
+
+
+                adj_path = "images/" + parse_path.substr(0, dot) + "_platenum.txt";
+                ofs.clear();
+                ofs.open(adj_path);
+                ofs << result.plate_number << "\n";
+                ofs.close();
+
+
+                adj_path = "images/" + parse_path.substr(0, dot) + "_cropped" + parse_path.substr(dot);
+                cv::imwrite(adj_path, plate);
+            }
+        }
+        
 
         int key = cv::waitKey(1) & 0xFF;
         if (key == 27 || key == 'q') break;

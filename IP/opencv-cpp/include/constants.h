@@ -24,6 +24,10 @@
 #define PLATE_MIN_AREA 8820     // 최소 넓이(w * w * ratio)
 #define PLATE_MAX_AREA 56395    // 최대 넓이(w * w * ratio)
 
+// OCR 모델 관련 상수
+#define OCR_MODEL_PATH  "/home/jtserver/smartparking/Models/paddleocr/models_v5/rec.onnx"
+#define OCR_DICT_PATH   "/home/jtserver/smartparking/Models/paddleocr/models_v5/korean_dict.txt"
+#define OCR_MIN_CONF    0.6
 
 
 // 이미지 전처리 관련 상수값

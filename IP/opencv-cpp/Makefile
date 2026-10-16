@@ -1,13 +1,17 @@
 # C++ - OpenCV Makefile
 
 CXX = g++
-CFLAGS  = -g -Wall -std=c++11 -Iinclude $(shell pkg-config --cflags opencv4)
-LDFLAGS = -lmysqlclient -lpthread $(shell pkg-config --libs opencv4)
 
+ORT_DIR = $(HOME)/onnxruntime
 SRC     = $(wildcard src/*.cpp)
 OBJ     = $(SRC:src/%.cpp=build/%.o)
 HEADERS = $(wildcard include/*.h)
 TARGET  = build/main
+
+CFLAGS  = -g -Wall -std=c++11 -Iinclude $(shell pkg-config --cflags opencv4) \
+          -I$(ORT_DIR)/include
+LDFLAGS = -lmysqlclient -lpthread $(shell pkg-config --libs opencv4) \
+          -L$(ORT_DIR)/lib -lonnxruntime -Wl,-rpath,$(ORT_DIR)/lib
 
 .PHONY: build run clean delete
 
