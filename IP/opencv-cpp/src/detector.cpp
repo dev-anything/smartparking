@@ -120,7 +120,7 @@ std::vector<PlateCandidate> detect_by_rect(const cv::Mat& preprocessed)
 
 
         // 1. 넓이 조건 걸러내기
-        if (area < PLATE_MIN_AREA || area > PLATE_MAX_AREA) continue;
+        //if (area < PLATE_MIN_AREA || area > PLATE_MAX_AREA) continue;
 
         // 2. 너비 조건 걸러내기
         if (w < PLATE_MIN_WIDTH || w > PLATE_MAX_WIDTH) continue;

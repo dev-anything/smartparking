@@ -54,17 +54,17 @@ int main(int argc, char** argv)
 
 
         // 1. 사각형 인식으로 검출 ============================
-        //cv::Mat preprocessed = preprocess(target);
-        //std::string adj_path = "images/" + parse_path.substr(0, dot) + "_preprocessed" + parse_path.substr(dot);
-        //cv::imwrite(adj_path, preprocessed);
+        cv::Mat preprocessed = preprocess(target);
+        std::string aadj_path = "images/" + parse_path.substr(0, dot) + "_preprocessed" + parse_path.substr(dot);
+        cv::imwrite(aadj_path, preprocessed);
 
-        //PlateCandidate cands = detect_by_rect(preprocessed);
+        std::vector<PlateCandidate> cands = detect_by_rect(preprocessed);
 
         // 1. 사각형 인식으로 검출 ============================
 
         // 2. 색상 인식으로 검출 ==============================
 
-        std::vector<PlateCandidate> cands = detect_by_color(target);
+        //std::vector<PlateCandidate> cands = detect_by_color(target);
 
         // 2. 색상 인식으로 검출 ==============================
 

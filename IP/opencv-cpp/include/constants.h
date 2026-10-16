@@ -19,7 +19,7 @@
 // 번호판 검출 기준 상수
 #define PLATE_MIN_RATIO 0.200   // 최소 비율(h / w)
 #define PLATE_MAX_RATIO 0.305   // 최대 비율(h / w)
-#define PLATE_MIN_WIDTH 150     // 최소 너비(px)
+#define PLATE_MIN_WIDTH 210     // 최소 너비(px)
 #define PLATE_MAX_WIDTH 430     // 최대 너비(px)
 #define PLATE_MIN_AREA 8820     // 최소 넓이(w * w * ratio)
 #define PLATE_MAX_AREA 56395    // 최대 넓이(w * w * ratio)
@@ -73,6 +73,6 @@
 
 // ===== 색상 기반 검출 공통 기준 =====
 #define FILL_MORPH_KERNEL   9       // 글자 획 메우기용 커널 크기 (홀수)
-#define PLATE_MIN_FILL      0.50    // 바탕색 채움 비율 하한
+#define PLATE_MIN_FILL      0.30    // 바탕색 채움 비율 하한
 #define PLATE_MAX_FILL      0.92    // 바탕색 채움 비율 상한 (글자 없는 영역 제외)
 #define PLATE_DUP_OVERLAP   0.5     // 다른 색 후보와 이 비율 이상 겹치면 중복
