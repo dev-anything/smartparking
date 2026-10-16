@@ -17,13 +17,13 @@ int main(int argc, char** argv)
 {
     //int res = connect_server();
 
-    cv::VideoCapture cap;
+    //cv::VideoCapture cap;
 
-    if (!camera_init(cap)) return -1;
+    //if (!camera_init(cap)) return -1;
 
-    cv::Mat frame;
-    int64 prev_tick = cv::getTickCount();
-    double fps = 0.0;
+    //cv::Mat frame;
+    //int64 prev_tick = cv::getTickCount();
+    //double fps = 0.0;
 
     // 이미지 경로 저장 벡터 및 목록 가져오기
     std::vector<cv::String> files;
@@ -43,80 +43,50 @@ int main(int argc, char** argv)
         size_t dot = parse_path.find_last_of('.');
 
         if (target.empty()) continue;
-        cv::Mat preprocessed = preprocess(target);
-
-
+        
 
 
         // 1. 사각형 인식으로 검출 ============================
+        //cv::Mat preprocessed = preprocess(target);
+        //std::string adj_path = "images/" + parse_path.substr(0, dot) + "_preprocessed" + parse_path.substr(dot);
+        //cv::imwrite(adj_path, preprocessed);
 
-        std::string adj_path = "images/" + parse_path.substr(0, dot) + "_preprocessed" + parse_path.substr(dot);
-        cv::imwrite(adj_path, preprocessed);
+        //PlateCandidate cands = detect_by_rect(preprocessed);
 
-        PlateCandidate cands = detect_by_rect(preprocessed);
+        // 1. 사각형 인식으로 검출 ============================
 
+        // 2. 색상 인식으로 검출 ==============================
+
+        std::vector<PlateCandidate> cands = detect_by_color(target);
+
+        // 2. 색상 인식으로 검출 ==============================
 
         // 후보 사각형 출력
         std::cout << parse_path << ": 후보 " << cands.size() << "개" << std::endl;
         for (const auto& c: cands)
         {
-            std::cout << "  w=" << c.w << " h=" << c.h << " area=" << c.area
-                 << " ratio=" << c.ratio << std::endl;
+            std::cout << " w=" << c.w
+                      << " h=" << c.h
+                      << " area=" << c.area
+                      << " ratio=" << c.ratio
+                      << std::endl;
         }
 
         // 결과 표시: 빨간색
         cv::Mat vis = target.clone();
         for (const auto& c: cands)
         {
-            cv::Point2f pts[4];
-            c.rect.points(pts);
-
             for (int i = 0; i < 4; i++)
             {
-                cv::line(vis, pts[i], pts[(i + 1) % 4], cv::Scalar(0, 0, 255), 2);
+                cv::line(vis, c.corners[i], c.corners[(i + 1) % 4], cv::Scalar(0, 0, 255), 2);
             }
         }
-        // 1. 사각형 인식으로 검출 ============================
+        
 
-        adj_path = "images/" + parse_path.substr(0, dot) + "_candidate" + parse_path.substr(dot);
+        std::string adj_path = "images/" + parse_path.substr(0, dot) + "_candidate" + parse_path.substr(dot);
         cv::imwrite(adj_path, vis);
 
         cv::imshow("Candidate", vis);
-        // ==================================================
-
-
-
-        // =============================================================
-        
-        
-
-        //// 4. 결과 출력 및 표시
-        //std::cout << parse_path << ": 후보 " << plates.size() << "개" << std::endl;
-
-        //cv::Mat vis = target.clone();
-        //for (const auto& p : plates)
-        //{
-        //    const PlateColor& pc = PLATE_COLORS[p.color];
-        //    std::cout << "  [" << pc.name << "] w=" << p.w << " h=" << p.h
-        //         << " ratio=" << p.ratio << " fill=" << p.fill << std::endl;
-
-        //    cv::Point2f pts[4];
-        //    p.rect.points(pts);
-        //    for (int i = 0; i < 4; i++)
-        //        cv::line(vis, pts[i], pts[(i + 1) % 4], pc.draw, 2);
-        //    cv::putText(vis, pc.name, p.bbox.tl() + cv::Point(0, -6),
-        //                cv::FONT_HERSHEY_SIMPLEX, 0.6, pc.draw, 2);
-        //}
-
-        //std::string adj_path = "images/" + parse_path.substr(0, dot) + "_vis" + parse_path.substr(dot);
-        //cv::imwrite(adj_path, vis);
-        //cv::imshow("Images", vis);
-
-        //int key = cv::waitKey(0) & 0xFF;
-        //if (key == 27 || key == 'q') break;
-
-
-        
 
         int key = cv::waitKey(1) & 0xFF;
         if (key == 27 || key == 'q') break;
@@ -180,7 +150,7 @@ int main(int argc, char** argv)
     //    //    std::cout << "[SAVED] 캡쳐 저장." << std::endl;
     //    //}
     //}
-    cap.release();
-    cv::destroyAllWindows();
+    //cap.release();
+    //cv::destroyAllWindows();
     return 0;
 }

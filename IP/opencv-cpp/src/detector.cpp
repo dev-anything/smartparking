@@ -89,7 +89,7 @@ namespace
         },     // 주황으로 표시
     };
 
-    const NUM_COLORS = 4;
+    const int NUM_COLORS = 4;
 }
 
 // detect_by_rect의 입력값은 전처리된 이미지,
@@ -173,7 +173,7 @@ std::vector<PlateCandidate> detect_by_color(const cv::Mat& frame)
 
         // 2. 닫힘 연산
         cv::Mat filled;
-        cv::morphologyEx(color_mask, filled, cv::MORPH_CLOSE, kernel);
+        cv::morphologyEx(color_mask, filled, cv::MORPH_CLOSE, fill_kernel);
 
         // 3. 덩어리의 바깥 윤곽선 찾기
         std::vector<std::vector<cv::Point>> contours;
