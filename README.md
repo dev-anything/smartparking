@@ -204,8 +204,7 @@ OCR 모델(`rec.onnx`)은 C++에서 onnxruntime C++ API로 실행합니다. 아�
 
 | 상태 | 범위 |
 |:-----|:-----|
-| ✅ 완료·확인 | CPU 버전 설치, 빌드, 실행 로그 확인 |
-| 📋 절차 | GPU 버전 빌드·교체. JetPack 4.6의 일반적인 절차이며, 보드에서 끝까지 실행해 확인하지는 않았습니다. |
+| ✅ 완료·확인 | CPU 버전 설치·빌드·실행 확인, GPU 버전 빌드, 라이브러리 교체 |
 
 #### 환경
 | 항목 | 값 |
@@ -297,7 +296,7 @@ CPU / GPU 판별 방법
 
 (선택) 첫 줄 로그를 없애려면 CUDA 시도 코드를 `#ifdef USE_CUDA`로 감싸고, GPU 버전으로 바꾼 뒤 `CFLAGS`에 `-DUSE_CUDA`를 추가합니다.
 
-#### GPU 빌드 준비 📋
+#### GPU 빌드 준비 ✅
 1. 환경 확인
    ```bash
    cat /etc/nv_tegra_release     # R32.6 / R32.7 → JetPack 4.6
@@ -327,7 +326,7 @@ CPU / GPU 판별 방법
    mv ~/onnxruntime ~/onnxruntime_cpu
    ```
 
-#### GPU 버전 빌드 📋
+#### GPU 버전 빌드 ✅
 소스 받기 (인터넷 필요)
 ```bash
 cd ~
@@ -367,7 +366,7 @@ git submodule status | grep '^-'      # 아무것도 안 나오면 하위 라이
 
 빌드가 끝나면 `ls ~/onnxruntime/build/Linux/Release/*.so*`에 `libonnxruntime.so`, `libonnxruntime.so.1.11.0`, `libonnxruntime_providers_shared.so`, `libonnxruntime_providers_cuda.so` 네 파일이 있어야 합니다.
 
-#### 라이브러리 교체 📋
+#### 라이브러리 교체 ✅
 ```bash
 mkdir -p ~/onnxruntime_gpu/lib
 cp -a ~/onnxruntime_cpu/include ~/onnxruntime_gpu/                                     # 헤더는 같은 1.11.0
@@ -378,7 +377,7 @@ cp -a ~/onnxruntime/build/Linux/Release/libonnxruntime_providers_*.so ~/onnxrunt
 - Makefile에서 `ORT_DIR = $(HOME)/onnxruntime_gpu`로 바꿉니다. (`#ifdef USE_CUDA`를 넣었다면 `CFLAGS += -DUSE_CUDA`도 추가)
 - CPU 버전 폴더(`~/onnxruntime_cpu`)는 남겨 두세요. 문제가 생기면 `ORT_DIR`만 되돌려 바로 복구할 수 있습니다.
 
-#### GPU 동작 확인 📋
+#### GPU 동작 확인 ✅
 `make clean && make build` 후 `./build/main`을 실행합니다.
 
 | 확인 | 성공 기준 |
