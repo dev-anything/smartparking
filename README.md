@@ -145,7 +145,7 @@ curl http://<서버IP>:10001/v1/chat/completions \
 | 역할 | 글자 줄 이미지에서 텍스트 인식 (Recognition 전용) |
 | 원본 프레임워크 | PaddleOCR / PaddlePaddle |
 | 배포 형식 | ONNX (opset 11, IR 버전 8 이하) |
-| 실행 환경 | Jetson Nano: onnxruntime-gpu 1.11.0 (CUDA), 실패 시 CPU |
+| 실행 환경 | Jetson Nano: onnxruntime 1.11.0 C++ API (CUDA 우선, 실패 시 CPU) |
 | 파일 | `rec.onnx` (13.4 MB) + `korean_dict.txt` |
 | 사전 | 11,945자 + blank + 공백 = **11,947 클래스** |
 
@@ -191,16 +191,209 @@ curl http://<서버IP>:10001/v1/chat/completions \
 | 장난감 차 번호판 | 127×18 px (글자 높이 약 14px) | 숫자 `625`, `3971`만 읽힘 | 한글 `머` 인식 실패, 확대/샤픈/정규화로도 해결 안 됨 |
 | 더 먼 번호판 | 글자 높이 약 10px 이하 | 읽을 수 없음 | 검출돼도 인식 불가 |
 
-- 추론 속도: 입력 `48×320` 기준 CPU에서 1회 약 15~23 ms (Jetson GPU는 별도 측정 필요)
+- 추론 속도: 입력 `48×320` 기준 CPU에서 1회 약 15~23 ms (Jetson GPU와 C++ 버전의 CPU 추론 시간은 별도 측정 필요)
 
 ### 특성과 한계
 - **글자 크기가 가장 큰 요인**입니다. 글자 높이 약 25px 이상이면 안정적이고, 그 미만에서는 한글부터 인식이 무너집니다.
 - 바탕색은 큰 영향이 없습니다. 연두색 바탕도 원본 그대로 정확히 읽었습니다.
 - 숫자는 작은 크기에서도 버티지만 획이 많은 한글은 해상도에 민감해서, 한글 재인식 보정이 따로 있습니다.
-- 입력 너비가 바뀌면 GPU에서 새 크기를 준비하느라 멈출 수 있습니다. `cudnn_conv_algo_search`를 `HEURISTIC`으로 설정하고 시작 시 너비 320으로 한 번 실행해 두며, 다른 너비를 쓰면 입력 폭을 몇 개로 고정하고 미리 워밍업하는 것을 권장합니다.
+- 입력 너비가 바뀌면 GPU에서 새 크기를 준비하느라 멈출 수 있습니다. cuDNN 알고리즘 탐색을 `Heuristic`으로 설정하고 `model_initialize()`에서 시작 시 한 번 실행(워밍업)해 두며, 다른 너비를 쓰면 입력 폭을 몇 개로 고정하고 미리 워밍업하는 것을 권장합니다.
+
+### C++ 실행 환경 (onnxruntime)
+OCR 모델(`rec.onnx`)은 C++에서 onnxruntime C++ API로 실행합니다. 아래는 CPU 버전 설치부터 GPU 버전 전환까지의 기록입니다.
+
+| 상태 | 범위 |
+|:-----|:-----|
+| ✅ 완료·확인 | CPU 버전 설치, 빌드, 실행 로그 확인 |
+| 📋 절차 | GPU 버전 빌드·교체. JetPack 4.6의 일반적인 절차이며, 보드에서 끝까지 실행해 확인하지는 않았습니다. |
+
+#### 환경
+| 항목 | 값 |
+|:-----|:---|
+| 보드 | Jetson Nano Developer Kit 4GB |
+| OS | Ubuntu 18.04.6 (aarch64) |
+| JetPack | 4.6 (L4T R32.6 / R32.7) |
+| CUDA / cuDNN | 10.2 / 8.x |
+| 컴파일러 | gcc 7, `-std=c++11` |
+| OpenCV | 4.1.1 (JetPack 기본, CUDA 미포함) |
+| onnxruntime | **1.11.0** |
+| 프로젝트 | `~/smartparking/IP/opencv-cpp` |
+
+실행 방식은 onnxruntime C++ API를 채택했습니다. 한 프로그램 안에서 처리하므로 구조가 단순하고 빠릅니다. OpenCV `dnn`은 OpenCV 4.1.1의 ONNX 지원이 오래되어 PP-OCRv5를 불러오지 못할 가능성이 높아 제외했습니다.
+
+Jetson용 GPU 버전은 공식 C++ 배포판이 없어서 **보드에서 직접 빌드**해야 합니다. 그래서 공식 CPU 배포판으로 코드를 먼저 완성하고, 나중에 라이브러리만 GPU 버전으로 바꾸는 순서로 진행합니다.
+
+#### CPU 버전 설치 ✅
+```bash
+cd ~
+wget https://github.com/microsoft/onnxruntime/releases/download/v1.11.0/onnxruntime-linux-aarch64-1.11.0.tgz
+tar xzf onnxruntime-linux-aarch64-1.11.0.tgz
+mv onnxruntime-linux-aarch64-1.11.0 onnxruntime
+```
+- 폴더 구성: `~/onnxruntime/include/`(`onnxruntime_cxx_api.h` 등), `~/onnxruntime/lib/`(`libonnxruntime.so`, `libonnxruntime.so.1.11.0`)
+- `x64`가 아니라 **`aarch64`** 파일을 받아야 합니다. `uname -m`의 결과가 `aarch64`인지 확인하세요.
+
+#### 빌드 설정 ✅
+Makefile
+```makefile
+ORT_DIR = $(HOME)/onnxruntime
+
+CFLAGS  = -g -Wall -std=c++11 -Iinclude $(shell pkg-config --cflags opencv4) -I$(ORT_DIR)/include
+LDFLAGS = $(shell pkg-config --libs opencv4) -lmysqlclient -lpthread \
+          -L$(ORT_DIR)/lib -lonnxruntime -Wl,-rpath,$(ORT_DIR)/lib
+```
+- `-Wl,-rpath,...`: 실행할 때 라이브러리 경로를 프로그램에 기록하므로 `LD_LIBRARY_PATH`를 따로 설정할 필요가 없습니다.
+
+`constants.h`
+```cpp
+#define OCR_MODEL_PATH  "<홈>/smartparking/Models/paddleocr/models_v5/rec.onnx"
+#define OCR_DICT_PATH   "<홈>/smartparking/Models/paddleocr/models_v5/korean_dict.txt"
+#define OCR_MIN_CONF    0.6
+```
+
+인식 모델 단독 테스트 빌드 (`module/recognizer_only.cpp`)
+```bash
+mkdir -p build
+g++ -std=c++11 -O2 module/recognizer_only.cpp -o build/recognizer_only \
+    $(pkg-config --cflags --libs opencv4) \
+    -I$HOME/onnxruntime/include -L$HOME/onnxruntime/lib -lonnxruntime \
+    -Wl,-rpath,$HOME/onnxruntime/lib
+```
+
+`model_initialize()`는 GPU를 먼저 시도하고, 실패하면 CPU로 넘어갑니다. 그래서 **라이브러리만 바꾸면 코드 수정 없이 GPU로 전환**됩니다.
+```cpp
+std::string device = "CPU";
+try
+{
+    OrtCUDAProviderOptions cuda_opts;
+    cuda_opts.device_id = 0;
+    cuda_opts.cudnn_conv_algo_search = OrtCudnnConvAlgoSearchHeuristic;
+    opts.AppendExecutionProvider_CUDA(cuda_opts);
+    device = "CUDA";
+}
+catch (const Ort::Exception&)
+{
+    // CUDA 미지원 라이브러리 → CPU로 계속
+}
+```
+
+#### CPU 동작 확인 ✅
+`./build/main` 실행 로그
+```
+[E:onnxruntime:plate, provider_bridge_ort.cc:964 Ensure] Failed to load library libonnxruntime_providers_shared.so ...
+[인식 모델] 장치: CPU, 글자 수 11947
+```
+- 첫 줄은 CUDA를 시도했지만 CPU 배포판에 GPU용 라이브러리가 없어서 실패했다는 뜻입니다. 오류처럼 보이지만 프로그램에는 영향이 없습니다.
+- 둘째 줄은 CPU로 넘어가 정상 준비됐다는 뜻입니다. 글자 수 11947은 모델 출력과 사전 크기가 일치한다는 의미입니다.
+- 전환 전에 `./build/recognizer_only <번호판 이미지>`로 CPU 추론 시간을 재 보고 GPU 전환 여부를 정합니다.
+
+CPU / GPU 판별 방법
+
+| 방법 | CPU 버전 | GPU 버전 |
+|:-----|:---------|:---------|
+| 시작 로그 | `장치: CPU` + `providers_shared` 오류 줄 | `장치: CUDA` |
+| `ls $ORT_DIR/lib/` | `libonnxruntime_providers_cuda.so` 없음 | 있음 |
+| `sudo tegrastats` | 인식 중에도 `GR3D_FREQ`가 0% 근처 | 인식할 때 올라감 |
+
+(선택) 첫 줄 로그를 없애려면 CUDA 시도 코드를 `#ifdef USE_CUDA`로 감싸고, GPU 버전으로 바꾼 뒤 `CFLAGS`에 `-DUSE_CUDA`를 추가합니다.
+
+#### GPU 빌드 준비 📋
+1. 환경 확인
+   ```bash
+   cat /etc/nv_tegra_release     # R32.6 / R32.7 → JetPack 4.6
+   nvcc --version                # CUDA 10.2
+   dpkg -l | grep libcudnn       # cuDNN 8.x
+   df -h ~                       # 여유 공간 15GB 이상 권장
+   ```
+   `nvcc`를 찾지 못하면 `PATH=/usr/local/cuda/bin:$PATH`, `LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH`를 `~/.bashrc`에 추가합니다.
+2. 성능 모드: `sudo nvpmodel -m 0 && sudo jetson_clocks`
+3. 스왑 메모리: 현재 4GB 스왑이 있으며, 이 상태에서는 `--parallel 1~2`면 충분합니다. (`--parallel 4`는 실패 가능성이 높음)
+   ```bash
+   # 새로 만들 때(예: 8GB)
+   sudo fallocate -l 8G /swapfile && sudo chmod 600 /swapfile
+   sudo mkswap /swapfile && sudo swapon /swapfile
+   swapon --show && free -h
+   ```
+   메모리를 더 확보하려면 빌드하는 동안 데스크톱 화면을 끕니다(약 1GB 확보): `sudo systemctl isolate multi-user.target` (다시 켜기: `graphical.target`)
+4. cmake 3.18 이상: onnxruntime 1.11 빌드에 필요합니다. (Ubuntu 18.04 기본은 3.10)
+   ```bash
+   pip3 install --user cmake
+   export PATH=$HOME/.local/bin:$PATH
+   cmake --version
+   ```
+5. SSH가 끊겨도 빌드가 계속되도록 tmux 사용: `sudo apt install -y tmux`, `tmux new -s ortbuild` (나가기 Ctrl+B → D, 복귀 `tmux attach -t ortbuild`)
+6. 폴더 이름 충돌 방지: 소스를 받기 **전에** CPU 버전 폴더 이름을 바꾸고, Makefile의 `ORT_DIR`을 `$(HOME)/onnxruntime_cpu`로 바꿔 둡니다.
+   ```bash
+   mv ~/onnxruntime ~/onnxruntime_cpu
+   ```
+
+#### GPU 버전 빌드 📋
+소스 받기 (인터넷 필요)
+```bash
+cd ~
+git clone --recursive --branch v1.11.0 https://github.com/microsoft/onnxruntime
+cd onnxruntime
+git submodule update --init --recursive
+git submodule status | grep '^-'      # 아무것도 안 나오면 하위 라이브러리를 전부 받은 것
+```
+
+빌드
+```bash
+./build.sh --config Release \
+    --update --build \
+    --build_shared_lib \
+    --parallel 2 \
+    --skip_tests \
+    --use_cuda \
+    --cuda_home /usr/local/cuda \
+    --cudnn_home /usr/lib/aarch64-linux-gnu \
+    --cmake_extra_defines CMAKE_CUDA_ARCHITECTURES=53 \
+    2>&1 | tee ~/ort_build.log
+```
+- `--build_shared_lib`: C++에서 링크할 `libonnxruntime.so`를 만듭니다. (필수)
+- `CMAKE_CUDA_ARCHITECTURES=53`: Jetson Nano GPU(Maxwell, sm_53)용으로만 빌드해 시간을 줄입니다.
+- 소요 시간은 `--parallel 2` 기준 약 4~8시간입니다.
+- 인터넷은 처음의 하위 라이브러리 동기화와 cmake 설정 단계(10~20분)에만 필요합니다. 소스를 받을 때 하위 라이브러리를 모두 받아 둔 경우 `--skip_submodule_sync`를 추가하면 오프라인으로 빌드할 수 있습니다.
+- 중간에 끊기면 같은 명령을 다시 실행하면 이어서 진행합니다.
+
+자주 나는 문제
+
+| 증상 | 원인과 해결 |
+|:-----|:-----------|
+| `c++: internal compiler error: Killed` | 메모리 부족. `--parallel 1`로 같은 명령을 다시 실행 (이미 컴파일된 부분은 건너뜀) |
+| `nvcc not found` | `PATH` 설정, 또는 `export CUDACXX=/usr/local/cuda/bin/nvcc` |
+| `CMake 3.18 or higher is required` | `which cmake`로 새 cmake가 먼저 잡히는지 확인 |
+| `Could not resolve host`, `Failed to download` | 인터넷을 연결하고 같은 명령을 다시 실행 |
+
+빌드가 끝나면 `ls ~/onnxruntime/build/Linux/Release/*.so*`에 `libonnxruntime.so`, `libonnxruntime.so.1.11.0`, `libonnxruntime_providers_shared.so`, `libonnxruntime_providers_cuda.so` 네 파일이 있어야 합니다.
+
+#### 라이브러리 교체 📋
+```bash
+mkdir -p ~/onnxruntime_gpu/lib
+cp -a ~/onnxruntime_cpu/include ~/onnxruntime_gpu/                                     # 헤더는 같은 1.11.0
+cp -a ~/onnxruntime/build/Linux/Release/libonnxruntime.so*            ~/onnxruntime_gpu/lib/
+cp -a ~/onnxruntime/build/Linux/Release/libonnxruntime_providers_*.so ~/onnxruntime_gpu/lib/
+```
+- **`libonnxruntime`, `providers_shared`, `providers_cuda` 세 종류의 파일은 반드시 같은 폴더에 있어야 합니다.** `libonnxruntime.so`가 실행 중에 같은 폴더에서 나머지 두 파일을 찾아 불러옵니다.
+- Makefile에서 `ORT_DIR = $(HOME)/onnxruntime_gpu`로 바꿉니다. (`#ifdef USE_CUDA`를 넣었다면 `CFLAGS += -DUSE_CUDA`도 추가)
+- CPU 버전 폴더(`~/onnxruntime_cpu`)는 남겨 두세요. 문제가 생기면 `ORT_DIR`만 되돌려 바로 복구할 수 있습니다.
+
+#### GPU 동작 확인 📋
+`make clean && make build` 후 `./build/main`을 실행합니다.
+
+| 확인 | 성공 기준 |
+|:-----|:---------|
+| 시작 로그 | `[인식 모델] 장치: CUDA, 글자 수 11947`. `providers_shared` 오류 줄이 사라짐 |
+| GPU 사용 | `sudo tegrastats`에서 인식할 때 `GR3D_FREQ`가 올라감 |
+| 속도 | `recognizer_only`를 **새 `ORT_DIR`로 다시 빌드**한 뒤, CPU 때의 추론 시간과 비교 |
+
+- GPU 버전은 첫 추론 때 CUDA 준비에 수 초가 걸립니다. `model_initialize()`의 워밍업이 이 시간을 시작 시점에 미리 쓰므로, 시작이 느려진 것은 정상입니다.
+- Jetson Nano는 CPU와 GPU가 메모리 4GB를 함께 씁니다. GPU 사용 후 `free -h`로 메모리 여유를 확인하세요.
+- 현재 구조에서는 `recognizer()`를 인식 스레드 하나만 호출하므로, 세션은 프로세스당 하나입니다.
+- 빌드 후 정리: 새로 만든 스왑 파일은 `sudo swapoff /swapfile && sudo rm /swapfile`, 껐던 화면은 `sudo systemctl isolate graphical.target`으로 되돌립니다. 소스 폴더 `~/onnxruntime`은 수 GB를 차지하므로 라이브러리를 복사한 뒤 지워도 되지만, 다시 빌드할 가능성이 있다면 남겨 두세요.
 
 ### 모델 파일 복구
-`rec.onnx`, `korean_dict.txt`, `wheels/`는 `.gitignore` 대상(`models*/`, `*.onnx`, `*.zip`, `wheels/`)이라 git으로 복구되지 않습니다.
+`rec.onnx`, `korean_dict.txt`는 `.gitignore` 대상(`models*/`, `*.onnx`, `*.zip`)이라 git으로 복구되지 않습니다.
 
 1. Colab에서 `Models/paddleocr/convert_v5_colab.ipynb` 전체 실행 (4번, 5번 단계는 파일 생성 셀과 실행 셀 둘 다) → `models_v5.zip` 다운로드
 2. Jetson으로 복사 후 압축 해제
@@ -208,7 +401,7 @@ curl http://<서버IP>:10001/v1/chat/completions \
    scp models_v5.zip <계정>@<Jetson_IP>:~/smartparking/Models/paddleocr/
    cd ~/smartparking/Models/paddleocr && unzip -o models_v5.zip
    ```
-3. onnxruntime-gpu 확인: `bash setup_jetson.sh` (wheel 자동 다운로드)
-4. 검증: `python3 check_models.py` 실행 → CUDAExecutionProvider, 출력 11947 클래스 확인
+3. `OCR_MODEL_PATH`, `OCR_DICT_PATH`(`constants.h`)가 압축을 푼 경로와 맞는지 확인
+4. 검증: `./build/main` 실행 → 시작 로그에서 `글자 수 11947` 확인 (GPU 버전이면 `장치: CUDA`)
 
 - 모델 파일 보관용 사본(Drive 등)을 따로 두면 Colab 재변환 없이 복구할 수 있습니다.
