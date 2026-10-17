@@ -137,7 +137,7 @@ std::vector<cv::Rect> MotionDetector::detect(const cv::Mat& frame)
     return result;
 }
 
-void MotionDetector::update_background(const cv::Mat& gray, std::vector<cv::Rect>& blobs)
+void MotionDetector::update_background(const cv::Mat& gray, const std::vector<cv::Rect>& blobs)
 {
     // 잡힌 물체가 없다면
     if (blobs.empty())

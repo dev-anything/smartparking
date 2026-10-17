@@ -21,7 +21,7 @@ class MotionDetector
     
     private:
         void reset_to(const cv::Mat& gray); // 기준 프레임을 gray로 교체
-        void update_background(             // 기준 프레임 갱신
+        void update_background(            
             const cv::Mat& gray,
             const std::vector<cv::Rect>& blobs
         );

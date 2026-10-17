@@ -4,6 +4,11 @@
 #include <string>
 #include <vector>
 
+#include "events.h"
+#include "framebox.h"
+#include "motion_detector.h"
+#include "pass_tracker.h"
+
 // 카메라 1개 설정값
 struct CameraConfig
 {
@@ -13,6 +18,7 @@ struct CameraConfig
     std::string criteria_path;  // 기준 프레임 경로
     int exposure;               // 노출값, 음수면 자동 노출
 };
+
 
 class Camera
 {
@@ -29,7 +35,7 @@ class Camera
         void draw(cv::Mat& vis) const;
         bool save_criteria();
 
-        const std::string& name() const { return cfg_.name };
+        const std::string& name() const { return cfg_.name; }
     
     private:
         const CameraConfig cfg_;
@@ -41,5 +47,3 @@ class Camera
 
 
 };
-
-bool camera_init(cv::VideoCapture& cap);

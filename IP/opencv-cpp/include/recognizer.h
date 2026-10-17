@@ -6,7 +6,7 @@
 // 추출 결과 저장 구조체
 struct PlateResult
 {
-    std::string plate_number;
+    std::string text;
     float confidence;
     bool valid;
 };
