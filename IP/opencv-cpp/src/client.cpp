@@ -7,7 +7,11 @@
 
 #include "constants.h"
 
-using namespace std;
+
+namespace
+{
+    int sock;
+}
 
 int connect_server()
 {
@@ -22,7 +26,7 @@ int connect_server()
     sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0)
     {
-        cerr << "[ERROR] 소켓 생성 실패." << endl;
+        std::cerr << "[ERROR] 소켓 생성 실패." << std::endl;
         return -1;
     }
 
@@ -45,7 +49,7 @@ int connect_server()
         return -1;
     }
 
-    cout << "[CONNECTED] 서버 연결됨." << endl;
+    std::cout << "[CONNECTED] 서버 연결됨." << std::endl;
 
     send(sock, message.c_str(), message.length(), 0);
 
