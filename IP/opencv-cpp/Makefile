@@ -2,7 +2,7 @@
 
 CXX = g++
 
-ORT_DIR = $(HOME)/onnxruntime
+ORT_DIR = $(HOME)/onnxruntime_gpu
 SRC     = $(wildcard src/*.cpp)
 OBJ     = $(SRC:src/%.cpp=build/%.o)
 HEADERS = $(wildcard include/*.h)

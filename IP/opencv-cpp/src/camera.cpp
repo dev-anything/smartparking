@@ -4,6 +4,7 @@
 #include "constants.h"
 #include "camera.h"
 
+
 bool camera_init(cv::VideoCapture& cap)
 {
     cap.open(ENTRY_CAM_INDEX, cv::CAP_V4L2);

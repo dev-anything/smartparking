@@ -21,12 +21,25 @@ int main(int argc, char** argv)
     //int res = connect_server();
 
     //cv::VideoCapture cap;
-
     //if (!camera_init(cap)) return -1;
 
-    //cv::Mat frame;
-    //int64 prev_tick = cv::getTickCount();
-    //double fps = 0.0;
+    //cv::Mat frame, cur_color, gray, diff, mask;
+
+
+    // [시작 단계]
+
+    // 1. 인식 모델 준비
+    // 텍스트 인식 모델 초기화 및 설정
+    std::cout << "[WAITING] 모델 초기화 준비..." << std::endl;
+    if (!model_initialize()) return -1;
+
+
+    // 2. 서버 연결 - 전송 스레드 시작
+
+    // 3. 카메라 준비 - 객체 생성(2개), 캡처 스레드 시작    
+
+
+
 
     // 이미지 경로 저장 벡터 및 목록 가져오기
     std::vector<cv::String> files;
@@ -36,7 +49,7 @@ int main(int argc, char** argv)
     // 파일 저장 관련 설정
     std::ofstream ofs;
 
-    if (!model_initialize()) return -1;
+    
 
     
 
