@@ -12,7 +12,7 @@ Framebox::Framebox(const std::string& name, int index, int exposure)
 {}
 
 // 소멸자
-FrameBox::~Framebox()
+Framebox::~Framebox()
 {
     stop();
 }
@@ -72,15 +72,14 @@ void Framebox::loop()
         }
 
         m_.lock();
-        latest_.frame = f;
-        latest_.time = std::chrono::system_clock::now();
+        latest_ = f;
         seq_++;
         m_.unlock();
 
     }
 }
 
-bool Framebox::take_if_new(Snapshot& out)
+bool Framebox::take_if_new(cv::Mat& out)
 {
     if (seq_ == last_seq_) return false;
 
@@ -88,6 +87,6 @@ bool Framebox::take_if_new(Snapshot& out)
     out = latest_;
     last_seq_ = seq_;
     m_.unlock();
-    
+
     return true;
 }
