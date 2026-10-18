@@ -8,9 +8,11 @@ namespace
     const int PASS_END_FRAMES = 5;      // 연속 미감지 -> 통과 끝
 }
 
+
 PassTracker::PassTracker(const std::string& camera)
     : camera_(camera)
 {}
+
 
 bool PassTracker::update(bool detected, const cv::Mat& frame, CaptureEvent& out)
 {

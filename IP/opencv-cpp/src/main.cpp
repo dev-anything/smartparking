@@ -3,7 +3,6 @@
 #include "events.h"
 #include "recognizer.h"
 #include "workers.h"
-
 #include <iostream>
 #include <thread>
 
@@ -17,14 +16,19 @@ int main()
     RecordQueue  record_q;
 
     // 3. 카메라 (캡처 스레드 시작)
-    const cv::Rect roi(cv::Point(FRAME_WIDTH * 0.1,  FRAME_HEIGHT * 0.3),
-                       cv::Point(FRAME_WIDTH * 0.75, FRAME_HEIGHT * 1.0));
+    const cv::Rect roi(
+        cv::Point(FRAME_WIDTH * 0.1,
+                  FRAME_HEIGHT * 0.3),
+        cv::Point(FRAME_WIDTH * 0.75,
+                  FRAME_HEIGHT * 1.0)
+    );
 
-    Camera entry({ "entry", ENTRY_CAM_INDEX, roi, "image_roi/roi_entry.png", -1 });
-    Camera exit_({ "exit",  EXIT_CAM_INDEX,  roi, "image_roi/roi_exit.png",  -1 });
-    Camera* cams[] = { &entry, &exit_ };
-    for (Camera* c : cams)
-        if (!c->start()) return -1;
+    Camera entry_cam({ "entry", ENTRY_CAM_INDEX, roi, "image_roi/roi_entry.png", -1 });
+    Camera exit_cam({ "exit",  EXIT_CAM_INDEX,  roi, "image_roi/roi_exit.png",  -1 });
+
+    Camera* cams[] = { &entry_cam, &exit_cam };
+
+    for (Camera* c : cams) if (!c->start()) return -1;
 
     // 4. 인식·전송 스레드
     std::thread recog(recognition_loop, std::ref(capture_q), std::ref(record_q));
@@ -50,8 +54,8 @@ int main()
 
         int key = cv::waitKey(processed ? 1 : 5) & 0xFF;
         if (key == 27 || key == 'q') running = false;
-        if (key == '1') entry.save_criteria();
-        if (key == '2') exit_.save_criteria();
+        if (key == '1') entry_cam.save_criteria();
+        if (key == '2') exit_cam.save_criteria();
     }
 
     std::cout << "[EXIT] OpenCV 프로세스 종료." << std::endl;
