@@ -16,6 +16,31 @@ typedef std::chrono::system_clock::time_point Time;
 
 namespace
 {
+    
+    struct PlateResult
+    {
+        std::string plate;
+        float confidence = 0.0f;
+        bool valid = false;
+    };
+
+    struct Vote
+    {
+        int count = 0;
+        float best_conf = 0.0f;
+        std::size_t best_frame = 0;
+    };
+
+    typedef std::map<std::string, Vote> Votebox;
+
+    // ROI 박스 선언
+    const cv::Rect roi(
+        cv::Point(FRAME_WIDTH * 0.1,
+                  FRAME_HEIGHT * 0.3),
+        cv::Point(FRAME_WIDTH * 0.75,
+                  FRAME_HEIGHT * 1.0)
+    );
+
     const char* INPUT_NAME = "x";
     const char* OUTPUT_NAME = "fetch_name_0";
 
@@ -183,7 +208,9 @@ class DataQueue
             count_++;
             mtx_.unlock();
 
-            cv::notify_all();   // condition variable로 알리기
+            std::cout << "[PUSHED] 큐에 데이터 채워짐: " << item.id << std::endl;
+
+            cv_.notify_all();   // condition variable로 알리기
         }
         bool pop(T& out)
         {
@@ -204,19 +231,19 @@ class DataQueue
         }
         void close()
         {
-            m_.lock();
+            mtx_.lock();
             closed_ = true;
-            m_.unlock();
+            mtx_.unlock();
 
             cv_.notify_all();
         }
     private:
-        T buf_[N] = {0};                // 큐 본체
+        T buf_[N];                      // 큐 본체
         std::size_t front_ = 0;         // 큐 헤드
         std::size_t rear_ = 0;          // 큐 꼬리
         std::size_t count_ = 0;         // 현재 데이터 수
         std::mutex mtx_;                
-        std::condition_variable cv;     // 신호용 cv
+        std::condition_variable cv_;    // 신호용 cv
         bool closed_ = false;
 };
 
@@ -230,51 +257,6 @@ struct CameraConfig
     int index;                  // 카메라 인덱스
     cv::Rect roi;               // 차영상 기준 ROI 영역 좌표
     std::string criteria_path;  // 기준 프레임 경로
-};
-class Recognizer
-{
-    public:
-        Recognizer(VehicleQueue& in, ResultQueue& out):
-            vehicle_q_(in), result_q_(out), ocr_m_() {}
-
-        bool detach_thread()
-        {
-            return start();
-        }
-    private:
-        VehicleQueue& vehicle_q_;
-        ResultQueue& result_q_;
-        OCRModel ocr_m_;
-        std::thread recog_th_;
-
-        bool start()
-        {
-            if (!ocr_m_.model_initialize())
-            {
-                std::cerr << "[ERROR] 인식 모델 불러오기 실패." << std::endl;
-                return false;
-            }
-            recog_th_ = std::thread(&Recognizer::recognition_loop, this);
-            return true;
-        }
-
-        void recognition_loop()
-        {
-            while (true)
-            {
-                VehicleCapture vc;
-
-                while (vehicle_q_.pop(vc))
-                {
-                    for (const auto& frame: vc.frames)
-                    {
-                        
-                    }
-                }
-            }
-        }
-
-
 };
 
 class OCRModel
@@ -346,6 +328,54 @@ class OCRModel
 
         }
     
+
+        PlateResult recognize(cv::Mat& rectified)
+        {
+            PlateResult result;
+
+            if (rectified.empty())
+            {
+                std::cerr << "[WARNING] 빈 이미지 입력됨. 기본값 반환." << std::endl;
+                return result;
+            }
+
+            // 모델 입력 이미지로 변환
+            try {
+                std::vector<float> input = to_input(rectified);
+
+                // 추론 시작
+                std::vector<Ort::Value> out = run_model(input);
+                std::vector<int64_t> shape = out[0].GetTensorTypeAndShapeInfo().GetShape();
+                int steps = static_cast<int>(shape[1]);
+                int classes = static_cast<int>(shape[2]);
+                const float* prob = out[0].GetTensorData<float>();
+
+                // CTC 디코딩
+                std::vector<std::string> chars;
+                std::vector<float> probs;
+                ctc_decode(prob, steps, classes, chars, probs);
+
+                // 결과 정리
+                float conf_sum = 0.0f;
+
+                for (size_t i = 0; i < chars.size(); i++)
+                {
+                    result.plate += chars[i];
+                    conf_sum = probs[i];
+                }
+                result.confidence = chars.empty() ? 0.0f : conf_sum / chars.size();
+
+                // 형식 검사
+                result.valid = is_valid_plate(chars);
+            } catch (const Ort::Exception& e) {
+                std::cerr << "[ERROR] 추론 실패: " << e.what() << std::endl;
+                return PlateResult();
+            }
+
+            // 최종 결과 반환
+            return result;
+        }
+
     private:
         std::unique_ptr<Ort::Env> g_env_;
         std::unique_ptr<Ort::Session> g_session_;
@@ -389,81 +419,305 @@ class OCRModel
         }
 };
 
-class Camera
+class Recognizer
 {
     public:
-        Camera(const CameraConfig& c): 
-            cfg_(c),
-            framebox_(c.name, c.index),
-            diffchecker_(c.criteria_path, c.roi),
-            tracker_(c.name)
-        {}
+        Recognizer(VehicleQueue& in, ResultQueue& out):
+            vehicle_q_(in), result_q_(out), ocr_m_() {}
 
         bool detach_thread()
         {
-            return framebox_.start();
+            return start();
+        }
+    private:
+        VehicleQueue& vehicle_q_;
+        ResultQueue& result_q_;
+        OCRModel ocr_m_;
+        std::thread recog_th_;
+        
+
+        struct PlateCandidate 
+        {
+            // 좌상 -> 우상 -> 우하 -> 좌하 순서로 정렬된 좌표 리스트
+            cv::Point2f corners[4];
+            // 너비, 높이, 넓이, 가로세로 비율
+            double w, h, area, ratio;
+            //DetectMethod method;
+        };
+        struct PlateColor
+        {
+            const char* name;
+            cv::Scalar  lower;   // HSV 하한
+            cv::Scalar  upper;   // HSV 상한
+            cv::Scalar  draw;    // 결과 표시용 BGR 색
+        };
+        const PlateColor PLATE_COLORS[NUM_COLORS] = {
+            {
+                "white",
+                cv::Scalar(WHITE_H_MIN,  WHITE_S_MIN,  WHITE_V_MIN),
+                cv::Scalar(WHITE_H_MAX,  WHITE_S_MAX,  WHITE_V_MAX),
+                cv::Scalar(0, 0, 255)
+            }, // 빨강으로 표시
+            {
+                "yellow",
+                cv::Scalar(YELLOW_H_MIN, YELLOW_S_MIN, YELLOW_V_MIN),
+                cv::Scalar(YELLOW_H_MAX, YELLOW_S_MAX, YELLOW_V_MAX),
+                cv::Scalar(255, 0, 0)
+            },       // 파랑으로 표시
+            {
+                "green",
+                cv::Scalar(GREEN_H_MIN,  GREEN_S_MIN,  GREEN_V_MIN),
+                cv::Scalar(GREEN_H_MAX,  GREEN_S_MAX,  GREEN_V_MAX),
+                cv::Scalar(255, 0, 255)
+            },     // 자홍으로 표시
+            {
+                "blue",
+                cv::Scalar(BLUE_H_MIN,   BLUE_S_MIN,   BLUE_V_MIN),
+                cv::Scalar(BLUE_H_MAX,   BLUE_S_MAX,   BLUE_V_MAX),
+                cv::Scalar(0, 165, 255)
+            },     // 주황으로 표시
+        };
+
+        
+
+        bool start()
+        {
+            if (!ocr_m_.model_initialize())
+            {
+                std::cerr << "[ERROR] 인식 모델 불러오기 실패." << std::endl;
+                return false;
+            }
+            recog_th_ = std::thread(&Recognizer::recognition_loop, this);
+            return true;
         }
 
-        // 프레임 1장 처리 작업 시작 함수(main에서 반복 호출)
-        bool process_frame(VehicleQueue& out)
+        void recognition_loop()
         {
-            if (!framebox_.get_latest_frame(current_frame_)) return false;
-
-            // 현재 프레임 차영상 처리
-            blobs_ = diffchecker_.check(current_frame_);
-
             VehicleCapture vc;
 
-            // 참이면 누적 완료, 거짓이면 누적 중
-            if (tracker_.update(!blobs_.empty(), current_frame_, vc))
+            while (vehicle_q_.pop(vc))
             {
-                std::uint64_t id = vc.id;           // 일련번호
-                std::size_t n = vc.frames.size();   // 누적된 프레임 수
-                out.push(std::move(vc));
-                std::cout << "[" << cfg_.name << "] 차량 #" << id << " 통과, 캡처 " << n << "장" << std::endl;
-            }
+                Votebox votes;  // 차량마다 새 투표함
 
-            return true;            
+                for (size_t i = 0; i < vc.frames.size(); i++)
+                {
+                    std::set<std::string> voted;    // 사진마다 기록
+                    // ROI 박스로 자른다.
+                    cv::Mat roi_img = vc.frames[i](roi);
+
+                    // 크롭된 프레임을 넘겨서 번호판 위치 좌표들을 찾는다.
+                    std::vector<PlateCandidate> cands = detect_by_color(roi_img);
+                    
+                    // 찾은 좌표들로 크롭 및 펴기 작업하여 모델에 넘긴다.
+                    for (const auto& c: cands)
+                    {
+                        // 번호판 펴기
+                        cv::Mat rectified = rectify_plate(roi_img, c.corners);
+
+                        
+                        // 번호판 인식
+                        PlateResult res = ocr_m_.recognize(rectified);
+
+                        // 유효한 번호판이 아님
+                        if (res.valid) continue;
+
+                        Vote& v = votes[res.plate];
+                        if (voted.insert(res.plate).second) v.count++;
+                        // 새로운 사진의 confidence가 가장 높았던 confidence보다 높다면
+                        if (res.confidence > v.best_conf)
+                        {
+                            v.best_conf = res.confidence;
+                            v.best_frame = i;
+                        } 
+                    }
+                }
+
+                // 최종 승자 프레임 결정ㅈ
+                RecogResult rec = make_result(vc, votes);
+                // 드디어 저장 씨빨
+                result_q_.push(rec);
+            }
         }
-        
-        void draw(cv::Mat& vis)
+
+        std::vector<PlateCandidate> detect_by_color(const cv::Mat& frame)
         {
-            // 그릴 프레임이 비어있다면
-            if (current_frame_.empty()) return;
+            std::vector<PlateCandidate> cands;
+            cv::Mat hsv;
 
-            vis = current_frame_.clone();
+            cv::cvtColor(frame, hsv, cv::COLOR_BGR2HSV);
 
-            bool detected = !blobs_.empty();
+            const cv::Mat fill_kernel = cv::getStructuringElement(
+                cv::MORPH_RECT,
+                cv::Size(FILL_MORPH_KERNEL, FILL_MORPH_KERNEL)
+            );
 
-            cv::rectangle(vis, cfg_.roi, detected ? cv::Scalar(0, 0, 255) : cv::Scalar(0, 255, 0));
-
-            for (const auto& b: blobs_)
+            // 각 색상별로 필터링
+            for (int ci = 0; ci < NUM_COLORS; ci++)
             {
-                cv::rectangle(vis, b, cv::Scalar(0, 255, 255), 2);
+                // 1. 바탕색 마스크
+                cv::Mat color_mask;
+                cv::inRange(hsv, PLATE_COLORS[ci].lower, PLATE_COLORS[ci].upper, color_mask);
+
+                // 2. 닫힘 연산
+                cv::Mat filled;
+                cv::morphologyEx(color_mask, filled, cv::MORPH_CLOSE, fill_kernel);
+
+                // 3. 덩어리의 바깥 윤곽선 찾기
+                std::vector<std::vector<cv::Point>> contours;
+                cv::findContours(filled, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+                for (const auto& contour: contours)
+                {
+                    if (contour.size() < 4) continue;   // 윤곽선 좌표가 4개 미만이면 의미 없음
+                
+                    cv::RotatedRect rr = cv::minAreaRect(contour);
+                    double w = std::max(rr.size.width, rr.size.height);
+                    double h = std::min(rr.size.width, rr.size.height);
+
+                    // 0으로 나눌 수 없도록 점검
+                    if (w < 1.0) continue;
+
+                    double area = w * h;
+                    double ratio = h / w;
+
+
+                    // 1. 넓이 조건 걸러내기
+                    if (area < PLATE_MIN_AREA || area > PLATE_MAX_AREA) continue;
+
+                    // 2. 너비 조건 걸러내기
+                    if (w < PLATE_MIN_WIDTH || w > PLATE_MAX_WIDTH) continue;
+
+                    // 3. 비율 조건 걸러내기
+                    if (ratio < PLATE_MIN_RATIO || ratio > PLATE_MAX_RATIO) continue;
+
+                    // 4. 채움 비율 조건 검사
+                    cv::Point2f pts[4];
+                    rr.points(pts);
+                    double fill = fill_ratio(color_mask, pts);
+                    if (fill < PLATE_MIN_FILL || fill > PLATE_MAX_FILL) continue;
+
+                    // 5. 꼭짓점 정렬 후 저장
+                    PlateCandidate cand;
+                    if (!order_corners(pts, cand.corners)) continue;
+                    cand.w = w;
+                    cand.h = h;
+                    cand.area = w * h;
+                    cand.ratio = h / w;
+                    cands.push_back(cand);
+
+                }
+            }
+            return cands;
+        }
+        // 꼭짓점 4개를 좌상, 우상, 우하, 좌하 순서로 정렬 (실패 시 false)
+        bool order_corners(const cv::Point2f in[4], cv::Point2f out[4])
+        {
+            // 4개 모서리에 해당하는 점의 인덱스(좌표 아님)
+            // tl = topleft, tr = topright, br = bottomright, bl = bottomleft
+            int tl = 0, tr = 0, br = 0, bl = 0;
+
+            // 한 점의 2개 좌표(x, y)의 합과 차로 위치를 구분할 수 있다.
+            // 합: x + y(y + x), 차: y - x
+            // 합이 최대라면 그 좌표는 우하 좌표
+            // 합이 최소라면 그 좌표는 좌상 좌표
+            // 차가 최대라면 그 좌표는 좌하 좌표
+            // 차가 최소라면 그 좌표는 우상 좌표
+            for (int i = 1; i < 4; i++)
+            {
+                float s = in[i].x + in[i].y;   // 합: 최소 = 좌상, 최대 = 우하
+                float d = in[i].y - in[i].x;   // 차: 최소 = 우상, 최대 = 좌하
+                if (s < in[tl].x + in[tl].y) tl = i;
+                if (s > in[br].x + in[br].y) br = i;
+                if (d < in[tr].y - in[tr].x) tr = i;
+                if (d > in[bl].y - in[bl].x) bl = i;
             }
 
-            if (tracker_.passing())
-            {
-                cv::putText(
-                    vis,
-                    cv::format("PASSING snaps: %d", static_cast<int>(tracker_.snap_count())),
-                    cv::Point(10, 30),
-                    cv::FONT_HERSHEY_COMPLEX,
-                    0.8,
-                    cv::Scalar(0, 0, 255),
-                    2
-                );
-            }
+            // 같은 점이 두 역할로 뽑히면 정렬 실패
+            if (tl == tr || tl == br || tl == bl || tr == br || tr == bl || br == bl)
+                return false;
+
+            out[0] = in[tl];
+            out[1] = in[tr];
+            out[2] = in[br];
+            out[3] = in[bl];
+            return true;
         }
 
-        
-    private:
-        const CameraConfig cfg_;        // 카메라 설정값 구조체
-        Framebox framebox_;             // 매 프레임을 찍고 관리하는 클래스
-        Diffchecker diffchecker_;       // 차영상 처리 클래스
-        Passtracker tracker_;           // 통과 판정 및 결과 누적하는 클래스
-        cv::Mat current_frame_;         // framebox에게 받아오는 현재 프레임
-        std::vector<cv::Rect> blobs_;   // 인식된 물체 좌표 벡터
+        double fill_ratio(const cv::Mat& mask, const cv::Point2f pts[4])
+        {
+            std::vector<cv::Point> poly(pts, pts + 4);
+            cv::Mat rect_mask = cv::Mat::zeros(mask.size(), CV_8UC1);
+            cv::fillConvexPoly(rect_mask, poly, cv::Scalar(255));
+
+            int rect_pixels = cv::countNonZero(rect_mask);
+            if (rect_pixels == 0) return 0.0;
+
+            cv::Mat inside;
+            cv::bitwise_and(mask, rect_mask, inside);
+
+            return static_cast<double>(cv::countNonZero(inside)) / rect_pixels;
+        }
+
+        cv::Mat rectify_plate(const cv::Mat& roi_img, const cv::Point2f corners[4])
+        {
+            const cv::Point2f dst[4] = {
+                cv::Point2f(0, 0),
+                cv::Point2f(RECT_W - 1, 0),
+                cv::Point2f(RECT_W - 1, RECT_H - 1),
+                cv::Point2f(0, RECT_H - 1)
+            };
+
+            cv::Mat M = cv::getPerspectiveTransform(corners, dst);
+            cv::Mat plate;
+            cv::warpPerspective(roi_img, plate, M, cv::Size(RECT_W, RECT_H));
+
+            int mx = static_cast<int>(RECT_W * TRIM_RATIO);
+            int my = static_cast<int>(RECT_H * TRIM_RATIO);
+            return plate(cv::Rect(mx, my, RECT_W - 2 * mx, RECT_H - 2 * my)).clone();
+        }
+
+        RecogResult make_result(const VehicleCapture& vc, const Votebox& votes)
+        {
+            RecogResult rec;
+
+            rec.camera = vc.camera;
+            rec.id = vc.id;
+            rec.time = vc.time;
+
+            // 번호를 1개도 읽지 못함
+            if (votes.empty())
+            {
+                rec.plate = "UNKNOWN";
+                if (!vc.frames.empty())
+                {
+                    rec.captured = vc.frames[vc.frames.size() / 2]; // 찍힌 사진들 중 가운데 사진으로 임의 결정
+                }
+                return rec;
+            }
+
+            // 승자 프레임 찾기: 최다득표 -> 신뢰도
+            auto best = votes.begin();
+            for (auto it = votes.begin(); it != votes.end(); it++)
+            {
+                const Vote& a = it->second;
+                const Vote& b = best->second;
+
+                // 두 번째 차량번호 득표가 더 많거나,
+                // 득표가 같은데 두 번째 차량번호의 best confidence 값이 더 높으면
+                if (a.count > b.count || (a.count == b.count && a.best_conf > b.best_conf))
+                {
+                    best = it;
+                }
+            }
+
+            // 승자 프레임으로 결과 채우고 큐에 삽입
+            rec.plate = best->first;
+            rec.confidence = best->second.best_conf;
+            rec.valid = true;
+            rec.captured = vc.frames[best->second.best_frame];
+            return rec;
+        }
+
 };
 
 class Passtracker
@@ -673,7 +927,7 @@ class Diffchecker
             {
                 result.push_back(b + roi_.tl());
             }
-
+            return result;
         }
 
         void update_background(const cv::Mat& gray, std::vector<cv::Rect> blobs)
@@ -724,6 +978,86 @@ class Diffchecker
 };
 
 
+class Camera
+{
+    public:
+        Camera(const CameraConfig& c): 
+            cfg_(c),
+            framebox_(c.name, c.index),
+            diffchecker_(c.criteria_path, c.roi),
+            tracker_(c.name)
+        {}
+
+        bool detach_thread()
+        {
+            return framebox_.start();
+        }
+
+        // 프레임 1장 처리 작업 시작 함수(main에서 반복 호출)
+        bool process_frame(VehicleQueue& out)
+        {
+            if (!framebox_.get_latest_frame(current_frame_)) return false;
+
+            // 현재 프레임 차영상 처리
+            blobs_ = diffchecker_.check(current_frame_);
+
+            VehicleCapture vc;
+
+            // 참이면 누적 완료, 거짓이면 누적 중
+            if (tracker_.update(!blobs_.empty(), current_frame_, vc))
+            {
+                std::uint64_t id = vc.id;           // 일련번호
+                std::size_t n = vc.frames.size();   // 누적된 프레임 수
+                out.push(std::move(vc));
+                std::cout << "[" << cfg_.name << "] 차량 #" << id << " 통과, 캡처 " << n << "장" << std::endl;
+            }
+
+            return true;            
+        }
+        
+        void draw(cv::Mat& vis)
+        {
+            // 그릴 프레임이 비어있다면
+            if (current_frame_.empty()) return;
+
+            vis = current_frame_.clone();
+
+            bool detected = !blobs_.empty();
+
+            cv::rectangle(vis, cfg_.roi, detected ? cv::Scalar(0, 0, 255) : cv::Scalar(0, 255, 0));
+
+            for (const auto& b: blobs_)
+            {
+                cv::rectangle(vis, b, cv::Scalar(0, 255, 255), 2);
+            }
+
+            if (tracker_.passing())
+            {
+                cv::putText(
+                    vis,
+                    cv::format("PASSING snaps: %d", static_cast<int>(tracker_.snap_count())),
+                    cv::Point(10, 30),
+                    cv::FONT_HERSHEY_COMPLEX,
+                    0.8,
+                    cv::Scalar(0, 0, 255),
+                    2
+                );
+            }
+        }
+
+        std::string name() const { return cfg_.name; };
+    private:
+        const CameraConfig cfg_;        // 카메라 설정값 구조체
+        Framebox framebox_;             // 매 프레임을 찍고 관리하는 클래스
+        Diffchecker diffchecker_;       // 차영상 처리 클래스
+        Passtracker tracker_;           // 통과 판정 및 결과 누적하는 클래스
+        cv::Mat current_frame_;         // framebox에게 받아오는 현재 프레임
+        std::vector<cv::Rect> blobs_;   // 인식된 물체 좌표 벡터
+};
+
+
+
+
 
 class Client
 {};
@@ -735,13 +1069,7 @@ int main()
     VehicleQueue vehicle_q;
     ResultQueue result_q;
 
-    // ROI 박스 선언
-    const cv::Rect roi(
-        cv::Point(FRAME_WIDTH * 0.1,
-                  FRAME_HEIGHT * 0.3),
-        cv::Point(FRAME_WIDTH * 0.75,
-                  FRAME_HEIGHT * 1.0)
-    );
+    
 
     // 카메라 화면 보여줄지 여부(true - 보여줌, false - 숨김)
     bool SHOW_DISPLAY = true;
@@ -772,7 +1100,7 @@ int main()
             {
                 cv::Mat vis;
                 cam->draw(vis);
-                cv::imshow(c->name(), vis);
+                cv::imshow(cam->name(), vis);
             }
             
         }

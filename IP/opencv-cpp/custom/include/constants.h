@@ -34,3 +34,54 @@ const int BLOB_MARGIN = 20;                   // 물체 주변 여유값(px): �
 #define OCR_MIN_CONF    0.6
 #define REC_H 48    // 입력 높이
 #define REC_W 320    // 입력 너비
+
+// ===== 번호판 바탕색 HSV 범위 (실제 사진으로 측정 후 조정) =====
+// 흰색 (자가용): 색상 무관, 채도 낮고 밝음
+#define WHITE_H_MIN     0
+#define WHITE_H_MAX     180
+#define WHITE_S_MIN     0
+#define WHITE_S_MAX     50
+#define WHITE_V_MIN     150
+#define WHITE_V_MAX     255
+
+// 노란색 (영업용)
+#define YELLOW_H_MIN    15
+#define YELLOW_H_MAX    35
+#define YELLOW_S_MIN    80
+#define YELLOW_S_MAX    255
+#define YELLOW_V_MIN    100
+#define YELLOW_V_MAX    255
+
+// 초록색 (구형)
+#define GREEN_H_MIN     40
+#define GREEN_H_MAX     85
+#define GREEN_S_MIN     60
+#define GREEN_S_MAX     255
+#define GREEN_V_MIN     50
+#define GREEN_V_MAX     255
+
+// 파란색 (전기차, 하늘색)
+#define BLUE_H_MIN      90
+#define BLUE_H_MAX      120
+#define BLUE_S_MIN      50
+#define BLUE_S_MAX      255
+#define BLUE_V_MIN      100
+#define BLUE_V_MAX      255
+
+// ===== 색상 기반 검출 공통 기준 =====
+#define NUM_COLORS 4
+#define FILL_MORPH_KERNEL   9       // 글자 획 메우기용 커널 크기 (홀수)
+#define PLATE_MIN_FILL      0.30    // 바탕색 채움 비율 하한
+#define PLATE_MAX_FILL      0.92    // 바탕색 채움 비율 상한 (글자 없는 영역 제외)
+#define PLATE_DUP_OVERLAP   0.5     // 다른 색 후보와 이 비율 이상 겹치면 중복
+
+// 번호판 검출 기준 상수
+#define PLATE_MIN_RATIO 0.200   // 최소 비율(h / w)
+#define PLATE_MAX_RATIO 0.305   // 최대 비율(h / w)
+#define PLATE_MIN_WIDTH 210     // 최소 너비(px)
+#define PLATE_MAX_WIDTH 430     // 최대 너비(px)
+#define PLATE_MIN_AREA 8820     // 최소 넓이(w * w * ratio)
+#define PLATE_MAX_AREA 56395    // 최대 넓이(w * w * ratio)
+#define RECT_W 384
+#define RECT_H 96
+#define TRIM_RATIO 0.02
