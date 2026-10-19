@@ -6,6 +6,7 @@ __pycache__
 *venv*
 progress.txt
 .vscode
+smartparking.code-workspace
 
 
 # Image Processing

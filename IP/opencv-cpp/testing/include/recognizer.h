@@ -11,5 +11,6 @@ struct PlateResult
     bool valid;
 };
 
+
 bool model_initialize();
 PlateResult recognizer(const cv::Mat& cropped);

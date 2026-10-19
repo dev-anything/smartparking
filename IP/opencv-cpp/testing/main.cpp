@@ -101,7 +101,7 @@ int main(int argc, char** argv)
                 cv::line(vis, c.corners[i], c.corners[(i + 1) % 4], cv::Scalar(0, 0, 255), 2);
             }
         }
-        
+    
 
         std::string adj_path = "images/" + parse_path.substr(0, dot) + "_candidate" + parse_path.substr(dot);
         cv::imwrite(adj_path, vis);

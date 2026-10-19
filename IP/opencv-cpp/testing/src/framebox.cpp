@@ -5,7 +5,6 @@
 #include "framebox.h"
 #include "constants.h"
 
-
 // 생성자
 Framebox::Framebox(const std::string& name, int index, int exposure)
     : name_(name), index_(index), exposure_(exposure), running_(false)
@@ -39,9 +38,9 @@ bool Framebox::start()
     }
 
     std::cout << "카메라 /dev/video" << ENTRY_CAM_INDEX << " 실행: "
-              << cap.get(cv::CAP_PROP_FRAME_WIDTH) << "x"
-              << cap.get(cv::CAP_PROP_FRAME_HEIGHT) << " @ "
-              << cap.get(cv::CAP_PROP_FPS) << "fps" << std::endl;
+              << cap_.get(cv::CAP_PROP_FRAME_WIDTH) << "x"
+              << cap_.get(cv::CAP_PROP_FRAME_HEIGHT) << " @ "
+              << cap_.get(cv::CAP_PROP_FPS) << "fps" << std::endl;
     std::cout << "ESC 또는 q로 종료, s로 저장" << std::endl;
 
     running_ = true;
@@ -52,7 +51,7 @@ bool Framebox::start()
 void Framebox::stop()
 {
     running_ = false;
-    if (th_.joinable()) th.join();
+    if (th_.joinable()) th_.join();
     cap_.release();
 }
 
@@ -75,7 +74,6 @@ void Framebox::loop()
         latest_ = f;
         seq_++;
         m_.unlock();
-
     }
 }
 

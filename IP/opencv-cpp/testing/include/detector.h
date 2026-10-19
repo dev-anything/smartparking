@@ -2,6 +2,7 @@
 
 #include <opencv2/opencv.hpp>
 
+
 struct PlateCandidate 
 {
     // 좌상 -> 우상 -> 우하 -> 좌하 순서로 정렬된 좌표 리스트

@@ -7,6 +7,7 @@
 #include "motion_detector.h"
 #include "pass_tracker.h"
 
+
 Camera::Camera(const CameraConfig& cfg):
     cfg_(cfg),
     framebox_(cfg.name, cfg.index, cfg.exposure),
@@ -25,6 +26,7 @@ void Camera::stop()
 {
     framebox_.stop();
 }
+
 
 bool Camera::step(CaptureQueue& out)
 {

@@ -19,7 +19,6 @@ struct CameraConfig
     int exposure;               // 노출값, 음수면 자동 노출
 };
 
-
 class Camera
 {
     public:
