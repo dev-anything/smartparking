@@ -1,12 +1,12 @@
 import { useWebSocket } from '../hooks/useWebSocket';
 import DateTime from './DateTime';
 
-const CarInfoTable = () => {
+const CarInfoTable = ({ className = "" }) => {
   const { carInfo } = useWebSocket();
 
   return (
     // 부모 칸의 높이를 채우고, 표가 길어지면 패널 안에서 스크롤된다.
-    <section className="panel h-full">
+    <section className={`panel ${className}`}>
       <h2 className="panel-title">등록 차량</h2>
       <div className="@container min-h-0 flex-1 overflow-auto">
         <table className="data-table">

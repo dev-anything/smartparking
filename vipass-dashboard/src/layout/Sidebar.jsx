@@ -1,4 +1,4 @@
-import { CarFront, LayoutDashboard, LogOut, Search } from "lucide-react";
+import { CarFront, LayoutDashboard, LogOut, Sparkles } from "lucide-react";
 import Menubtn from "../components/Menubtn";
 import Title from "../components/Title";
 import { useAuth } from "../hooks/useAuth";
@@ -12,15 +12,15 @@ const menu = [
   },
   {
     id: 2,
-    url: "/info",
-    name: "정보조회",
-    icon: Search
+    url: "/register/carinfo",
+    name: "차량 등록/관리",
+    icon: CarFront
   },
   {
     id: 3,
-    url: "/register/carinfo",
-    name: "차량등록",
-    icon: CarFront
+    url: "/ai",
+    name: "VIPASS AI",
+    icon: Sparkles
   }
 ];
 

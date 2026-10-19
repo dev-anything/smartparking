@@ -1,11 +1,11 @@
 import { useWebSocket } from '../hooks/useWebSocket';
 import DateTime from './DateTime';
 
-const PaymentResult = () => {
+const PaymentResult = ({ className = "" }) => {
   const { paymentsResult } = useWebSocket();
 
   return (
-    <section className="panel col-start-1">
+    <section className={`panel ${className}`}>
       <h2 className="panel-title">주차요금 결제내역</h2>
       <div className="@container min-h-0 flex-1 overflow-auto">
         <table className="data-table">
@@ -15,7 +15,7 @@ const PaymentResult = () => {
               <th>요청시각</th>
               <th>승인시각</th>
               <th>차량번호</th>
-              <th>결제금액</th>
+              <th className="text-right">결제금액</th>
             </tr>
           </thead>
           <tbody>
@@ -27,7 +27,7 @@ const PaymentResult = () => {
                     <td><DateTime value={payment.requested_at} fallback="-" /></td>
                     <td><DateTime value={payment.approved_at} fallback="-" /></td>
                     <td>{payment.car_number}</td>
-                    <td>{payment.amount}</td>
+                    <td className="text-right">{payment.amount}</td>
                   </tr>
                 );
               })

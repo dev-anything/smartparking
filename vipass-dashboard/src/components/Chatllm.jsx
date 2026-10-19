@@ -26,7 +26,7 @@ const askLLM = async ( question ) => {
   }
 };
 
-const Chatllm = () => {
+const Chatllm = ({ className = "" }) => {
 
   const [question, setQuestion] = useState("");
   const [history, setHistory] = useState([]); // [{ id, question, answer }] — answer 가 null 이면 요청 중
@@ -63,29 +63,32 @@ const Chatllm = () => {
   };
 
   return (
-    <section className="panel col-start-2 row-span-2 row-start-1">
-      <h2 className="panel-title">VIPASS-AI</h2>
+    <section className={`panel ${className}`}>
+      <h2 className="panel-title mx-auto w-full max-w-[820px]">VIPASS-AI</h2>
 
-      {/* 질문-답변 블록 기록: 굵은 "Q." 질문 아래 답변, 블록 사이는 구분선. 길면 이 영역만 스크롤 */}
+      {/* 질문-답변 블록 기록: 굵은 "Q." 질문 아래 답변, 블록 사이는 구분선. 길면 이 영역만 스크롤.
+          글줄이 너무 길어지지 않도록 기록과 입력줄을 같은 읽기 폭(820px)의 가운데 열에 둔다 */}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {history.length === 0 ? (
-          <div className="empty-fill h-full">질문을 입력하세요</div>
-        ) : (
-          <div className="divide-y divide-hairline-soft">
-            {history.map((item) => (
-              <div key={item.id} className="py-4 first:pt-0">
-                <div className="font-semibold">Q. {item.question}</div>
-                <div className={`mt-2 whitespace-pre-wrap text-[15px] leading-relaxed ${item.answer === null ? "text-mute" : ""}`}>
-                  {item.answer ?? "요청 중입니다…"}
+        <div className="mx-auto h-full w-full max-w-[820px]">
+          {history.length === 0 ? (
+            <div className="empty-fill h-full">질문을 입력하세요</div>
+          ) : (
+            <div className="divide-y divide-hairline-soft">
+              {history.map((item) => (
+                <div key={item.id} className="py-4 first:pt-0">
+                  <div className="font-semibold">Q. {item.question}</div>
+                  <div className={`mt-2 whitespace-pre-wrap text-[15px] leading-relaxed ${item.answer === null ? "text-mute" : ""}`}>
+                    {item.answer ?? "요청 중입니다…"}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-        <div ref={bottomRef} />
+              ))}
+            </div>
+          )}
+          <div ref={bottomRef} />
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-4 flex shrink-0 items-center gap-2">
+      <form onSubmit={handleSubmit} className="mx-auto mt-4 flex w-full max-w-[820px] shrink-0 items-center gap-2">
         <input
           className="field flex-1"
           placeholder="질문을 입력하세요"

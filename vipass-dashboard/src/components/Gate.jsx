@@ -4,7 +4,7 @@ import { formatDateTime } from "../utils/format";
 
 import { useWebSocket } from '../hooks/useWebSocket';
 
-// 입구/출구 카메라 카드: 사진(16:9 고정 높이, 전체 보이기) 위, 정보(차량번호 → 시각)를 아래에 세로로 쌓는다.
+// 입구/출구 카메라 카드: 사진(남은 높이를 채움, 전체 보이기) 위, 정보(차량번호 · 시각)를 아래에 한 줄로 나란히 둔다.
 // 사진 왼쪽 위에 입구/출구 배지를 겹쳐 표시한다.
 // 사진과 차량정보는 "해당 게이트의 차단기가 열려 있고(gateOpen[gate]) 그 게이트의 사진 경로가 있을 때만" 보이고,
 // 그 외에는 "도착한 차량이 없어요." 와 차량번호·시각 "-" 를 보여준다.
@@ -30,9 +30,9 @@ const Gate = ({ gate }) => {
   const emptyText = visible ? "대기 중" : "도착한 차량이 없어요.";
 
   return (
-    <section className="panel p-4" aria-label={title}>
+    <section className="panel" aria-label={title}>
       {/* 차량을 보이지 않거나 이미지가 로드되지 않으면 같은 크기의 회색 면 + 문구 */}
-      <div className="empty-fill relative aspect-video shrink-0 overflow-hidden">
+      <div className="empty-fill relative min-h-0 flex-1 overflow-hidden">
         {showImage ? (
           <img
             src={`${config.server.url}/captured/${path}`}
@@ -48,16 +48,13 @@ const Gate = ({ gate }) => {
         </span>
       </div>
 
-      {/* 정보: 라벨 위 / 값 아래로 항목을 세로로 쌓고, 항목 사이는 1px 구분선 */}
-      <dl className="mt-2 flex flex-col divide-y divide-hairline-soft">
-        <div className="py-3">
-          <dt className="text-xs text-mute">차량번호</dt>
-          <dd className="mt-1 truncate font-mono text-2xl font-bold leading-tight">{carNumber ?? "-"}</dd>
-        </div>
-        <div className="py-3">
-          <dt className="text-xs text-mute">{gate === "entry" ? "입차시각" : "출차시각"}</dt>
-          <dd className="mt-1 font-mono text-sm">{time ?? "-"}</dd>
-        </div>
+      {/* 정보: 2행 그리드. 윗줄은 라벨(같은 높이), 아랫줄은 값(글자 기준선을 맞춤).
+          차량번호는 왼쪽, 시각은 오른쪽 정렬이고 사진과는 1px 구분선으로 나눈다 */}
+      <dl className="mt-3 grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4 gap-y-1 border-t border-hairline-soft pt-3">
+        <dt className="text-xs text-mute">차량번호</dt>
+        <dt className="text-right text-xs text-mute">{gate === "entry" ? "입차시각" : "출차시각"}</dt>
+        <dd className="truncate font-mono text-2xl font-bold leading-tight">{carNumber ?? "-"}</dd>
+        <dd className="text-right font-mono text-sm">{time ?? "-"}</dd>
       </dl>
     </section>
   );

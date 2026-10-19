@@ -3,7 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import CarRegister from "./pages/CarRegister";
-import Information from "./pages/Information";
+import Ai from "./pages/Ai";
 import MainLayout from "./layout/MainLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthProvider";
@@ -19,8 +19,8 @@ function App() {
         <Route element={<ProtectedRoute />}>
           <Route element={<MainLayout />}>
             <Route path="/" element={<Home />} />
-            <Route path="/info" element={<Information />} />
             <Route path="/register/carinfo" element={<CarRegister />} />
+            <Route path="/ai" element={<Ai />} />
           </Route>
         </Route>
 

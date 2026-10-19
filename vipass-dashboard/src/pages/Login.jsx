@@ -47,8 +47,11 @@ const Login = () => {
             <label htmlFor="password" className="mb-2 block text-sm font-medium">비밀번호</label>
             <input id="password" type="password" className="field" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
           </div>
-          <button type="submit" disabled={loading} className="btn-primary mt-2 w-full">로그인</button>
-          <div role="alert" className="min-h-[1.5em] text-sm text-sale">{error}</div>
+          {/* 오류 문구는 버튼 바로 아래(카드 아래쪽 여백 안)에 띄워서, 문구가 없을 때도 카드 위·아래 여백이 같게 유지한다 */}
+          <div className="relative mt-2">
+            <button type="submit" disabled={loading} className="btn-primary w-full">로그인</button>
+            <div role="alert" className="absolute inset-x-0 top-full mt-2 text-center text-sm leading-tight text-sale">{error}</div>
+          </div>
         </form>
       </div>
     </div>

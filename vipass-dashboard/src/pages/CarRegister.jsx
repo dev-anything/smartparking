@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import config from "../config";
 import RegisteredTable from "../components/CarInfoTable";
+import PaymentResult from "../components/PaymentResult";
 
 /* =========================================================
  * 설정 (.env: VITE_TOSS_CLIENT_KEY / VITE_SERVER_IP / VITE_SERVER_PORT / VITE_API_ISSUE_CUSTOMER_KEY / VITE_API_SAVE_TOSS_INFO)
@@ -328,14 +329,16 @@ const CarRegister = () => {
   const isRedirect = params.has("result") || params.has("authKey") || params.has("code");
 
   return (
-    // 좌우 2열: 등록 폼 1 : 등록 차량 표 2. 표는 패널 안에서 스크롤된다.
-    <div className="grid h-full grid-cols-[minmax(0,1fr)_minmax(0,2fr)] items-start gap-4">
-      <div className="min-h-0">
+    // 1행: 차량 등록(1열) · 등록 차량 리스트(2열) / 2행(열 통합): 결제내역
+    // 1행 높이는 등록 폼의 내용 높이로 정해지고, 등록 차량 표는 그 칸 안에서 스크롤된다(absolute 로 높이 계산에서 제외).
+    <div className="grid h-full grid-cols-[minmax(0,1fr)_minmax(0,2fr)] grid-rows-[auto_minmax(0,1fr)] gap-4">
+      <div>
         {isRedirect ? <RegisterResult params={params} /> : <RegisterForm />}
       </div>
-      <div className="h-full min-h-0">
-        <RegisteredTable />
+      <div className="relative min-h-0">
+        <RegisteredTable className="absolute inset-0" />
       </div>
+      <PaymentResult className="col-span-2" />
     </div>
   );
 };

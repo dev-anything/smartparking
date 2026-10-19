@@ -1,11 +1,11 @@
 import { useWebSocket } from '../hooks/useWebSocket';
 import DateTime from './DateTime';
 
-const EntryExitTable = () => {
+const EntryExitTable = ({ className = "" }) => {
   const { records } = useWebSocket();
 
   return (
-    <section className="panel col-start-1">
+    <section className={`panel ${className}`}>
       <h2 className="panel-title">입출입 기록</h2>
       <div className="@container min-h-0 flex-1 overflow-auto">
         <table className="data-table">
