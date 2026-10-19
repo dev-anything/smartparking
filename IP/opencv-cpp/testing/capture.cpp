@@ -13,6 +13,8 @@
 //
 // 주의: main이 실행 중이면 카메라를 이미 쓰고 있어서 열리지 않습니다. main을 끄고 실행하세요.
 
+
+
 #include <opencv2/opencv.hpp>
 #include <sys/stat.h>
 #include <iostream>

@@ -287,6 +287,7 @@ void web_server_thread(client_info* info)
 }
 
 
+
 int push_payment_request(const char* id)
 {
     uint64_t one = 1;
