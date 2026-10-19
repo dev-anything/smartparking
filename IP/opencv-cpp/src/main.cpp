@@ -53,12 +53,8 @@ namespace
     typedef std::map<std::string, Vote> Votebox;
 
     // ROI 박스 선언
-    const cv::Rect roi(
-        cv::Point(FRAME_WIDTH * 0.1,
-                  FRAME_HEIGHT * 0.3),
-        cv::Point(FRAME_WIDTH * 0.75,
-                  FRAME_HEIGHT * 1.0)
-    );
+    const cv::Rect roi(cv::Point(FRAME_WIDTH * 0.1,  FRAME_HEIGHT * 0.0),
+                       cv::Point(FRAME_WIDTH * 0.7, FRAME_HEIGHT * 1));
 
     const char* INPUT_NAME = "x";
     const char* OUTPUT_NAME = "fetch_name_0";
@@ -635,6 +631,9 @@ class Recognizer
                 cv::Size(FILL_MORPH_KERNEL, FILL_MORPH_KERNEL)
             );
 
+            const double min_area = PLATE_MIN_WIDTH * PLATE_MIN_WIDTH * PLATE_MIN_RATIO;
+            const double max_area = PLATE_MAX_WIDTH * PLATE_MAX_WIDTH * PLATE_MAX_RATIO;
+
             // 각 색상별로 필터링
             for (int ci = 0; ci < NUM_COLORS; ci++)
             {
@@ -666,7 +665,7 @@ class Recognizer
 
 
                     // 1. 넓이 조건 걸러내기
-                    if (area < PLATE_MIN_AREA || area > PLATE_MAX_AREA) continue;
+                    if (area < min_area || area > max_area) continue;
 
                     // 2. 너비 조건 걸러내기
                     if (w < PLATE_MIN_WIDTH || w > PLATE_MAX_WIDTH) continue;
@@ -1415,7 +1414,7 @@ class Recorder
         // ① images/20261019144212_entry_3.jpg
         std::string make_path(const RecogResult& rr)
         {
-            return std::string(RECORD_DIR) + "/" + make_stamp(rr.time) + "_" + rr.camera + "_" + std::to_string(rr.id) + ".jpg";
+            return std::string(RECORD_DIR) + "/" + make_stamp(rr.time) + "_" + rr.camera + "_" + std::to_string(rr.id) + ".png";
         }
 
         // rr.time → "20261019144212"
@@ -1461,7 +1460,10 @@ int main()
 
     // 통신 스레드 시작
     Recorder recorder(result_q);
-    if (!recorder.detach_thread()) return -1;
+    if (!recorder.detach_thread())
+    {
+        std::cerr << "[ERROR] 서버에 연결할 수 없음. 코드는 동작하지만 서버 통신은 불가능합니다." << std::endl;
+    }
 
     // 캡처 스레드 시작
     for (Camera* cam: cam_list)
@@ -1477,13 +1479,13 @@ int main()
     Recognizer recognizer(vehicle_q, result_q);
     if (!recognizer.detach_thread()) return -1;
 
-    const int win_w = static_cast<int>(FRAME_WIDTH * DISPLAY_SCALE);
+    //const int win_w = static_cast<int>(FRAME_WIDTH * DISPLAY_SCALE);
     if (SHOW_DISPLAY)
     {
         for (int i = 0; i < 2; i++)
         {
             cv::namedWindow(cam_list[i]->name(), cv::WINDOW_AUTOSIZE);
-            cv::moveWindow(cam_list[i]->name(), i * (win_w + WINDOW_GAP), 0);
+            cv::moveWindow(cam_list[i]->name(), i * (FRAME_WIDTH + WINDOW_GAP), 0);
         }
     }
     
@@ -1503,7 +1505,7 @@ int main()
                 cam->draw(vis);
                 if (!vis.empty())
                 {
-                    cv::resize(vis, vis, cv::Size(), DISPLAY_SCALE, DISPLAY_SCALE);
+                    //cv::resize(vis, vis, cv::Size(), DISPLAY_SCALE, DISPLAY_SCALE);
                     cv::imshow(cam->name(), vis);
                 }
             }

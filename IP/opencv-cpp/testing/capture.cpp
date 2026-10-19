@@ -7,7 +7,7 @@
 // MotionDetector::load()의 크기 검사를 그대로 통과합니다.
 //
 // 빌드 (프로젝트 폴더에서):
-//   g++ -std=c++11 -Wall -Iinclude module/capture.cpp -o build/capture $(pkg-config --cflags --libs opencv4)
+//   g++ -std=c++11 -Wall -Iinclude testing/capture.cpp -o build/capture $(pkg-config --cflags --libs opencv4)
 // 실행:
 //   ./build/capture
 //
@@ -20,7 +20,22 @@
 #include <iostream>
 #include <string>
 
-#include "constants.h"
+
+#define ENTRY_CAM_INDEX 0
+#define EXIT_CAM_INDEX 1
+
+#define FRAME_WIDTH 320
+#define FRAME_HEIGHT 240
+
+#define TARGET_FPS 30
+
+
+#define BLUR_KERNEL_SIZE 5
+
+
+// 카메라 창 설정
+#define DISPLAY_SCALE 1
+#define WINDOW_GAP 100
 
 namespace
 {
@@ -34,14 +49,14 @@ namespace
     };
 
     // main.cpp의 ROI와 반드시 같아야 함
-    const cv::Rect ROI(cv::Point(FRAME_WIDTH * 0.1,  FRAME_HEIGHT * 0.3),
-                       cv::Point(FRAME_WIDTH * 0.75, FRAME_HEIGHT * 1.0));
+    const cv::Rect ROI(cv::Point(FRAME_WIDTH * 0.1,  FRAME_HEIGHT * 0.0),
+                       cv::Point(FRAME_WIDTH * 0.7, FRAME_HEIGHT * 1));
 
     const char* SAVE_DIR = "image_roi";
 
-    // 화면 표시: 두 창이 겹치지 않도록 줄여서 나란히 배치 (저장은 원본 크기)
-    const double DISPLAY_SCALE = 0.5;        // 1280×720 → 640×360
-    const int    WINDOW_GAP    = 10;         // 창 사이 간격 (px)
+    //// 화면 표시: 두 창이 겹치지 않도록 줄여서 나란히 배치 (저장은 원본 크기)
+    //const double DISPLAY_SCALE = 0.5;        // 1280×720 → 640×360
+    //const int    WINDOW_GAP    = 10;         // 창 사이 간격 (px)
 
     bool open_camera(CaptureTarget& t)
     {
@@ -86,8 +101,8 @@ int main()
     mkdir(SAVE_DIR, 0755);                     // 이미 있으면 아무 일도 안 함
 
     CaptureTarget targets[2] = {
-        { "entry", ENTRY_CAM_INDEX, "image_roi/roi_entry.png", cv::VideoCapture(), cv::Mat() },
-        { "exit",  EXIT_CAM_INDEX,  "image_roi/roi_exit.png",  cv::VideoCapture(), cv::Mat() },
+        { "entry", ENTRY_CAM_INDEX, "criteria/roi_entry.png", cv::VideoCapture(), cv::Mat() },
+        { "exit",  EXIT_CAM_INDEX,  "criteria/roi_exit.png",  cv::VideoCapture(), cv::Mat() },
     };
 
     int opened = 0;
@@ -96,11 +111,11 @@ int main()
     if (opened == 0) return -1;                // 한 대라도 열리면 계속
 
     // 창을 미리 만들어 가로로 나란히 배치
-    const int win_w = static_cast<int>(FRAME_WIDTH * DISPLAY_SCALE);
+    //const int win_w = static_cast<int>(FRAME_WIDTH * DISPLAY_SCALE);
     for (int i = 0; i < 2; i++)
     {
         cv::namedWindow(targets[i].name, cv::WINDOW_AUTOSIZE);
-        cv::moveWindow(targets[i].name, i * (win_w + WINDOW_GAP), 0);
+        cv::moveWindow(targets[i].name, i * (FRAME_WIDTH + WINDOW_GAP), 0);
     }
 
     std::cout << "1: 입구 저장 / 2: 출구 저장 / q, ESC: 종료" << std::endl;
@@ -114,7 +129,7 @@ int main()
 
             cv::Mat vis = t.frame.clone();     // 화면용 (저장은 원본 t.frame으로)
             cv::rectangle(vis, ROI, cv::Scalar(0, 255, 0), 2);
-            cv::resize(vis, vis, cv::Size(), DISPLAY_SCALE, DISPLAY_SCALE);
+            //cv::resize(vis, vis, cv::Size(), DISPLAY_SCALE, DISPLAY_SCALE);
             cv::imshow(t.name, vis);
         }
 

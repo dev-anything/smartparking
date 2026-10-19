@@ -54,7 +54,7 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-app.use("/captured", express.static(url.images));
+app.use("/captured/images", express.static(url.images));
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws' });
