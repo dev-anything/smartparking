@@ -29,6 +29,8 @@ const Gate = ({ gate }) => {
   // 차량을 보이지 않는 동안의 문구. 보이는 상태인데 이미지만 불러오지 못한 경우는 "대기 중" 유지
   const emptyText = visible ? "대기 중" : "도착한 차량이 없어요.";
 
+  
+
   return (
     <section className="panel" aria-label={title}>
       {/* 차량을 보이지 않거나 이미지가 로드되지 않으면 같은 크기의 회색 면 + 문구 */}
