@@ -54,6 +54,7 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
+// express.static(url.images) => IMAGES_PATH=/home/jtserver/smartparking/IP/opencv-cpp/images
 app.use("/captured/images", express.static(url.images));
 
 const server = http.createServer(app);

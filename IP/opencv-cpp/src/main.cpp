@@ -41,14 +41,31 @@ namespace
         cv::GaussianBlur(gray, blurred, cv::Size(BLUR_KERNEL_SIZE, BLUR_KERNEL_SIZE), BLUR_SIGMA);
 
         // 3. 엣지 검출
-        cv::Canny(blurred, edged, CANNY_LOW, CANNY_HIGH);
+        //  3-1. Canny
+        cv::Canny(blurred, preprocessed, CANNY_LOW, CANNY_HIGH);
+        
+        ////  3-2. Sobel
+        //cv::Mat gx, gy, abs_gx, abs_gy, grad;
+
+        //cv::Sobel(blurred, gx, CV_16S, 1, 0, 1);    // x 방향 변화 → 세로 엣지
+        //cv::Sobel(blurred, gy, CV_16S, 0, 1, 1);    // y 방향 변화 → 가로 엣지
+
+        //cv::convertScaleAbs(gx, abs_gx);            // 음수 포함 값 → 0~255 절댓값
+        //cv::convertScaleAbs(gy, abs_gy);
+        //cv::addWeighted(abs_gx, 0.5, abs_gy, 0.5, 0, preprocessed);   // 두 방향 합치기
+
+        // 4. 모폴로지 연산(엣지 끊김 보완)
+        // 4-1. 커널 생성
+        //morph_kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(MORPH_KERNEL, MORPH_KERNEL));
+        //// 4-2. 닫힘 연산
+        //cv::morphologyEx(edged, preprocessed, cv::MORPH_CLOSE, morph_kernel, cv::Point(-1, -1), MORPH_ITER);
 
         // 4. 모폴로지 연산(엣지 끊김 보완)
         // 4-1. 커널 생성
         morph_kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(MORPH_KERNEL, MORPH_KERNEL));
         // 4-2. 닫힘 연산
-        cv::morphologyEx(edged, preprocessed, cv::MORPH_CLOSE, morph_kernel, cv::Point(-1, -1), MORPH_ITER);
-
+        cv::morphologyEx(edged, preprocessed, cv::MORPH_DILATE, morph_kernel, cv::Point(-1, -1), MORPH_ITER);
+        cv::morphologyEx(preprocessed, preprocessed, cv::MORPH_ERODE, morph_kernel, cv::Point(-1, -1), 1);
         return preprocessed;
     }
 
@@ -413,7 +430,9 @@ class OCRModel
         PlateResult recognize(cv::Mat& rectified)
         {
             PlateResult result;
-
+            static int a = 0;
+            cv::imwrite(cv::format("detected/rectified_%d.png", a), rectified);
+            a++;
             if (rectified.empty())
             {
                 std::cerr << "[WARNING] 빈 이미지 입력됨. 기본값 반환." << std::endl;
@@ -609,18 +628,29 @@ class Recognizer
 
                     // 색상 기반 검출
                     // 크롭된 프레임을 넘겨서 번호판 위치 좌표들을 찾는다.
-                    std::vector<PlateCandidate> cands = detect_by_color(roi_img);
+                    //std::vector<PlateCandidate> cands = detect_by_color(roi_img);
 
                     // 사각형 기반 검출
                     cv::Mat preprocessed = preprocess(roi_img);
-                    std::vector<PlateCandidate> = detect_by_rect(preprocessed);
+                    static int b = 0;
+                    cv::imwrite(cv::format("detected/preprocessed_%d.png", b), preprocessed);
+                    b++;
+                    std::vector<PlateCandidate> cands = detect_by_rect(preprocessed);
+
+                    cv::Mat display = roi_img.clone();
+
+                    std::cout << "[DETECT] 사진 " << i << ": 후보 " << cands.size() << "개" << std::endl;
                     
                     // 찾은 좌표들로 크롭 및 펴기 작업하여 모델에 넘긴다.
                     for (const auto& c: cands)
                     {
-                        // 번호판 펴기
+                        
+                        for (int k = 0; k < 4; k++)
+                        {
+                            cv::line(display, c.corners[k], c.corners[(k + 1) % 4], cv::Scalar(0, 0, 255), 2);
+                        }
+                        // 번호판 크롭 및 펴기
                         cv::Mat rectified = rectify_plate(roi_img, c.corners);
-
                         
                         // 번호판 인식
                         PlateResult res = ocr_m_.recognize(rectified);
@@ -635,13 +665,19 @@ class Recognizer
                         {
                             v.best_conf = res.confidence;
                             v.best_frame = i;
-                        } 
+                        }
                     }
+                    static int c = 0;
+                    cv::imwrite(cv::format("detected/captured_%d.png", c), display);
+                    c++;
+                    cv::Mat show = display.clone();
+                    cv::imshow("candidate", show);
                 }
 
                 // 최종 승자 프레임 결정ㅈ
                 RecogResult rec = make_result(vc, votes);
                 // 드디어 저장 씨빨
+                //if (rec.plate == "UNKNOWN")
                 result_q_.push(std::move(rec));
             }
         }
@@ -928,10 +964,11 @@ class Passtracker
                 //return false;
             }
 
-            // 통과 중 상태이고 비인식 프레임이 기준 미만이라면
-            if (state_ != State::PASSING || ++absent_frames_ < PASS_END_FRAMES) return;
+            // 대기 상태이고 비인식 프레임 수가 기준 미만이라면
+            if (state_ == State::IDLE || ++absent_frames_ < PASS_END_FRAMES) return;
 
             // 통과 끝
+            // 1. 감지된 사각형이 없다면
             state_ = State::IDLE;
 
             // 3장 찍히기 전에 차량이 빠져나가면

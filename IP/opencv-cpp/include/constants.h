@@ -14,10 +14,10 @@
 // 이미지 전처리 관련 상수값
 #define BLUR_KERNEL 5
 #define BLUR_SIGMA 1.7
-#define CANNY_LOW 80
+#define CANNY_LOW 60
 #define CANNY_HIGH 150
 #define MORPH_KERNEL 3
-#define MORPH_ITER 1
+#define MORPH_ITER 2
 
 #define GATE_ENTRY 'E'
 #define GATE_EXIT 'X'
@@ -42,7 +42,7 @@ const double BG_LEARN_RATE = 0.002;           // 갱신 속도 α (0.002 => 30fp
 const int STUCK_FRAMES = TARGET_FPS * 60 * 2; // 감지가 2분 넘게 이어지면 배경 변화로 간주하고 초기화
 const int BLOB_MARGIN = 20;                   // 물체 주변 여유값(px): 이 범위는 갱신 X
 
-#define PASS_SNAP_INTERVAL 2    // 2프레임마다 1장
+#define PASS_SNAP_INTERVAL 10    // 2프레임마다 1장
 #define PASS_SNAP_MAX 15       // 차량 1대당 최대 장수
 #define PASS_END_FRAMES 30     // 연속 미감지 -> 통과 끝
 
@@ -97,8 +97,8 @@ const int BLOB_MARGIN = 20;                   // 물체 주변 여유값(px): �
 // 번호판 검출 기준 상수
 #define PLATE_MIN_RATIO 0.200   // 최소 비율(h / w)
 #define PLATE_MAX_RATIO 0.305   // 최대 비율(h / w)
-#define PLATE_MIN_WIDTH 50     // 최소 너비(px)
-#define PLATE_MAX_WIDTH 384     // 최대 너비(px)
+#define PLATE_MIN_WIDTH 100     // 최소 너비(px)
+#define PLATE_MAX_WIDTH 380     // 최대 너비(px)
 #define RECT_W 384
 #define RECT_H 96
 #define TRIM_RATIO 0.02
