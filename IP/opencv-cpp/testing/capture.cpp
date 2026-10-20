@@ -24,8 +24,8 @@
 #define ENTRY_CAM_INDEX 0
 #define EXIT_CAM_INDEX 1
 
-#define FRAME_WIDTH 320
-#define FRAME_HEIGHT 240
+#define FRAME_WIDTH 640
+#define FRAME_HEIGHT 480
 
 #define TARGET_FPS 30
 
@@ -39,6 +39,7 @@
 
 namespace
 {
+    
     struct CaptureTarget
     {
         const char*      name;      // 창 제목

@@ -30,6 +30,28 @@ typedef std::chrono::system_clock::time_point Time;
 
 namespace
 {
+    cv::Mat preprocess(const cv::Mat& original)
+    {
+        cv::Mat gray, blurred, edged, morph_kernel, preprocessed;
+
+        // 1. 그레이 변환
+        cv::cvtColor(original, gray, cv::COLOR_BGR2GRAY);
+
+        // 2. 블러 처리
+        cv::GaussianBlur(gray, blurred, cv::Size(BLUR_KERNEL_SIZE, BLUR_KERNEL_SIZE), BLUR_SIGMA);
+
+        // 3. 엣지 검출
+        cv::Canny(blurred, edged, CANNY_LOW, CANNY_HIGH);
+
+        // 4. 모폴로지 연산(엣지 끊김 보완)
+        // 4-1. 커널 생성
+        morph_kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(MORPH_KERNEL, MORPH_KERNEL));
+        // 4-2. 닫힘 연산
+        cv::morphologyEx(edged, preprocessed, cv::MORPH_CLOSE, morph_kernel, cv::Point(-1, -1), MORPH_ITER);
+
+        return preprocessed;
+    }
+
     enum class Gate { ENTRY, EXIT };
     enum class Action { OPEN, CLOSE };
 
@@ -585,8 +607,13 @@ class Recognizer
                     // ROI 박스로 자른다.
                     cv::Mat roi_img = vc.frames[i](roi);
 
+                    // 색상 기반 검출
                     // 크롭된 프레임을 넘겨서 번호판 위치 좌표들을 찾는다.
                     std::vector<PlateCandidate> cands = detect_by_color(roi_img);
+
+                    // 사각형 기반 검출
+                    cv::Mat preprocessed = preprocess(roi_img);
+                    std::vector<PlateCandidate> = detect_by_rect(preprocessed);
                     
                     // 찾은 좌표들로 크롭 및 펴기 작업하여 모델에 넘긴다.
                     for (const auto& c: cands)
@@ -617,6 +644,60 @@ class Recognizer
                 // 드디어 저장 씨빨
                 result_q_.push(std::move(rec));
             }
+        }
+        std::vector<PlateCandidate> detect_by_rect(const cv::Mat& preprocessed)
+        {
+            // 1장의 이미지를 처리하는 함수(호출부에서 반복문)
+            std::vector<PlateCandidate> cands;
+
+            // 윤곽선 검출
+            std::vector<std::vector<cv::Point>> contours;
+            cv::findContours(preprocessed, contours, cv::RETR_LIST, cv::CHAIN_APPROX_SIMPLE);
+
+            for (const auto& contour: contours)
+            {
+                if (contour.size() < 4) continue;   // 윤곽선 좌표가 4개 미만이면 의미 없음
+                
+                cv::RotatedRect rr = cv::minAreaRect(contour);
+                double w = std::max(rr.size.width, rr.size.height);
+                double h = std::min(rr.size.width, rr.size.height);
+
+                // 0으로 나눌 수 없도록 점검
+                if (w < 1.0) continue;
+
+                double area = w * h;
+                double ratio = h / w;
+
+
+                // 1. 넓이 조건 걸러내기
+                //if (area < PLATE_MIN_AREA || area > PLATE_MAX_AREA) continue;
+
+                // 2. 너비 조건 걸러내기
+                if (w < PLATE_MIN_WIDTH || w > PLATE_MAX_WIDTH) continue;
+
+                // 3. 비율 조건 걸러내기
+                if (ratio < PLATE_MIN_RATIO || ratio > PLATE_MAX_RATIO) continue;
+
+                // 4. 꼭짓점 정렬 후 저장
+                cv::Point2f pts[4];
+                rr.points(pts);
+
+                // 결과 저장용 구조체 선언
+                PlateCandidate cand;
+
+                // false가 반환되었다면 비정상적인 좌표
+                if (!order_corners(pts, cand.corners)) continue;
+
+                // 결과를 구조체 배열에 저장
+                cand.w = w;
+                cand.h = h;
+                cand.area = area;
+                cand.ratio = ratio;
+                cands.push_back(cand);
+
+            }
+
+            return cands;
         }
 
         std::vector<PlateCandidate> detect_by_color(const cv::Mat& frame)
