@@ -79,9 +79,23 @@ void plate_number_thread(client_info *info)
             else if (gate == GATE_EXIT && action == GATE_OPEN)    // 출구 + 열림 처리: select - update, 대시보드에 차량정보 띄우기(SHOW)
             {
                 char id[PAYMENT_ID_SIZE] = {0};
-                select_payment_id(conn, plate, id);
-                update_records(conn, id, image_path, timestamp);
-                push_payment_request(id);
+                if (select_payment_id(conn, plate, id))           // 성공 시 0 반환
+                {
+                    printf("[FAILED] 결제 ID 없음: %d\n", id);
+                    continue;
+                }
+                
+                if (update_records(conn, id, image_path, timestamp))    // 성공 시 0 반환
+                {
+                    printf("[FAILED] records 테이블 업데이트 실패.\n");
+                    continue;
+                }
+                
+                if (!push_payment_request(id))   // 성공 시 1 반환
+                {
+                    printf("[FAILED] 결제 요청 실패.\n");
+                    continue;
+                }
                 
             }
             else if (gate == GATE_EXIT && action == GATE_CLOSE)   // 출구 + 닫힘 처리: 대시보드에서 차량정보 제거(HIDE)

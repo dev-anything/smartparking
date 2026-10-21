@@ -43,9 +43,9 @@ cv::Mat preprocess_canny(const cv::Mat& original)
     // 4. 모폴로지 연산(엣지 끊김 보완)
     // 4-1. 커널 생성
     morph_kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(MORPH_KERNEL, MORPH_KERNEL));
-    // 4-2. 닫힘 연산
-    cv::morphologyEx(edged, preprocessed, cv::MORPH_DILATE, morph_kernel, cv::Point(-1, -1), MORPH_ITER);
-    cv::morphologyEx(preprocessed, preprocessed, cv::MORPH_ERODE, morph_kernel, cv::Point(-1, -1), 1);
+    //// 4-2. 닫힘 연산
+    cv::morphologyEx(edged, preprocessed, cv::MORPH_CLOSE, morph_kernel, cv::Point(-1, -1), MORPH_ITER);
+    //cv::morphologyEx(preprocessed, preprocessed, cv::MORPH_ERODE, morph_kernel, cv::Point(-1, -1), 1);
     
     
 
@@ -88,7 +88,7 @@ cv::Mat preprocess_canny(const cv::Mat& original)
 int main()
 {
     // 열기
-    cv::VideoCapture cap(1, cv::CAP_V4L2);
+    cv::VideoCapture cap(0, cv::CAP_V4L2);
 
     
     // 세팅

@@ -31,7 +31,7 @@
 #define BUFFER_SIZE 1024
 
 // 차영상 기준값
-#define DIFF_THRESHOLD 30   // 픽셀 밝기 차이 기준값(이 이상이면 감지)
+#define DIFF_THRESHOLD 50   // 픽셀 밝기 차이 기준값(이 이상이면 감지)
 #define DILATE_ITER 2       // 덩어리 이어붙임 횟수
 const double MIN_AREA_RATIO = 0.15; // 덩어리 최소 넓이: ROI 넓이의 10%
 const double MIN_W_RATIO = 0.15;    // 덩어리 최소 너비: ROI 너비의 25%
@@ -42,9 +42,9 @@ const double BG_LEARN_RATE = 0.002;           // 갱신 속도 α (0.002 => 30fp
 const int STUCK_FRAMES = TARGET_FPS * 60 * 2; // 감지가 2분 넘게 이어지면 배경 변화로 간주하고 초기화
 const int BLOB_MARGIN = 20;                   // 물체 주변 여유값(px): 이 범위는 갱신 X
 
-#define PASS_SNAP_INTERVAL 10    // 2프레임마다 1장
-#define PASS_SNAP_MAX 15       // 차량 1대당 최대 장수
-#define PASS_END_FRAMES 30     // 연속 미감지 -> 통과 끝
+#define PASS_SNAP_INTERVAL 2    // 2프레임마다 1장
+#define PASS_SNAP_MAX 10       // 차량 1대당 최대 장수
+#define PASS_END_FRAMES 120     // 연속 미감지 -> 통과 끝
 
 // OCR 모델
 // OCR 모델 관련 상수
@@ -97,7 +97,7 @@ const int BLOB_MARGIN = 20;                   // 물체 주변 여유값(px): �
 // 번호판 검출 기준 상수
 #define PLATE_MIN_RATIO 0.200   // 최소 비율(h / w)
 #define PLATE_MAX_RATIO 0.305   // 최대 비율(h / w)
-#define PLATE_MIN_WIDTH 100     // 최소 너비(px)
+#define PLATE_MIN_WIDTH 50     // 최소 너비(px)
 #define PLATE_MAX_WIDTH 380     // 최대 너비(px)
 #define RECT_W 384
 #define RECT_H 96

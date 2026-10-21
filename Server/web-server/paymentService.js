@@ -14,6 +14,9 @@ const handlePayment = async (id) => {
 
     // 결제 정보 가져오기
     const paymentInfo = await getPaymentInfo(id);
+    console.log(`[DEBUG] 결제 정보: ${paymentInfo}`);
+
+    if (paymentInfo === undefined) return null;
 
     // 실제 결제 요청
     const paymentResult = { 
@@ -32,6 +35,7 @@ const handlePayment = async (id) => {
   } catch (err) {
     console.error(`[ERROR] 결제 오류 발생: ${err.message}`);
   }
+
 };
 
 // 결제 정보 가져오기

@@ -8,8 +8,7 @@
 
 int run_nonselect_query(MYSQL* conn, const char* query)
 {
-    if (mysql_query(conn, query)) return -1;
-    else return 0;
+    return (mysql_query(conn, query));
 }
 
 int run_select_id_query(MYSQL* conn, const char* query, char* id)

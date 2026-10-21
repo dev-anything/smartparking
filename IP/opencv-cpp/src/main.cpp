@@ -42,7 +42,7 @@ namespace
 
         // 3. 엣지 검출
         //  3-1. Canny
-        cv::Canny(blurred, preprocessed, CANNY_LOW, CANNY_HIGH);
+        cv::Canny(blurred, edged, CANNY_LOW, CANNY_HIGH);
         
         ////  3-2. Sobel
         //cv::Mat gx, gy, abs_gx, abs_gy, grad;
@@ -54,18 +54,22 @@ namespace
         //cv::convertScaleAbs(gy, abs_gy);
         //cv::addWeighted(abs_gx, 0.5, abs_gy, 0.5, 0, preprocessed);   // 두 방향 합치기
 
-        // 4. 모폴로지 연산(엣지 끊김 보완)
-        // 4-1. 커널 생성
-        //morph_kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(MORPH_KERNEL, MORPH_KERNEL));
-        //// 4-2. 닫힘 연산
-        //cv::morphologyEx(edged, preprocessed, cv::MORPH_CLOSE, morph_kernel, cv::Point(-1, -1), MORPH_ITER);
+        // ====== 모폴로지 디버깅 로그 ======
+        // 안녕하세요, 지금은 10월 20일 21시 48분 지나가고 있습니다.
+        // ㅈ같은 영상처리 전처리하느라 하루를 다 날려버렸습니다.
+        // 지금까지 해보니까 모폴로지는 팽창 1번만 하는 게 좋은 거 같네요.
+        // 팽창 하니까 평창 가게 되는 날이 생각나네요.
+        // 젠장할 실사는 제대로 할 수 있을지나 모르겠습니다
+
+
 
         // 4. 모폴로지 연산(엣지 끊김 보완)
         // 4-1. 커널 생성
         morph_kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(MORPH_KERNEL, MORPH_KERNEL));
-        // 4-2. 닫힘 연산
-        cv::morphologyEx(edged, preprocessed, cv::MORPH_DILATE, morph_kernel, cv::Point(-1, -1), MORPH_ITER);
-        cv::morphologyEx(preprocessed, preprocessed, cv::MORPH_ERODE, morph_kernel, cv::Point(-1, -1), 1);
+        //// 4-2. 닫힘 연산
+        //cv::morphologyEx(edged, preprocessed, cv::MORPH_CLOSE, morph_kernel, cv::Point(-1, -1), 1);
+        cv::morphologyEx(edged, preprocessed, cv::MORPH_DILATE, morph_kernel, cv::Point(-1, -1), 1);
+        //cv::morphologyEx(preprocessed, preprocessed, cv::MORPH_ERODE, morph_kernel, cv::Point(-1, -1), 1);
         return preprocessed;
     }
 
@@ -511,8 +515,14 @@ class OCRModel
 
                 if (best != 0 && best != prev)  // 0번: blank
                 {
-                    chars.push_back(g_dict_[best]);
-                    probs.push_back(p[best]);
+                    const std::string& ch = g_dict_[best];
+
+                    if (ch != " ")
+                    {
+                        chars.push_back(g_dict_[best]);                    
+                        probs.push_back(p[best]);
+                    }
+                    
                 }
                 prev = best;
             }
@@ -654,6 +664,8 @@ class Recognizer
                         
                         // 번호판 인식
                         PlateResult res = ocr_m_.recognize(rectified);
+
+                        std::cout << "[DEBUG] (검사 전) 추출된 번호판 텍스트: " << res.plate << std::endl;
 
                         // 유효한 번호판이 아님
                         if (!res.valid) continue;

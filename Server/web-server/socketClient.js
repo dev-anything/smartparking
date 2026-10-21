@@ -54,6 +54,13 @@ const connectSocketServer = () => {
         {
           const paymentId = data.slice("PAYID:".length);
           const paymentResult = await handlePayment(paymentId);
+
+          if (paymentResult === undefined)
+          {
+            console.log(`[ERROR] 미입차 차량 출차 확인. 수동 청구가 필요합니다.`);
+            return;
+          }
+
           const paymentResultList = Object.values(paymentResult);
           console.log(`[DONE] 주문 ID: ${paymentResult.payments_id} 결제 완료.`);
           sendPaymentResult(paymentResultList);

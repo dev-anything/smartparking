@@ -56,6 +56,7 @@ app.use(cors());
 
 // express.static(url.images) => IMAGES_PATH=/home/jtserver/smartparking/IP/opencv-cpp/images
 app.use("/captured/images", express.static(url.images));
+console.log(express.static(url.images))
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws' });
