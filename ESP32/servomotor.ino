@@ -4,6 +4,8 @@
 // 네트워크 설정
 const char* ssid     = "iptime222";
 const char* password = "12345678";
+//const char* ssid     = "TP-Link_DB7C_5G";
+//const char* password = "12345678";
 
 IPAddress local_IP(192, 168, 0, 100);
 IPAddress gateway(192, 168, 0, 1);
