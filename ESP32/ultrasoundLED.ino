@@ -5,6 +5,8 @@
 // ----------------------------------------------------
 const char* ssid     = "iptime222";
 const char* password = "12345678";
+//const char* ssid     = "TP-Link_DB7C_5G";
+//const char* password = "12345678";
 
 // 초음파 전용 ESP32 고정 IP
 IPAddress local_IP(192, 168, 0, 101);
