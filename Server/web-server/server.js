@@ -48,6 +48,7 @@ const {
   receivePaymentInfoResult,
   setBroadcast,
 } = require('./socketClient');
+const path = require("path");
 
 
 const app = express();
@@ -56,7 +57,7 @@ app.use(cors());
 
 // express.static(url.images) => IMAGES_PATH=/home/jtserver/smartparking/IP/opencv-cpp/images
 app.use("/captured/images", express.static(url.images));
-console.log(express.static(url.images))
+//console.log(express.static(url.images))
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws' });
@@ -480,6 +481,8 @@ const pollRecords = async () => {
     console.error("records 폴링 오류: ", err.message);
   }
 };
+
+// 정적 빌드 파일 설정
 
 // /api/entry-exit-records / 웹소켓 전환
 

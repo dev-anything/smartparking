@@ -96,8 +96,11 @@ namespace
     typedef std::map<std::string, Vote> Votebox;
 
     // ROI 박스 선언
-    const cv::Rect roi(cv::Point(FRAME_WIDTH * 0.1,  FRAME_HEIGHT * 0.0),
-                       cv::Point(FRAME_WIDTH * 0.7, FRAME_HEIGHT * 1));
+    //const cv::Rect roi(cv::Point(FRAME_WIDTH * 0.1,  FRAME_HEIGHT * 0.0),
+    //                   cv::Point(FRAME_WIDTH * 0.7, FRAME_HEIGHT * 1));
+    // main.cpp의 ROI와 반드시 같아야 함
+    const cv::Rect roi(cv::Point(FRAME_WIDTH * 0.0,  FRAME_HEIGHT * 0.1),
+                       cv::Point(FRAME_WIDTH * 0.6, FRAME_HEIGHT * 1));
 
     const char* INPUT_NAME = "x";
     const char* OUTPUT_NAME = "fetch_name_0";
@@ -434,7 +437,7 @@ class OCRModel
         PlateResult recognize(cv::Mat& rectified)
         {
             PlateResult result;
-            static int a = 0;
+            static int a = 1000;
             cv::imwrite(cv::format("detected/rectified_%d.png", a), rectified);
             a++;
             if (rectified.empty())
@@ -545,11 +548,32 @@ class Recognizer
             if (recog_th_.joinable()) recog_th_.join();
         }
 
+        bool get_candidates_img(cv::Mat& out)
+        {
+            mtx_.lock();
+            if (cur_cands_seq_ == last_cands_seq_)
+            {
+                mtx_.unlock();
+                return false;
+            }
+            out = latest_candidates_;
+            last_cands_seq_ = cur_cands_seq_;
+            mtx_.unlock();
+
+            return true;
+        }
+
     private:
         VehicleQueue& vehicle_q_;
         ResultQueue& result_q_;
         OCRModel ocr_m_;
         std::thread recog_th_;
+
+        cv::Mat latest_candidates_;
+        std::uint64_t cur_cands_seq_ = 0;
+        std::uint64_t last_cands_seq_ = 0;
+
+        std::mutex mtx_;
         
 
         struct PlateCandidate 
@@ -629,6 +653,7 @@ class Recognizer
                 }
 
                 Votebox votes;  // 차량마다 새 투표함
+                std::vector<cv::Mat> cands_img;
 
                 for (size_t i = 0; i < vc.frames.size(); i++)
                 {
@@ -642,7 +667,7 @@ class Recognizer
 
                     // 사각형 기반 검출
                     cv::Mat preprocessed = preprocess(roi_img);
-                    static int b = 0;
+                    static int b = 1000;
                     cv::imwrite(cv::format("detected/preprocessed_%d.png", b), preprocessed);
                     b++;
                     std::vector<PlateCandidate> cands = detect_by_rect(preprocessed);
@@ -679,15 +704,24 @@ class Recognizer
                             v.best_frame = i;
                         }
                     }
-                    static int c = 0;
+                    static int c = 1000;
                     cv::imwrite(cv::format("detected/captured_%d.png", c), display);
                     c++;
-                    cv::Mat show = display.clone();
-                    cv::imshow("candidate", show);
+                    cands_img.push_back(display);
                 }
 
-                // 최종 승자 프레임 결정ㅈ
-                RecogResult rec = make_result(vc, votes);
+                // 최종 승자 프레임 결정
+                int best_frame_idx = 0;
+                RecogResult rec = make_result(vc, votes, best_frame_idx);
+                cv::Mat candidates_copy;
+                if (best_frame_idx < cands_img.size()) candidates_copy = cands_img[best_frame_idx];
+
+                mtx_.lock();
+                latest_candidates_ = candidates_copy;
+                cur_cands_seq_++;
+                mtx_.unlock();
+
+                //cv::imshow("Candidates", rec.)
                 // 드디어 저장 씨빨
                 //if (rec.plate == "UNKNOWN")
                 result_q_.push(std::move(rec));
@@ -888,7 +922,7 @@ class Recognizer
             return plate(cv::Rect(mx, my, RECT_W - 2 * mx, RECT_H - 2 * my)).clone();
         }
 
-        RecogResult make_result(const VehicleCapture& vc, const Votebox& votes)
+        RecogResult make_result(const VehicleCapture& vc, const Votebox& votes, int& best_frame_idx)
         {
             RecogResult rec;
 
@@ -904,7 +938,8 @@ class Recognizer
                 rec.plate = "UNKNOWN";
                 if (!vc.frames.empty())
                 {
-                    rec.captured = vc.frames[vc.frames.size() / 2]; // 찍힌 사진들 중 가운데 사진으로 임의 결정
+                    best_frame_idx = vc.frames.size() / 2;
+                    rec.captured = vc.frames[best_frame_idx]; // 찍힌 사진들 중 가운데 사진으로 임의 결정
                 }
                 return rec;
             }
@@ -929,6 +964,7 @@ class Recognizer
             rec.confidence = best->second.best_conf;
             rec.valid = true;
             rec.captured = vc.frames[best->second.best_frame];
+            best_frame_idx = best->second.best_frame;
             return rec;
         }
 
@@ -1265,9 +1301,15 @@ class Camera
         void stop() { framebox_.stop(); }
 
         // 프레임 1장 처리 작업 시작 함수(main에서 반복 호출)
-        bool process_frame(VehicleQueue& out)
+        bool process_frame(VehicleQueue& out, bool recognizing)
         {
             if (!framebox_.get_latest_frame(current_frame_)) return false;
+
+            if (!recognizing)
+            {
+                blobs_.clear();
+                return true;
+            }
 
             // 현재 프레임 차영상 처리
             blobs_ = diffchecker_.check(current_frame_);
@@ -1583,6 +1625,9 @@ int main()
 
     // 카메라 화면 보여줄지 여부(true - 보여줌, false - 숨김)
     bool SHOW_DISPLAY = true;
+
+    // 인식모드 / 대기모드 설정 변수
+    bool recognizing = false;
     
     Camera entry({ "entry", ENTRY_CAM_INDEX, roi, "criteria/roi_entry.png", Gate::ENTRY });
     Camera exit({ "exit", EXIT_CAM_INDEX, roi, "criteria/roi_exit.png", Gate::EXIT });
@@ -1614,7 +1659,8 @@ int main()
     {
         for (int i = 0; i < 2; i++)
         {
-            cv::namedWindow(cam_list[i]->name(), cv::WINDOW_AUTOSIZE);
+            cv::namedWindow(cam_list[i]->name(), cv::WINDOW_NORMAL);
+            cv::resizeWindow(cam_list[i]->name(), FRAME_WIDTH, FRAME_HEIGHT);
             cv::moveWindow(cam_list[i]->name(), i * (FRAME_WIDTH + WINDOW_GAP), 0);
         }
     }
@@ -1627,22 +1673,31 @@ int main()
         for (const auto& cam: cam_list)
         {
             // 각 카메라에 대해 1프레임 처리 시작
-            if (!cam->process_frame(vehicle_q)) continue;
+            if (!cam->process_frame(vehicle_q, recognizing)) continue;
 
             if (SHOW_DISPLAY)
             {
                 cv::Mat vis;
+                cv::Mat candidate;
                 cam->draw(vis);
                 if (!vis.empty())
                 {
                     //cv::resize(vis, vis, cv::Size(), DISPLAY_SCALE, DISPLAY_SCALE);
                     cv::imshow(cam->name(), vis);
+
+                    if (recognizer.get_candidates_img(candidate))
+                    {
+                        cv::imshow("candidate", candidate);
+                    }
                 }
             }
-            
         }
         int key = cv::waitKey(1) & 0xFF;
         if (key == 'q' || key == 27) break;     // q 또는 ESC
+        if (key == 'r' || key == 'R')           // 촬영모드 변경
+        {
+            recognizing = !recognizing;
+        }
     }
 
     for (Camera* cam: cam_list) cam->stop();    // 캡처 중지

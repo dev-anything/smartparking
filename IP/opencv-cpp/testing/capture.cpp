@@ -21,8 +21,8 @@
 #include <string>
 
 
-#define ENTRY_CAM_INDEX 0
-#define EXIT_CAM_INDEX 1
+#define ENTRY_CAM_INDEX 1
+#define EXIT_CAM_INDEX 0
 
 #define FRAME_WIDTH 640
 #define FRAME_HEIGHT 480
@@ -48,12 +48,13 @@ namespace
         cv::VideoCapture cap;
         cv::Mat          frame;     // 마지막으로 읽은 프레임
     };
-
+    // ROI 박스 선언
+    //const cv::Rect roi(cv::Point(FRAME_WIDTH * 0.1,  FRAME_HEIGHT * 0.0),
+    //                   cv::Point(FRAME_WIDTH * 0.7, FRAME_HEIGHT * 1));
     // main.cpp의 ROI와 반드시 같아야 함
-    const cv::Rect ROI(cv::Point(FRAME_WIDTH * 0.1,  FRAME_HEIGHT * 0.0),
-                       cv::Point(FRAME_WIDTH * 0.7, FRAME_HEIGHT * 1));
-
-    const char* SAVE_DIR = "image_roi";
+    const cv::Rect ROI(cv::Point(FRAME_WIDTH * 0.0,  FRAME_HEIGHT * 0.1),
+                       cv::Point(FRAME_WIDTH * 0.6, FRAME_HEIGHT * 1));
+                       
 
     //// 화면 표시: 두 창이 겹치지 않도록 줄여서 나란히 배치 (저장은 원본 크기)
     //const double DISPLAY_SCALE = 0.5;        // 1280×720 → 640×360
@@ -99,7 +100,6 @@ namespace
 
 int main()
 {
-    mkdir(SAVE_DIR, 0755);                     // 이미 있으면 아무 일도 안 함
 
     CaptureTarget targets[2] = {
         { "entry", ENTRY_CAM_INDEX, "criteria/roi_entry.png", cv::VideoCapture(), cv::Mat() },

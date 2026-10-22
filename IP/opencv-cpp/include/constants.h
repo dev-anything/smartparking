@@ -1,7 +1,7 @@
 #pragma once
 
-#define ENTRY_CAM_INDEX 0
-#define EXIT_CAM_INDEX 1
+#define ENTRY_CAM_INDEX 1
+#define EXIT_CAM_INDEX 0
 
 #define FRAME_WIDTH 640
 #define FRAME_HEIGHT 480
@@ -42,9 +42,9 @@ const double BG_LEARN_RATE = 0.002;           // 갱신 속도 α (0.002 => 30fp
 const int STUCK_FRAMES = TARGET_FPS * 60 * 2; // 감지가 2분 넘게 이어지면 배경 변화로 간주하고 초기화
 const int BLOB_MARGIN = 20;                   // 물체 주변 여유값(px): 이 범위는 갱신 X
 
-#define PASS_SNAP_INTERVAL 2    // 2프레임마다 1장
+#define PASS_SNAP_INTERVAL 10    // 2프레임마다 1장
 #define PASS_SNAP_MAX 10       // 차량 1대당 최대 장수
-#define PASS_END_FRAMES 120     // 연속 미감지 -> 통과 끝
+#define PASS_END_FRAMES 90     // 연속 미감지 -> 통과 끝
 
 // OCR 모델
 // OCR 모델 관련 상수
