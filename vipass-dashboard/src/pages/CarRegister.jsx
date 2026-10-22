@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import config from "../config";
-import RegisteredTable from "../components/CarInfoTable";
+import CarInfoTable from "../components/CarInfoTable";
 import PaymentResult from "../components/PaymentResult";
 
 /* =========================================================
@@ -346,17 +346,17 @@ const CarRegister = () => {
 
   return (
     // 1행: 차량 등록(1열) · 등록 차량 리스트(2열) / 2행(열 통합): 결제내역
-    // 1행 높이는 등록 폼의 내용 높이로 정해지고, 등록 차량 표는 그 칸 안에서 스크롤된다(absolute 로 높이 계산에서 제외).
-    <div className="grid h-full grid-cols-[minmax(0,1fr)_minmax(0,2fr)] grid-rows-[auto_minmax(0,1fr)] gap-4">
-      <div>
+    // 1행과 2행 높이는 1:1. 내용이 칸보다 길면 각 칸 안에서 스크롤된다(등록 차량 표는 absolute 로 높이 계산에서 제외).
+    <div className="grid h-full grid-cols-[minmax(0,1fr)_minmax(0,2fr)] grid-rows-2 gap-4">
+      <div className="min-h-0 overflow-y-auto">
         {isRedirect ? <RegisterResult params={params} /> : <RegisterForm />}
       </div>
       <div className="relative min-h-0">
-        <RegisteredTable className="absolute inset-0" />
+        <CarInfoTable className="absolute inset-0" />
       </div>
       <PaymentResult className="col-span-2" />
     </div>
   );
-};
+};  
 
 export default CarRegister;
