@@ -1328,7 +1328,7 @@ class Camera
             return true;            
         }
         
-        void draw(cv::Mat& vis)
+        void draw(cv::Mat& vis, bool recognizing)
         {
             // 그릴 프레임이 비어있다면
             if (current_frame_.empty())
@@ -1339,7 +1339,31 @@ class Camera
 
             vis = current_frame_.clone();
 
+            if (!recognizing)
+            {
+                cv::rectangle(vis, cfg_.roi, cv::Scalar(255, 255, 0));          // 하늘색 ROI
+                cv::putText(
+                    vis,
+                    cv::format("MODE - READY"),
+                    cv::Point(10, 30),
+                    cv::FONT_HERSHEY_COMPLEX,
+                    0.8,
+                    cv::Scalar(0, 255, 255),                                    // 노랑
+                    2
+                );
+                return;
+            }
+
             bool detected = !blobs_.empty();
+            cv::putText(
+                    vis,
+                    cv::format("MODE - DETECTING"),
+                    cv::Point(10, 30),
+                    cv::FONT_HERSHEY_COMPLEX,
+                    0.8,
+                    cv::Scalar(0, 255, 0),                                      // 초록
+                    2
+                );
 
             cv::rectangle(vis, cfg_.roi, detected ? cv::Scalar(0, 0, 255) : cv::Scalar(0, 255, 0));
 
@@ -1353,7 +1377,7 @@ class Camera
                 cv::putText(
                     vis,
                     cv::format("PASSING snaps: %d", static_cast<int>(tracker_.snap_count())),
-                    cv::Point(10, 30),
+                    cv::Point(10, 60),
                     cv::FONT_HERSHEY_COMPLEX,
                     0.8,
                     cv::Scalar(0, 0, 255),
@@ -1679,7 +1703,7 @@ int main()
             {
                 cv::Mat vis;
                 cv::Mat candidate;
-                cam->draw(vis);
+                cam->draw(vis, recognizing);
                 if (!vis.empty())
                 {
                     //cv::resize(vis, vis, cv::Size(), DISPLAY_SCALE, DISPLAY_SCALE);

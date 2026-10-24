@@ -21,8 +21,8 @@
 #include <string>
 
 
-#define ENTRY_CAM_INDEX 1
-#define EXIT_CAM_INDEX 0
+#define ENTRY_CAM_INDEX 0
+#define EXIT_CAM_INDEX 1
 
 #define FRAME_WIDTH 640
 #define FRAME_HEIGHT 480
