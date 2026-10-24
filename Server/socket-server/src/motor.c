@@ -15,6 +15,7 @@ typedef struct
 {
     char gate;
     char action;
+    char plate[PLATE_NUMBER_SIZE];
 } motor_cmd_t;
 
 static pthread_mutex_t g_motor_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -176,7 +177,7 @@ static int pop_motor_command(motor_cmd_t* batch)
     return batch_size;
 }
 
-int push_motor_command(char gate, char action)
+int push_motor_command(char gate, char action, char* plate)
 {
     printf("[DEBUG] 모터 명령 큐 삽입 시도.\n");
     uint64_t one = 1;
@@ -190,6 +191,7 @@ int push_motor_command(char gate, char action)
     {
         motor_cmd_q[motor_cmd_q_rear].gate = gate;
         motor_cmd_q[motor_cmd_q_rear].action = action;
+        strcpy(motor_cmd_q[motor_cmd_q_rear].plate, plate);
         motor_cmd_q_rear = (motor_cmd_q_rear + 1) % QUEUE_SIZE;
         motor_cmd_q_count++;
 
@@ -210,13 +212,23 @@ int push_motor_command(char gate, char action)
 
 static int send_motor_control(motor_cmd_t* cmd_batch, int size, int fd)
 {
-    char packet[8];
+    char packet[16];
     for (int i = 0; i < size; i++)
     {
+        memset(packet, 0, sizeof(packet));
         // 명령어 구조체에 저장된 gate, action을 :과 다시 조합
 
         // len == 버퍼에 쓴 글자 수(== 4, {gate, :, action, \n})
-        int len = snprintf(packet, sizeof(packet), "%c%s%c\n", cmd_batch[i].gate, DELIM, cmd_batch[i].action);
+        int len = snprintf(
+            packet,
+            sizeof(packet),
+            "%c%s%c%s%s\n",
+            cmd_batch[i].gate,
+            DELIM,
+            cmd_batch[i].action,
+            DELIM,
+            cmd_batch[i].plate
+        );
 
         // 패킷 전체를 한 번에 송신하고, 반환값과 len을 비교한다
         // MSG_NOSIGNAL: 이미 끊긴 소켓에 보내도 SIGPIPE로 프로세스가 죽지 않는다
@@ -226,7 +238,7 @@ static int send_motor_control(motor_cmd_t* cmd_batch, int size, int fd)
             return 0;   // 송신 실패
         }
 
-        printf("[SENT] (fd=%d) 전송: %c%s%c\n", fd, cmd_batch[i].gate, DELIM, cmd_batch[i].action);
+        printf("[SENT] (fd=%d) 전송: %s\n", fd, packet);
     }
     return 1;
 }

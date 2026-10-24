@@ -76,17 +76,17 @@ const connectSocketServer = () => {
           pendingResult.delete(carNumber);
           resolve({ result });                           // 기다리던 await 가 풀림
         }
+
         else if (data.startsWith("VI:"))
         {
-          const body = data.slice(3);
-          const idx = body.lastIndexOf(':');
-          const gate = body.slice(0, idx);
-          const action = body.slice(idx + 1);
+          const body = data.slice(3);         // E:O:51고9612
+          const [gate, action, plate] = body.split(':');
           const payload = {
             type: "visible_command",
             data: {
-              gate: gate, // 입구: E / 출구: X
+              gate: gate,     // 입구: E / 출구: X
               action: action, // 열림: O / 닫힘: C
+              plate: plate,   // 타겟 차량번호
             },
           };
           broadcast(payload);

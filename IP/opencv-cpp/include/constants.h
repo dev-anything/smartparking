@@ -31,7 +31,7 @@
 #define BUFFER_SIZE 1024
 
 // 차영상 기준값
-#define DIFF_THRESHOLD 50   // 픽셀 밝기 차이 기준값(이 이상이면 감지)
+#define DIFF_THRESHOLD 50  // 픽셀 밝기 차이 기준값(이 이상이면 감지)
 #define DILATE_ITER 2       // 덩어리 이어붙임 횟수
 const double MIN_AREA_RATIO = 0.15; // 덩어리 최소 넓이: ROI 넓이의 10%
 const double MIN_W_RATIO = 0.15;    // 덩어리 최소 너비: ROI 너비의 25%

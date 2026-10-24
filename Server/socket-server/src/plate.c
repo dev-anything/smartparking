@@ -51,7 +51,7 @@ void plate_number_thread(client_info *info)
         if (read_status)
         {
             printf("[RECEIVED] 수신 데이터: %s\n", buffer);
-            char command_buffer[BUFFER_SIZE] = {0};
+            //char command_buffer[BUFFER_SIZE] = {0};
 
             if (!parse_plate_data(buffer, &gate, &action, plate, image_path, timestamp))
             {
@@ -70,7 +70,6 @@ void plate_number_thread(client_info *info)
             if (gate == GATE_ENTRY && action == GATE_OPEN)        // 입구 + 열림 처리: insert, 대시보드에 차량정보 띄우기(SHOW)
             {
                 insert_record(conn, plate, image_path, timestamp);
-                
             }
             else if (gate == GATE_ENTRY && action == GATE_CLOSE)  // 입구 + 닫힘 처리: 대시보드에서 차량정보 제거(HIDE)
             {
@@ -102,14 +101,15 @@ void plate_number_thread(client_info *info)
             {
                 
             }
-            // 일단 4가지 상황 한번에 처리
-            sprintf(
-                command_buffer,
-                "%c%s%c",
-                gate, DELIM, action
-            );
-            push_visible_command(command_buffer);
-            push_motor_command(gate, action);
+            //// 일단 4가지 상황 한번에 처리
+            //sprintf(
+            //    command_buffer,
+            //    "%c%s%c",
+            //    gate, DELIM, action
+            //);
+            //push_visible_command(command_buffer);
+            push_visible_command(gate, action, plate);
+            push_motor_command(gate, action, plate);
 
 
         }

@@ -1001,15 +1001,6 @@ class Passtracker
                     events.push_back(make_open());
                 }
                 return;
-
-                //// 2프레임마다 1장인지, 최대 스냅 개수를 넘지 않았는지 확인하고
-                //if (passing_frames_ % PASS_SNAP_INTERVAL == 0 && static_cast<int>(snaps_.size()) < PASS_SNAP_MAX)
-                //{
-                //    snaps_.push_back(frame);
-                //}
-
-                //passing_frames_++;
-                //return false;
             }
 
             // 대기 상태이고 비인식 프레임 수가 기준 미만이라면
@@ -1605,6 +1596,8 @@ class Recorder
                 {
                     std::cerr << "[FAILED] 송신 실패: " << packet;
                 }
+                
+                std::cout << "[SENT] 데이터 송신 완료." << std::endl;
             }
         }
         // ① images/20261019144212_entry_3.jpg
