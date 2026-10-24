@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import config from "../config";
-import RegisteredTable from "../components/CarInfoTable";
+import CarInfoTable from "../components/CarInfoTable";
 import PaymentResult from "../components/PaymentResult";
 
 /* =========================================================
@@ -190,8 +190,10 @@ const RegisterForm = () => {
  * 2단계: 토스 리다이렉트 결과 → authKey 를 서버로 전달
  * 빌링키 발급은 서버가 담당하므로 프론트는 authKey 까지만 받아 넘긴다.
  * ========================================================= */
+const AUTO_REFRESH_MS = 2000; // 등록 완료 메시지를 보여준 뒤 화면을 새로고침하기까지의 시간
+
 const goHome = () => {
-  // 토스가 붙인 쿼리를 제거하고 입력 화면으로 복귀
+  // 토스가 붙인 쿼리를 제거하고 입력 화면으로 복귀 (주소가 바뀌므로 페이지가 새로 로드된다)
   location.replace(location.origin + location.pathname + ROUTE_HASH);
 };
 
@@ -214,7 +216,7 @@ const RegisterResult = ({ params }) => {
       return { status: { text: "리다이렉트 정보가 부족합니다 (authKey, customerKey, VITE_SERVER_IP, VITE_SERVER_PORT, VITE_API_SAVE_TOSS_INFO 중 누락).", type: "err" }, info: [] };
     }
     if (isDone(authKey)) {
-      return { status: { text: "이 인증 건은 이미 서버로 전달했습니다. (새로고침으로 인한 중복 전송 방지)", type: "ok" }, info: [] };
+      return { status: { text: "이미 처리된 등록 요청입니다.", type: "ok" }, info: [] };
     }
     return null;
   }, [params, failed, authKey, customerKey, base]);
@@ -250,7 +252,7 @@ const RegisterResult = ({ params }) => {
     markDone(authKey);
 
     if (res.ok && !(isJson && data.success === false)) {
-      setStatus({ text: (isJson && data.message) || "카드 등록이 완료되었습니다.", type: "ok" });
+      setStatus({ text: "결제수단 등록이 완료되었습니다.", type: "ok" });
       setInfo([["카드사", isJson ? data.cardCompany : undefined], ["카드번호", isJson ? data.cardNumber : undefined]]);
       return;
     }
@@ -271,6 +273,13 @@ const RegisterResult = ({ params }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 등록이 끝나면(성공) 메시지를 잠깐 보여준 뒤 자동으로 새로고침한다. 오류일 때는 내용을 읽을 수 있도록 그대로 둔다.
+  useEffect(() => {
+    if (status.type !== "ok") return;
+    const timer = setTimeout(goHome, AUTO_REFRESH_MS);
+    return () => clearTimeout(timer);
+  }, [status.type]);
+
   return (
     <div className="panel">
       <h2 className="panel-title">{failed ? "카드 인증 실패" : "카드 인증 결과"}</h2>
@@ -281,7 +290,12 @@ const RegisterResult = ({ params }) => {
 
       <div role="status" aria-live="polite" className="my-5 flex items-start gap-2 text-sm font-medium">
         <span className={`mt-1.5 size-2 shrink-0 rounded-full ${STATUS_DOT[status.type]}`} />
-        <span>{status.text}</span>
+        <span>
+          {status.text}
+          {status.type === "ok" && (
+            <span className="mt-1 block text-xs font-normal text-mute">잠시 후 화면이 새로고침됩니다.</span>
+          )}
+        </span>
       </div>
 
       <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1.5 text-sm">
@@ -302,13 +316,15 @@ const RegisterResult = ({ params }) => {
           서버로 다시 전달
         </button>
       )}
-      <button
-        type="button"
-        onClick={goHome}
-        className="btn-secondary mt-3 w-full"
-      >
-        {status.type === "err" ? "카드 등록 다시 하기" : "처음으로"}
-      </button>
+      {status.type === "err" && (
+        <button
+          type="button"
+          onClick={goHome}
+          className="btn-secondary mt-3 w-full"
+        >
+          카드 등록 다시 하기
+        </button>
+      )}
     </div>
   );
 };
@@ -330,17 +346,17 @@ const CarRegister = () => {
 
   return (
     // 1행: 차량 등록(1열) · 등록 차량 리스트(2열) / 2행(열 통합): 결제내역
-    // 1행 높이는 등록 폼의 내용 높이로 정해지고, 등록 차량 표는 그 칸 안에서 스크롤된다(absolute 로 높이 계산에서 제외).
-    <div className="grid h-full grid-cols-[minmax(0,1fr)_minmax(0,2fr)] grid-rows-[auto_minmax(0,1fr)] gap-4">
-      <div>
+    // 1행과 2행 높이는 1:1. 내용이 칸보다 길면 각 칸 안에서 스크롤된다(등록 차량 표는 absolute 로 높이 계산에서 제외).
+    <div className="grid h-full grid-cols-[minmax(0,1fr)_minmax(0,2fr)] grid-rows-2 gap-4">
+      <div className="min-h-0 overflow-y-auto">
         {isRedirect ? <RegisterResult params={params} /> : <RegisterForm />}
       </div>
       <div className="relative min-h-0">
-        <RegisteredTable className="absolute inset-0" />
+        <CarInfoTable className="absolute inset-0" />
       </div>
       <PaymentResult className="col-span-2" />
     </div>
   );
-};
+};  
 
 export default CarRegister;

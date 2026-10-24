@@ -6,30 +6,29 @@ import { useWebSocket } from '../hooks/useWebSocket';
 
 // 입구/출구 카메라 카드: 사진(남은 높이를 채움, 전체 보이기) 위, 정보(차량번호 · 시각)를 아래에 한 줄로 나란히 둔다.
 // 사진 왼쪽 위에 입구/출구 배지를 겹쳐 표시한다.
-// 사진과 차량정보는 "해당 게이트의 차단기가 열려 있고(gateOpen[gate]) 그 게이트의 사진 경로가 있을 때만" 보이고,
-// 그 외에는 "도착한 차량이 없어요." 와 차량번호·시각 "-" 를 보여준다.
-// TODO: 서버 수정 후 출구 카드는 출차 기록 기준으로 바꾼다 (지금은 두 카드가 같은 최신 기록을 쓴다).
+// 열림 신호(visible_command)가 오면 Provider 가 그 차량의 번호판(gateCar[gate].plate)을 기억하고 기록을 새로 조회한다.
+// 기록(updated_at 내림차순)에서 번호판이 같은 첫 행을 찾아 그 행의 사진·차량번호·시각을 보여준다.
+// 행을 아직 못 찾았거나 사진 경로가 없으면 "대기 중", 보여줄 차량이 없으면 "도착한 차량이 없어요." 와 "-" 를 보여준다.
 const Gate = ({ gate }) => {
 
-  // gateOpen: { entry: boolean, exit: boolean } — Provider 가 visible_command(E/X, O/C) 를 변환해 보관한다.
-  const { records, gateOpen } = useWebSocket();
+  // gateCar: { entry, exit } 각각 null 또는 { plate } — 닫힘 신호가 아니라 시간이 지나면 null 로 돌아간다.
+  const { records, gateCar } = useWebSocket();
 
   const [failedPath, setFailedPath] = useState(null); // 로드에 실패한 이미지 경로
 
-  const latest = records?.at(0);
-  const path = latest?.[`${gate}_image_path`];
-  const hasEvent = Boolean(path); // 경로가 있으면 이벤트가 있었던 것 (이미지 로드 실패와 구분)
-  const isOpen = gateOpen?.[gate] === true;
-  const visible = isOpen && hasEvent; // 사진과 차량정보를 보일지 여부
-  const carNumber = visible ? latest?.[`car_number`] : null;
-  const time = visible ? formatDateTime(gate === "entry" ? latest?.[`entry_time`] : latest?.[`exit_time`]) : null;
+  const shown = gateCar?.[gate] ?? null;
+  // 번호판 검사: 번호판이 같은 첫 행. 서버가 번호판을 보내지 않았다면 가장 최근 행을 쓴다.
+  const car = shown ? (shown.plate ? records?.find((r) => r.car_number === shown.plate) : records?.at(0)) : null;
+  const path = car?.[`${gate}_image_path`];
+  const visible = Boolean(path); // 사진과 차량정보를 보일지 여부
+  const carNumber = visible ? car.car_number : null;
+  const time = visible ? formatDateTime(gate === "entry" ? car.entry_time : car.exit_time) : null;
   const title = gate === "entry" ? "주차장 입구" : "주차장 출구";
   const badge = gate === "entry" ? "입구" : "출구";
   const showImage = visible && failedPath !== path;
-  // 차량을 보이지 않는 동안의 문구. 보이는 상태인데 이미지만 불러오지 못한 경우는 "대기 중" 유지
-  const emptyText = visible ? "대기 중" : "도착한 차량이 없어요.";
+  // 차량이 도착했는데 아직 기록·사진을 못 찾았거나 이미지를 불러오지 못한 경우는 "대기 중"
+  const emptyText = shown ? "대기 중" : "도착한 차량이 없어요.";
 
-  
 
   return (
     <section className="panel" aria-label={title}>
