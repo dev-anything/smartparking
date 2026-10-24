@@ -5,8 +5,6 @@
 // ----------------------------------------------------
 const char* ssid     = "iptime222";
 const char* password = "12345678";
-//const char* ssid     = "TP-Link_DB7C_5G";
-//const char* password = "12345678";
 
 // 초음파 전용 ESP32 고정 IP
 IPAddress local_IP(192, 168, 0, 101);
@@ -23,31 +21,31 @@ WiFiClient client;
 bool isServerAuthenticated = false; // 서버 OK 응답 인증 여부
 
 // ----------------------------------------------------
-// 핀 설정 (3개 구역)
+// 핀 설정 (5개 구역)
 // ----------------------------------------------------
-// Trig 핀 3개
-const int TRIG_PINS[3] = {18, 19, 4};
+// Trig 핀 5개 (사용하는 핀으로 수정 가능)
+const int TRIG_PINS[5] = {18, 19, 4, 4, 18};
 
-// Echo 핀 3개
-const int ECHO_PINS[3] = {5, 17, 16};
+// Echo 핀 5개
+const int ECHO_PINS[5] = {5, 17, 16, 22, 2};
 
-// Red LED 핀 3개
-const int RED_LED_PINS[3]   = {13, 25, 27};
+// Red LED 핀 5개
+const int RED_LED_PINS[5]   = {13, 25, 27, 21, 32};
 
-// Green LED 핀 3개
-const int GREEN_LED_PINS[3] = {14, 26, 33};
+// Green LED 핀 5개
+const int GREEN_LED_PINS[5] = {14, 26, 33, 23, 15};
 
 // ----------------------------------------------------
-// 주차 상태 및 타이머 관리 변수 (3구역)
+// 주차 상태 및 타이머 관리 변수 (5구역)
 // ----------------------------------------------------
-int confirmedStatus[3] = {0, 0, 0};     
-int lastStatus[3]      = {-1, -1, -1}; 
+int confirmedStatus[5] = {0, 0, 0, 0, 0};     
+int lastStatus[5]      = {-1, -1, -1, -1, -1}; 
 
 // 3초 타이머 관련 변수
-unsigned long timerStartTime[3] = {0, 0, 0};
-bool isWaitingTimer[3]          = {false, false, false};
-int waitingTargetStatus[3]      = {0, 0, 0}; 
-unsigned long lastLogTime[3]    = {0, 0, 0};
+unsigned long timerStartTime[5] = {0, 0, 0, 0, 0};
+bool isWaitingTimer[5]          = {false, false, false, false, false};
+int waitingTargetStatus[5]      = {0, 0, 0, 0, 0}; 
+unsigned long lastLogTime[5]    = {0, 0, 0, 0, 0};
 
 // 초음파 거리 측정 함수
 long readDistance(int index) {
@@ -73,9 +71,9 @@ long readDistance(int index) {
   return total / validReadings;
 }
 
-// LED 전체 상태 업데이트 함수 (3구역)
+// LED 전체 상태 업데이트 함수 (5구역)
 void updateLEDs() {
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < 5; i++) {
     if (confirmedStatus[i] == 1) {
       // 주차 있음 -> 빨간색 ON, 초록색 OFF
       digitalWrite(RED_LED_PINS[i], HIGH);
@@ -145,12 +143,12 @@ bool sendStatusData(String payload) {
   return true;
 }
 
-// 시리얼 현황판 출력 (3구역)
+// 시리얼 현황판 출력 (5구역)
 void printDashboard() {
   Serial.print("\n[현재 주차 현황판] [ ");
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < 5; i++) {
     Serial.print(confirmedStatus[i]);
-    if (i < 2) Serial.print(" : ");
+    if (i < 4) Serial.print(" : ");
   }
   Serial.println(" ]");
 }
@@ -158,8 +156,8 @@ void printDashboard() {
 void setup() {
   Serial.begin(115200);
 
-  // 3개 구역 핀 모드 초기화
-  for (int i = 0; i < 3; i++) {
+  // 5개 구역 핀 모드 초기화
+  for (int i = 0; i < 5; i++) {
     pinMode(TRIG_PINS[i], OUTPUT);
     pinMode(ECHO_PINS[i], INPUT);
 
@@ -183,7 +181,7 @@ void setup() {
   }
 
   Serial.println("\n=========================================");
-  Serial.print("★ 3-구역 주차 감지 & LED 노드 준비 완료 (IP: ");
+  Serial.print("★ 5-구역 주차 감지 & LED 노드 준비 완료 (IP: ");
   Serial.print(WiFi.localIP());
   Serial.println(")");
   Serial.println("=========================================");
@@ -208,8 +206,8 @@ void loop() {
 
   unsigned long currentMillis = millis();
 
-  // 1. 3개 초음파 감지 및 3초 필터링 타이머
-  for (int i = 0; i < 3; i++) {
+  // 1. 5개 초음파 감지 및 3초 필터링 타이머
+  for (int i = 0; i < 5; i++) {
     long dist = readDistance(i);
     bool isDetected = (dist > 0 && dist <= 10); // 10cm 이하 감지
     int currentDetectedState = isDetected ? 1 : 0;
@@ -251,9 +249,9 @@ void loop() {
     }
   }
 
-  // 2. 주차 상태 변동 시 C 서버로 3자리 전송 ("1:0:1")
+  // 2. 주차 상태 변동 시 C 서버로 5자리 전송 ("1:0:1:0:0")
   bool isChanged = false;
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < 5; i++) {
     if (confirmedStatus[i] != lastStatus[i]) {
       isChanged = true;
       break;
@@ -263,20 +261,12 @@ void loop() {
   if (isChanged) {
     String payload = String(confirmedStatus[0]) + ":" +
                      String(confirmedStatus[1]) + ":" +
-                     String(confirmedStatus[2]);
+                     String(confirmedStatus[2]) + ":" +
+                     String(confirmedStatus[3]) + ":" +
+                     String(confirmedStatus[4]);
 
     if (sendStatusData(payload)) {
-      for (int i = 0; i < 3; i++) {
-        lastStatus[i] = confirmedStatus[i];
-      }
-    }
-  }
-
-  delay(200); 
-}
-
-    if (sendStatusData(payload)) {
-      for (int i = 0; i < 3; i++) {
+      for (int i = 0; i < 5; i++) {
         lastStatus[i] = confirmedStatus[i];
       }
     }
