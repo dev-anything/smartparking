@@ -27,7 +27,7 @@ bool isServerAuthenticated = false; // 서버 OK 응답 인증 여부
 const int TRIG_PINS[5] = {18, 19, 4, 4, 18};
 
 // Echo 핀 5개
-const int ECHO_PINS[5] = {5, 17, 16, 22, 2};
+const int ECHO_PINS[5] = {5, 17, 16, 2, 22};
 
 // Red LED 핀 5개
 const int RED_LED_PINS[5]   = {13, 25, 27, 21, 32};
