@@ -119,8 +119,8 @@ void processSingleCommand(String cmd) {
     targetEntryAngle = 0;
     Serial.println(" -> [입구 차단기] 닫힘 (0도)");
   } else if (cmd == "X:O") {
-    targetExitAngle = 90;
-    Serial.println(" -> [출구 차단기] 열림 (90도)");
+    targetExitAngle = 80;
+    Serial.println(" -> [출구 차단기] 열림 (80도)");
   } else if (cmd == "X:C") {
     targetExitAngle = 0;
     Serial.println(" -> [출구 차단기] 닫힘 (0도)");
