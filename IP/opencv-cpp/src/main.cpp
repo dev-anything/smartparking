@@ -913,6 +913,7 @@ class Recognizer
                 cv::Point2f(0, RECT_H - 1)
             };
 
+            
             cv::Mat M = cv::getPerspectiveTransform(corners, dst);
             cv::Mat plate;
             cv::warpPerspective(roi_img, plate, M, cv::Size(RECT_W, RECT_H));

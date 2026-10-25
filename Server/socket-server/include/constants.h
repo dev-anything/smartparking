@@ -19,7 +19,7 @@
 // 차량번호 길이 최대 사이즈
 #define PLATE_NUMBER_SIZE 16
 // 대시보드 게이트 상태 명령어 최대 사이즈(E/X + SHOW, HIDE)
-#define VISIBLE_COMMAND_SIZE 16
+#define VISIBLE_COMMAND_SIZE 32
 // 타임스탬프 최대 사이즈
 #define TIMESTAMP_SIZE 32
 

@@ -50,6 +50,7 @@ const connectSocketServer = () => {
       }
       else
       {
+        console.log(`[DEBUG] RECEIVE: ${data}`);
         if (data.startsWith("PAYID:"))  // 결제 요청
         {
           const paymentId = data.slice("PAYID:".length);
