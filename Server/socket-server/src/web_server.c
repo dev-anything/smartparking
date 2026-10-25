@@ -384,7 +384,9 @@ static int send_visible_command(visible_cmd_t* cmd_batch, int size, int fd)
         int len = snprintf(
             packet,
             sizeof(packet),
-            "%c%s%c%s%s\n",
+            "%s%s%c%s%c%s%s\n",
+            VISIBLE_COMMAND,
+            DELIM,
             cmd_batch[i].gate,
             DELIM,
             cmd_batch[i].action,
@@ -400,7 +402,7 @@ static int send_visible_command(visible_cmd_t* cmd_batch, int size, int fd)
             return 0;   // 송신 실패
         }
 
-        printf("[SENT] (fd=%d) 전송: %c%s%c\n", fd, cmd_batch[i].gate, DELIM, cmd_batch[i].action);
+        printf("[SENT] (fd=%d) 전송: %s\n", packet);
     }
     return 1;
 

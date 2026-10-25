@@ -17,7 +17,7 @@ void sensor_data_thread(client_info *info)
     MYSQL *conn = mysql_init(NULL); // MySQL 연결 구조체
     int fd = info->client_fd;       // 소켓 fd 번호
     char buffer[BUFFER_SIZE];       // 수신 데이터 저장 버퍼(개행까지)
-    int status[3] = {0};            // sizeof(status) / sizeof(status[0])
+    int status[5] = {0};            // sizeof(status) / sizeof(status[0])
     int response;                   
     int read_status;
 
@@ -69,9 +69,9 @@ static int insert_parked_status(MYSQL* conn, int* status)
 
     sprintf(
         query_buffer,
-        "INSERT INTO parked_status (id, record_time, area_1, area_2, area_3) "
-        "VALUES (null, curtime(), %d, %d, %d);",
-        status[0], status[1], status[2]
+        "INSERT INTO parked_status (id, record_time, area_1, area_2, area_3, area_4, area_5) "
+        "VALUES (null, curtime(), %d, %d, %d, %d, %d);",
+        status[0], status[1], status[2], status[3], status[4]
     );
 
     return (run_nonselect_query(conn, query_buffer));
