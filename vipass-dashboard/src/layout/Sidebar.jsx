@@ -16,12 +16,12 @@ const menu = [
     name: "차량 등록/관리",
     icon: CarFront
   },
-  {
-    id: 3,
-    url: "/ai",
-    name: "VIPASS AI",
-    icon: Sparkles
-  }
+  //{
+  //  id: 3,
+  //  url: "/ai",
+  //  name: "VIPASS AI",
+  //  icon: Sparkles
+  //}
 ];
 
 // 왼쪽 고정 사이드바(220px, 검정): 로고(위) · 메뉴(세로) · 로그아웃(맨 아래)
