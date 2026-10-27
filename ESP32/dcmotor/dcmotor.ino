@@ -1,9 +1,6 @@
 #include <LiquidCrystal_I2C.h>
-
 #include <WiFi.h>                   // WIFI 통신
 #include <Wire.h>                   // I2C
-// #include <LiquidCrystal_PCF8574.h>  // 주소 설정 없이 LCD 2개 사용
-// #include <LiquidCrystal_I2C_Hangul.h> // LCD에 한글 사용
 #include <Arduino.h>                // 세마포어
 
 // === 모터 ===
@@ -57,17 +54,12 @@ class Motor
     int in1_;
     int in2_;
     int enable_;
-//     #define SPEED 200
-// #define KICK_SPEED 255
-// #define KICK_TIME 400
-// #define MIN_ROTATE 0
-// #define MAX_ROTATE 2000 // 모터 50 -> 5바퀴 62516ms -> 1바퀴 12503 -> 1/4(90도) 3125
 
-    const int speed_ = 100;
+    const int speed_ = 40;
     const int kick_speed_ = 255;
-    const int kick_time_ = 400;
+    const int kick_time_ = 100;
     const int min_rotate_ = 0;
-    const int max_rotate_ = 3000;
+    const int max_rotate_ = 800;
 
     void open()
     {
@@ -399,12 +391,12 @@ class Gateclient
 
     bool connect_begin()
     {
-      // === WIFI / 서버 설정 ===
-      if (!WiFi.config(wifi_ip_, wifi_gateway_, wifi_subnet_, wifi_dns_))
-      {
-        Serial.println("고정 IP 설정 실패");
-        return false;
-      }
+      // // === WIFI / 서버 설정 ===
+      // if (!WiFi.config(wifi_ip_, wifi_gateway_, wifi_subnet_, wifi_dns_))
+      // {
+      //   Serial.println("고정 IP 설정 실패");
+      //   return false;
+      // }
 
       WiFi.begin(wifi_ssid_, wifi_password_);
 
@@ -438,10 +430,10 @@ class Gateclient
 
   private:
     // === WIFI ===
-    const char* wifi_ssid_ = "iptime222";
-    const char* wifi_password_ = "12345678";
-    // const char* wifi_ssid_ = "TP-Link_DB7C_5G";
+    // const char* wifi_ssid_ = "iptime222";
     // const char* wifi_password_ = "12345678";
+    const char* wifi_ssid_ = "TP-Link_DB7C";
+    const char* wifi_password_ = "12345678";
     IPAddress wifi_ip_ = IPAddress(192, 168, 0, 100);
     IPAddress wifi_gateway_ = IPAddress(192, 168, 0, 1);
     IPAddress wifi_subnet_ = IPAddress(255, 255, 255, 0);
