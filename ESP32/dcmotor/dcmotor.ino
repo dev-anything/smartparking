@@ -432,8 +432,10 @@ class Gateclient
     // === WIFI ===
     // const char* wifi_ssid_ = "iptime222";
     // const char* wifi_password_ = "12345678";
-    const char* wifi_ssid_ = "TP-Link_DB7C";
-    const char* wifi_password_ = "12345678";
+    // const char* wifi_ssid_ = "TP-Link_DB7C";
+    // const char* wifi_password_ = "12345678";
+    const char* wifi_ssid_ = "5G500_000250_2.4GHz";
+    const char* wifi_password_ = "@22971178";
     IPAddress wifi_ip_ = IPAddress(192, 168, 0, 100);
     IPAddress wifi_gateway_ = IPAddress(192, 168, 0, 1);
     IPAddress wifi_subnet_ = IPAddress(255, 255, 255, 0);
@@ -442,7 +444,8 @@ class Gateclient
     bool isServerAuthenticated = false;
 
     // === SERVER / PORT ===
-    const char* server_ip_ = "192.168.0.7";
+    // const char* server_ip_ = "192.168.0.7";
+    const char* server_ip_ = "192.168.10.107";
     const int server_port_ = 10000;
 
     bool connectAndAuthenticateServer()

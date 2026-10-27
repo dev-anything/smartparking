@@ -3,8 +3,11 @@
 // ----------------------------------------------------
 // 네트워크 및 C 서버 설정
 // ----------------------------------------------------
-const char* ssid     = "iptime222";
-const char* password = "12345678";
+// const char* ssid     = "iptime222";
+// const char* password = "12345678";
+const char* ssid = "5G500_000250_2.4GHz";
+const char* password = "@22971178";
+
 
 // 초음파 전용 ESP32 고정 IP
 IPAddress local_IP(192, 168, 0, 101);
@@ -13,7 +16,7 @@ IPAddress subnet(255, 255, 255, 0);
 IPAddress primaryDNS(8, 8, 8, 8);
 
 // C 서버 IP 및 포트 (192.168.0.7 / 10000)
-const char* serverIP = "192.168.0.7"; 
+const char* serverIP = "192.168.10.107"; 
 const int serverPort = 10000;          
 
 // 지속 연결을 위한 전역 소켓 객체
@@ -170,9 +173,9 @@ void setup() {
   }
 
   // Wi-Fi 연결 설정
-  if (!WiFi.config(local_IP, gateway, subnet, primaryDNS)) {
-    Serial.println("고정 IP 설정 실패!");
-  }
+  // if (!WiFi.config(local_IP, gateway, subnet, primaryDNS)) {
+  //   Serial.println("고정 IP 설정 실패!");
+  // }
 
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
