@@ -24,7 +24,7 @@ bool isServerAuthenticated = false; // 서버 OK 응답 인증 여부
 // 핀 설정 (5개 구역)
 // ----------------------------------------------------
 // Trig 핀 5개 (사용하는 핀으로 수정 가능)
-const int TRIG_PINS[5] = {18, 19, 4, 4, 18};
+const int TRIG_PINS[5] = {4, 19, 4, 18, 18};
 
 // Echo 핀 5개
 const int ECHO_PINS[5] = {5, 17, 16, 2, 22};
