@@ -65,9 +65,11 @@ const Parkinglot = () => {
             </div>
           </div>
 
-          {/* 하단: 출구 차단기(왼쪽) / 입구 차단기(오른쪽). 기둥은 바깥쪽, 막대는 가운데 쪽으로 뻗는다 */}
+          {/* 하단: 출구 차단기(왼쪽) / 입구 차단기(오른쪽). 기둥은 바깥쪽, 막대는 가운데 쪽으로 뻗는다.
+              출구 차단기 UI 는 현재 숨김(주석 처리). 입구 차단기가 원래 자리(오른쪽 절반)에 남도록 빈 칸으로 대체한다 */}
           <div className="flex shrink-0 gap-6">
-            <Barrier label="↓ 출구" open={gateOpen?.exit === true} side="left" />
+            {/* <Barrier label="↓ 출구" open={gateOpen?.exit === true} side="left" /> */}
+            <div className="min-w-0 flex-1" aria-hidden="true" />
             <Barrier label="입구 ↑" open={gateOpen?.entry === true} side="right" />
           </div>
         </div>

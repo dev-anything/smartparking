@@ -17,8 +17,8 @@
 #define SCL 22
 // #define O_SDA 18
 // #define O_SCL 19
-#define E_ADDR 0x27
-#define O_ADDR 0x26
+#define E_ADDR 0x26
+#define O_ADDR 0x27
 
 
 struct Data
@@ -55,11 +55,11 @@ class Motor
     int in2_;
     int enable_;
 
-    const int speed_ = 40;
+    const int speed_ = 200;
     const int kick_speed_ = 255;
-    const int kick_time_ = 100;
+    const int kick_time_ = 500;
     const int min_rotate_ = 0;
-    const int max_rotate_ = 800;
+    const int max_rotate_ = 1000;
 
     void open()
     {
@@ -391,7 +391,7 @@ class Gateclient
 
     bool connect_begin()
     {
-      // // === WIFI / 서버 설정 ===
+      // === WIFI / 서버 설정 ===
       // if (!WiFi.config(wifi_ip_, wifi_gateway_, wifi_subnet_, wifi_dns_))
       // {
       //   Serial.println("고정 IP 설정 실패");
@@ -430,12 +430,10 @@ class Gateclient
 
   private:
     // === WIFI ===
-    // const char* wifi_ssid_ = "iptime222";
-    // const char* wifi_password_ = "12345678";
+    const char* wifi_ssid_ = "iptime222";
+    const char* wifi_password_ = "12345678";
     // const char* wifi_ssid_ = "TP-Link_DB7C";
     // const char* wifi_password_ = "12345678";
-    const char* wifi_ssid_ = "5G500_000250_2.4GHz";
-    const char* wifi_password_ = "@22971178";
     IPAddress wifi_ip_ = IPAddress(192, 168, 0, 100);
     IPAddress wifi_gateway_ = IPAddress(192, 168, 0, 1);
     IPAddress wifi_subnet_ = IPAddress(255, 255, 255, 0);
@@ -444,8 +442,7 @@ class Gateclient
     bool isServerAuthenticated = false;
 
     // === SERVER / PORT ===
-    // const char* server_ip_ = "192.168.0.7";
-    const char* server_ip_ = "192.168.10.107";
+    const char* server_ip_ = "192.168.0.7";
     const int server_port_ = 10000;
 
     bool connectAndAuthenticateServer()
@@ -550,3 +547,30 @@ void loop() {
     }
   }  
 }
+
+
+
+// -------------
+
+
+// #define O_IN1 17
+// #define O_IN2 16
+// #define O_ENABLE 4
+
+
+// void setup()
+// {
+//   pinMode(O_IN1, OUTPUT);
+//   pinMode(O_IN2, OUTPUT);
+//   pinMode(O_ENABLE, OUTPUT);
+//   digitalWrite(O_IN1, HIGH);
+//   digitalWrite(O_IN2, LOW);
+//   analogWrite(O_ENABLE, 0);
+//   delay(1000);
+//   analogWrite(O_ENABLE, 255);
+// }
+
+// void loop()
+// {
+//   //
+// }
