@@ -7,8 +7,8 @@
 // 이미지 전처리 관련 상수값
 #define BLUR_KERNEL_SIZE 7
 #define BLUR_SIGMA 1.7
-#define CANNY_LOW 40
-#define CANNY_HIGH 130
+#define CANNY_LOW 200
+#define CANNY_HIGH 430
 #define MORPH_KERNEL 3
 #define MORPH_ITER 2
 
@@ -88,7 +88,7 @@ cv::Mat preprocess_canny(const cv::Mat& original)
 int main()
 {
     // 열기
-    cv::VideoCapture cap(0, cv::CAP_V4L2);
+    cv::VideoCapture cap(1, cv::CAP_V4L2);
 
     
     // 세팅
