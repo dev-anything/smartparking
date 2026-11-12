@@ -1645,7 +1645,7 @@ int main()
     bool SHOW_DISPLAY = true;
 
     // 인식모드 / 대기모드 설정 변수
-    bool recognizing = false;
+    bool recognizing = true;
     
     Camera entry({ "entry", ENTRY_CAM_INDEX, roi, "criteria/roi_entry.png", Gate::ENTRY });
     Camera exit({ "exit", EXIT_CAM_INDEX, roi, "criteria/roi_exit.png", Gate::EXIT });

@@ -50,7 +50,7 @@ void plate_number_thread(client_info *info)
 
         if (read_status)
         {
-            printf("[RECEIVED] 수신 데이터: %s\n", buffer);
+            printf("[RECEIVED] (fd=%d) 수신 데이터: %s\n", info->client_fd, buffer);
             //char command_buffer[BUFFER_SIZE] = {0};
 
             if (!parse_plate_data(buffer, &gate, &action, plate, image_path, timestamp))
@@ -69,11 +69,14 @@ void plate_number_thread(client_info *info)
 
             if (gate == GATE_ENTRY && action == GATE_OPEN)        // 입구 + 열림 처리: insert, 대시보드에 차량정보 띄우기(SHOW)
             {
-                insert_record(conn, plate, image_path, timestamp);
+                if (insert_record(conn, plate, image_path, timestamp))  // 성공 시 0 반환
+                {
+                    printf("[FAILED] 차량정보 저장 실패.\n");
+                }
             }
             else if (gate == GATE_ENTRY && action == GATE_CLOSE)  // 입구 + 닫힘 처리: 대시보드에서 차량정보 제거(HIDE)
             {
-                
+                // 특정 동작 없음
             }
             else if (gate == GATE_EXIT && action == GATE_OPEN)    // 출구 + 열림 처리: select - update, 대시보드에 차량정보 띄우기(SHOW)
             {
@@ -99,7 +102,7 @@ void plate_number_thread(client_info *info)
             }
             else if (gate == GATE_EXIT && action == GATE_CLOSE)   // 출구 + 닫힘 처리: 대시보드에서 차량정보 제거(HIDE)
             {
-                
+                // 특정 동작 없음
             }
             //// 일단 4가지 상황 한번에 처리
             //sprintf(
