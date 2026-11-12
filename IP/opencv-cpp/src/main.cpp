@@ -24,9 +24,10 @@
 #include <condition_variable>
 
 #include "constants.h"
+#include "data.h"
 
 
-typedef std::chrono::system_clock::time_point Time;
+
 
 namespace
 {
@@ -73,27 +74,14 @@ namespace
         return preprocessed;
     }
 
-    enum class Gate { ENTRY, EXIT };
-    enum class Action { OPEN, CLOSE };
+    
 
     inline char to_code(Gate g)   { return g == Gate::ENTRY ? 'E' : 'X'; }
     inline char to_code(Action a) { return a == Action::OPEN ? 'O' : 'C'; }
     
-    struct PlateResult
-    {
-        std::string plate;
-        float confidence = 0.0f;
-        bool valid = false;
-    };
+    
 
-    struct Vote
-    {
-        int count = 0;
-        float best_conf = 0.0f;
-        std::size_t best_frame = 0;
-    };
-
-    typedef std::map<std::string, Vote> Votebox;
+    
 
     // ROI 박스 선언
     //const cv::Rect roi(cv::Point(FRAME_WIDTH * 0.1,  FRAME_HEIGHT * 0.0),
@@ -236,29 +224,7 @@ namespace
     
 }
 
-// 차량 1대의 캡쳐본 묶음
-struct VehicleCapture
-{
-    Gate gate = Gate::ENTRY;
-    Action action = Action::OPEN;
-    std::string camera;
-    std::uint64_t id;
-    Time time;
-    std::vector<cv::Mat> frames;
-};
 
-struct RecogResult
-{
-    std::string camera;
-    Gate gate = Gate::ENTRY;
-    Action action = Action::OPEN;
-    std::uint64_t id = 0;
-    Time time;
-    std::string plate;
-    float confidence = 0.0f;
-    bool valid = false;
-    cv::Mat captured;
-};
 
 // 시각 → "2026-10-19 11:56:03"
 inline std::string format_time(const Time& t)
@@ -285,7 +251,7 @@ inline std::string describe(const RecogResult& rr)
 }
 
 
-enum class PopResult { ITEM, TIMEOUT, CLOSED };
+
 
 // 스레드 간 공유 배열: 고정 크기 원형 큐
 template <typename T, std::size_t N>
@@ -354,15 +320,7 @@ class DataQueue
 typedef DataQueue<VehicleCapture, 20> VehicleQueue;
 typedef DataQueue<RecogResult, 100> ResultQueue;
 
-// 카메라 1개 설정값
-struct CameraConfig
-{
-    std::string name;           // "entry" or "exit"
-    int index;                  // 카메라 인덱스
-    cv::Rect roi;               // 차영상 기준 ROI 영역 좌표
-    std::string criteria_path;  // 기준 프레임 경로
-    Gate gate;
-};
+
 
 class OCRModel
 {
@@ -586,7 +544,7 @@ class Recognizer
         };
         struct PlateColor
         {
-            const char* name;
+            std::string name;
             cv::Scalar  lower;   // HSV 하한
             cv::Scalar  upper;   // HSV 상한
             cv::Scalar  draw;    // 결과 표시용 BGR 색
@@ -654,6 +612,7 @@ class Recognizer
 
                 Votebox votes;  // 차량마다 새 투표함
                 std::vector<cv::Mat> cands_img;
+                std::map<std::string, cv::Mat> best_rectified;
 
                 for (size_t i = 0; i < vc.frames.size(); i++)
                 {
@@ -690,7 +649,13 @@ class Recognizer
                         // 번호판 인식
                         PlateResult res = ocr_m_.recognize(rectified);
 
-                        std::cout << "[DEBUG] (검사 전) 추출된 번호판 텍스트: " << res.plate << std::endl;
+                        //double ratio = 0.0;
+                        //int color = classify_plate_color(rectified);
+
+                        //std::cout << "[DEBUG] (검사 전) 추출된 번호판 텍스트: " << res.plate << std::endl;
+                        //std::cout << "[DEBUG] 텍스트: " << res.plate
+                        //          << " | 색: " << (color >= 0 ? PLATE_COLORS[color].name : "unknown")
+                        //          << std::endl;
 
                         // 유효한 번호판이 아님
                         if (!res.valid) continue;
@@ -702,11 +667,12 @@ class Recognizer
                         {
                             v.best_conf = res.confidence;
                             v.best_frame = i;
+                            v.best_rectified = rectified;
                         }
                     }
-                    static int c = 1000;
-                    cv::imwrite(cv::format("detected/captured_%d.png", c), display);
-                    c++;
+                    static int cc = 1000;
+                    cv::imwrite(cv::format("detected/captured_%d.png", cc), display);
+                    cc++;
                     cands_img.push_back(display);
                 }
 
@@ -716,6 +682,16 @@ class Recognizer
                 cv::Mat candidates_copy;
                 if (best_frame_idx < cands_img.size()) candidates_copy = cands_img[best_frame_idx];
 
+                if (rec.valid)
+                {
+                    //double ratio = 0.0;
+                    const Vote& w = votes.at(rec.plate);    // 승자 번호판의 Vote 구조체
+                    int color = classify_plate_color(w.best_rectified);
+                    std::cout << "[CLASSIFIED] " << rec.plate << " → "
+                              << (color >= 0 ? PLATE_COLORS[color].name : "unknown")
+                              << std::endl;
+                }
+
                 mtx_.lock();
                 latest_candidates_ = candidates_copy;
                 cur_cands_seq_++;
@@ -724,6 +700,7 @@ class Recognizer
                 //cv::imshow("Candidates", rec.)
                 // 드디어 저장 씨빨
                 //if (rec.plate == "UNKNOWN")
+                
                 result_q_.push(std::move(rec));
             }
         }
@@ -782,79 +759,79 @@ class Recognizer
             return cands;
         }
 
-        std::vector<PlateCandidate> detect_by_color(const cv::Mat& frame)
-        {
-            std::vector<PlateCandidate> cands;
-            cv::Mat hsv;
+        //std::vector<PlateCandidate> detect_by_color(const cv::Mat& frame)
+        //{
+        //    std::vector<PlateCandidate> cands;
+        //    cv::Mat hsv;
 
-            cv::cvtColor(frame, hsv, cv::COLOR_BGR2HSV);
+        //    cv::cvtColor(frame, hsv, cv::COLOR_BGR2HSV);
 
-            const cv::Mat fill_kernel = cv::getStructuringElement(
-                cv::MORPH_RECT,
-                cv::Size(FILL_MORPH_KERNEL, FILL_MORPH_KERNEL)
-            );
+        //    const cv::Mat fill_kernel = cv::getStructuringElement(
+        //        cv::MORPH_RECT,
+        //        cv::Size(FILL_MORPH_KERNEL, FILL_MORPH_KERNEL)
+        //    );
 
-            const double min_area = PLATE_MIN_WIDTH * PLATE_MIN_WIDTH * PLATE_MIN_RATIO;
-            const double max_area = PLATE_MAX_WIDTH * PLATE_MAX_WIDTH * PLATE_MAX_RATIO;
+        //    const double min_area = PLATE_MIN_WIDTH * PLATE_MIN_WIDTH * PLATE_MIN_RATIO;
+        //    const double max_area = PLATE_MAX_WIDTH * PLATE_MAX_WIDTH * PLATE_MAX_RATIO;
 
-            // 각 색상별로 필터링
-            for (int ci = 0; ci < NUM_COLORS; ci++)
-            {
-                // 1. 바탕색 마스크
-                cv::Mat color_mask;
-                cv::inRange(hsv, PLATE_COLORS[ci].lower, PLATE_COLORS[ci].upper, color_mask);
+        //    // 각 색상별로 필터링
+        //    for (int ci = 0; ci < NUM_COLORS; ci++)
+        //    {
+        //        // 1. 바탕색 마스크
+        //        cv::Mat color_mask;
+        //        cv::inRange(hsv, PLATE_COLORS[ci].lower, PLATE_COLORS[ci].upper, color_mask);
 
-                // 2. 닫힘 연산
-                cv::Mat filled;
-                cv::morphologyEx(color_mask, filled, cv::MORPH_CLOSE, fill_kernel);
+        //        // 2. 닫힘 연산
+        //        cv::Mat filled;
+        //        cv::morphologyEx(color_mask, filled, cv::MORPH_CLOSE, fill_kernel);
 
-                // 3. 덩어리의 바깥 윤곽선 찾기
-                std::vector<std::vector<cv::Point>> contours;
-                cv::findContours(filled, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+        //        // 3. 덩어리의 바깥 윤곽선 찾기
+        //        std::vector<std::vector<cv::Point>> contours;
+        //        cv::findContours(filled, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
-                for (const auto& contour: contours)
-                {
-                    if (contour.size() < 4) continue;   // 윤곽선 좌표가 4개 미만이면 의미 없음
+        //        for (const auto& contour: contours)
+        //        {
+        //            if (contour.size() < 4) continue;   // 윤곽선 좌표가 4개 미만이면 의미 없음
                 
-                    cv::RotatedRect rr = cv::minAreaRect(contour);
-                    double w = std::max(rr.size.width, rr.size.height);
-                    double h = std::min(rr.size.width, rr.size.height);
+        //            cv::RotatedRect rr = cv::minAreaRect(contour);
+        //            double w = std::max(rr.size.width, rr.size.height);
+        //            double h = std::min(rr.size.width, rr.size.height);
 
-                    // 0으로 나눌 수 없도록 점검
-                    if (w < 1.0) continue;
+        //            // 0으로 나눌 수 없도록 점검
+        //            if (w < 1.0) continue;
 
-                    double area = w * h;
-                    double ratio = h / w;
+        //            double area = w * h;
+        //            double ratio = h / w;
 
 
-                    // 1. 넓이 조건 걸러내기
-                    if (area < min_area || area > max_area) continue;
+        //            // 1. 넓이 조건 걸러내기
+        //            if (area < min_area || area > max_area) continue;
 
-                    // 2. 너비 조건 걸러내기
-                    if (w < PLATE_MIN_WIDTH || w > PLATE_MAX_WIDTH) continue;
+        //            // 2. 너비 조건 걸러내기
+        //            if (w < PLATE_MIN_WIDTH || w > PLATE_MAX_WIDTH) continue;
 
-                    // 3. 비율 조건 걸러내기
-                    if (ratio < PLATE_MIN_RATIO || ratio > PLATE_MAX_RATIO) continue;
+        //            // 3. 비율 조건 걸러내기
+        //            if (ratio < PLATE_MIN_RATIO || ratio > PLATE_MAX_RATIO) continue;
 
-                    // 4. 채움 비율 조건 검사
-                    cv::Point2f pts[4];
-                    rr.points(pts);
-                    double fill = fill_ratio(color_mask, pts);
-                    if (fill < PLATE_MIN_FILL || fill > PLATE_MAX_FILL) continue;
+        //            // 4. 채움 비율 조건 검사
+        //            cv::Point2f pts[4];
+        //            rr.points(pts);
+        //            double fill = fill_ratio(color_mask, pts);
+        //            if (fill < PLATE_MIN_FILL || fill > PLATE_MAX_FILL) continue;
 
-                    // 5. 꼭짓점 정렬 후 저장
-                    PlateCandidate cand;
-                    if (!order_corners(pts, cand.corners)) continue;
-                    cand.w = w;
-                    cand.h = h;
-                    cand.area = w * h;
-                    cand.ratio = h / w;
-                    cands.push_back(cand);
+        //            // 5. 꼭짓점 정렬 후 저장
+        //            PlateCandidate cand;
+        //            if (!order_corners(pts, cand.corners)) continue;
+        //            cand.w = w;
+        //            cand.h = h;
+        //            cand.area = w * h;
+        //            cand.ratio = h / w;
+        //            cands.push_back(cand);
 
-                }
-            }
-            return cands;
-        }
+        //        }
+        //    }
+        //    return cands;
+        //}
         // 꼭짓점 4개를 좌상, 우상, 우하, 좌하 순서로 정렬 (실패 시 false)
         bool order_corners(const cv::Point2f in[4], cv::Point2f out[4])
         {
@@ -969,6 +946,42 @@ class Recognizer
             return rec;
         }
 
+        int classify_plate_color(const cv::Mat& rectified)
+        {
+            if (rectified.empty()) return -1;   // 크롭 비어있으면
+
+            int mx = rectified.cols / 10;
+            int my = rectified.rows / 10;
+
+            // 상하좌우 10%씩 제외(불필요 픽셀 줄이기)
+            cv::Mat inner = rectified(cv::Rect(mx, my, rectified.cols - 2 * mx, rectified.rows - 2 * my));
+
+            // 노이즈 완화(블러), HSV로 변환
+            cv::Mat blurred, hsv;
+            cv::GaussianBlur(inner, blurred, cv::Size(5, 5), 0);
+            cv::cvtColor(blurred, hsv, cv::COLOR_BGR2HSV);
+
+            // 이미지 전체 픽셀 개수
+            const double total_pixel = static_cast<double>(hsv.total());
+            int best = -1;  // 색상 인덱스(PLATE_COLOR)
+            double best_r = 0.0;    // 비율 계산용
+
+            for (int ci = 0; ci < NUM_COLORS; ci++)
+            {
+                cv::Mat mask;
+                cv::inRange(hsv, PLATE_COLORS[ci].lower, PLATE_COLORS[ci].upper, mask);
+                double r = cv::countNonZero(mask) / total_pixel;
+
+                if (r > best_r)
+                {
+                    best_r = r;
+                    best = ci;
+                }
+            }
+
+            std::cout << "[CLASSIFIED] 바탕색 분류 완료: " << PLATE_COLORS[best].name << std::endl;
+            return best;
+        }
 };
 
 class Passtracker
@@ -1630,9 +1643,6 @@ class Recorder
             return true;
         }
 };
-
-
-
 
 
 int main()
