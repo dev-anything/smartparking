@@ -122,9 +122,6 @@ const sendPaymentInfo = async (dataList) => {
 
 };
 
-//const handlePI = () => {};
-
-
 
 // 소켓 서버로 결제 완료 정보 보내기
 const sendPaymentResult = (dataList) => {
