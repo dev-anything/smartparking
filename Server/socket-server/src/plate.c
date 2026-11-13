@@ -11,7 +11,7 @@
 #include "net_util.h"
 #include "web_server.h"
 
-static int parse_plate_data(const char* buf, char* gate, char* action, char* plate, char* image_path, char* timestamp);
+static int parse_plate_data(const char* buf, char* gate, char* action, char* plate, char* image_path, char* timestamp, char* plate_color);
 static int insert_record(MYSQL* conn, const char* plate_number, const char* image_path, const char* timestamp);
 static int select_payment_id(MYSQL* conn, const char* plate_number, char* id);
 static int update_records(MYSQL* conn, const char* id, const char* image_path, const char* timestamp);
@@ -27,6 +27,7 @@ void plate_number_thread(client_info *info)
     char plate[PLATE_NUMBER_SIZE] = {0};  // 번호판 텍스트
     char image_path[BUFFER_SIZE] = {0};   // 캡쳐 이미지 경로
     char timestamp[TIMESTAMP_SIZE] = {0}; // 타임스탬프
+    char plate_color[COLOR_SIZE] = {0};
     int read_status = 0;                  // 개행까지 잘 읽었는지 판단
 
     if (!(mysql_real_connect(conn, MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DB, 3306, NULL, 0)))
@@ -53,7 +54,7 @@ void plate_number_thread(client_info *info)
             printf("[RECEIVED] (fd=%d) 수신 데이터: %s\n", info->client_fd, buffer);
             //char command_buffer[BUFFER_SIZE] = {0};
 
-            if (!parse_plate_data(buffer, &gate, &action, plate, image_path, timestamp))
+            if (!parse_plate_data(buffer, &gate, &action, plate, image_path, timestamp, plate_color))
             {
                 fprintf(stderr, "[ERROR] 잘못된 형식: %s\n", buffer);
                 mysql_close(conn);
@@ -131,7 +132,7 @@ void plate_number_thread(client_info *info)
 }
 
 
-static int parse_plate_data(const char* buf, char* gate, char* action, char* plate, char* image_path, char* timestamp)
+static int parse_plate_data(const char* buf, char* gate, char* action, char* plate, char* image_path, char* timestamp, char* plate_color)
 {
     char* token = NULL;
     char* next_token = NULL;
@@ -147,7 +148,7 @@ static int parse_plate_data(const char* buf, char* gate, char* action, char* pla
 
     token = strtok_r(buf, DELIM, &next_token);
 
-    while (idx < 5)
+    while (idx < 6)
     {
         // 게이트 정보
         if (idx == 0) *gate = token[0];
@@ -159,6 +160,8 @@ static int parse_plate_data(const char* buf, char* gate, char* action, char* pla
         else if (idx == 3) strcpy(image_path, token);
         // 타임스탬프
         else if (idx == 4) strcpy(timestamp, token);
+        // 번호판 바탕색
+        else if (idx == 5) strcpy(plate_color, token);
 
         token = strtok_r(NULL, DELIM, &next_token);
         idx++;
