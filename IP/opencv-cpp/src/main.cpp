@@ -224,7 +224,17 @@ namespace
     
 }
 
-
+inline std::string to_color_string(PlateColor c)
+{
+    switch (c)
+    {
+        case PlateColor::WHITE: return "white";
+        case PlateColor::YELLOW: return "yellow";
+        case PlateColor::GREEN: return "green";
+        case PlateColor::BLUE: return "blue";
+        default: return "unknown";
+    }
+}
 
 // 시각 → "2026-10-19 11:56:03"
 inline std::string format_time(const Time& t)
@@ -542,14 +552,14 @@ class Recognizer
             double w, h, area, ratio;
             //DetectMethod method;
         };
-        struct PlateColor
+        struct PlateColorHsv
         {
             std::string name;
             cv::Scalar  lower;   // HSV 하한
             cv::Scalar  upper;   // HSV 상한
             cv::Scalar  draw;    // 결과 표시용 BGR 색
         };
-        const PlateColor PLATE_COLORS[NUM_COLORS] = {
+        const PlateColorHsv PLATE_COLORS[NUM_COLORS] = {
             {
                 "white",
                 cv::Scalar(WHITE_H_MIN,  WHITE_S_MIN,  WHITE_V_MIN),
@@ -686,10 +696,11 @@ class Recognizer
                 {
                     //double ratio = 0.0;
                     const Vote& w = votes.at(rec.plate);    // 승자 번호판의 Vote 구조체
-                    int color = classify_plate_color(w.best_rectified);
+                    rec.plate_color = classify_plate_color(w.best_rectified);
                     std::cout << "[CLASSIFIED] " << rec.plate << " → "
-                              << (color >= 0 ? PLATE_COLORS[color].name : "unknown")
-                              << std::endl;
+                              << to_color_string(rec.plate_color) << std::endl;
+                    
+                    
                 }
 
                 mtx_.lock();
@@ -946,9 +957,9 @@ class Recognizer
             return rec;
         }
 
-        int classify_plate_color(const cv::Mat& rectified)
+        PlateColor classify_plate_color(const cv::Mat& rectified)
         {
-            if (rectified.empty()) return -1;   // 크롭 비어있으면
+            if (rectified.empty()) return PlateColor::UNKNOWN;   // 크롭 비어있으면
 
             int mx = rectified.cols / 10;
             int my = rectified.rows / 10;
@@ -980,7 +991,7 @@ class Recognizer
             }
 
             std::cout << "[CLASSIFIED] 바탕색 분류 완료: " << PLATE_COLORS[best].name << std::endl;
-            return best;
+            return static_cast<PlateColor>(best);
         }
 };
 
@@ -1589,20 +1600,23 @@ class Recorder
 
                 // 2. 서버 송신 패킷 만들기
                 //  - 서버랑 규약 통일하기
-                // 순서 -> 게이트:상태:번호판:이미지경로:시간텍스트
+                // 순서 -> 게이트:상태:번호판:이미지경로:시간텍스트:번호판바탕색
                 std::string plate = rr.plate.empty() ? "-" : rr.plate;
                 std::string img_path = path.empty() ? "-" : path;
-                std::string packet;
-                packet = std::string(1, to_code(rr.gate)) +
-                         ":" +
-                         to_code(rr.action) +
-                         ":" +
-                         plate +
-                         ":" +
-                         img_path +
-                         ":" +
-                         make_stamp(rr.time) +
-                         "\n";
+                std::string color = to_color_string(rr.plate_color);
+                std::string packet = 
+                    std::string(1, to_code(rr.gate)) +
+                    DELIM +
+                    to_code(rr.action) +
+                    DELIM +
+                    plate +
+                    DELIM +
+                    img_path +
+                    DELIM +
+                    make_stamp(rr.time) +
+                    DELIM +
+                    color +
+                    "\n";
 
                 // 3. 송신
                 //  - send

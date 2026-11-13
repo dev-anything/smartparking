@@ -5,6 +5,7 @@ typedef std::chrono::system_clock::time_point Time;
 enum class Gate { ENTRY, EXIT };
 enum class Action { OPEN, CLOSE };
 enum class PopResult { ITEM, TIMEOUT, CLOSED };
+enum class PlateColor { UNKNOWN = -1, WHITE, YELLOW, GREEN, BLUE };
 
 // 카메라 1개 설정값
 struct CameraConfig
@@ -57,4 +58,5 @@ struct RecogResult
     float confidence = 0.0f;
     bool valid = false;
     cv::Mat captured;
+    PlateColor plate_color = PlateColor::UNKNOWN;
 };

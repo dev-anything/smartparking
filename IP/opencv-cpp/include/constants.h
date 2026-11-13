@@ -32,6 +32,8 @@
 #define SERVER_PORT 10000
 #define BUFFER_SIZE 1024
 
+#define DELIM ":"
+
 // 차영상 기준값
 #define DIFF_THRESHOLD 50  // 픽셀 밝기 차이 기준값(이 이상이면 감지)
 #define DILATE_ITER 2       // 덩어리 이어붙임 횟수
