@@ -8,6 +8,8 @@ const { selectPaymentInfo } = require("./db");
 
 const { billingKeyDecrypt } = require("./billingCrypto");
 
+const { CHARGE_PER_SEC, CHARGE_DISCOUNT_RATE } = require("./constants");
+
 const handlePayment = async (id) => {
   try {
     console.log(`[RECEIVED] 결제 요청 ID: ${id}`);
@@ -26,6 +28,7 @@ const handlePayment = async (id) => {
       requested_at,
       approved_at,
       amount,
+      discount_rate,
     } = await requestPayment(paymentInfo);
 
     paymentResult.car_number = paymentInfo.carNumber;
@@ -35,7 +38,6 @@ const handlePayment = async (id) => {
   } catch (err) {
     console.error(`[ERROR] 결제 오류 발생: ${err.message}`);
   }
-
 };
 
 // 결제 정보 가져오기
@@ -43,12 +45,13 @@ const getPaymentInfo = async (id) => {
   const selectedPaymentInfo = await selectPaymentInfo(id);
 
   const paymentInfo = {
-    "amount": selectedPaymentInfo.stay_time * 100, // 초당 100원
+    "amount": selectedPaymentInfo.stay_time * CHARGE_PER_SEC, // 초당 100원
     "billing_key": selectedPaymentInfo.billing_key,
     "customer_key": selectedPaymentInfo.customer_key,
     "orderId": crypto.randomUUID(),
     "orderName": `${selectedPaymentInfo.car_number}-주차요금`,
     "carNumber": selectedPaymentInfo.car_number,
+    "discount": selectedPaymentInfo.plate_color === "blue" ? CHARGE_DISCOUNT_RATE : 0,
   };
 
   console.log(paymentInfo);
@@ -73,7 +76,7 @@ const requestPayment = async (paymentInfo) => {
     `https://api.tosspayments.com/v1/billing/${decodedBillingKey}`,
     {
       customerKey: paymentInfo.customer_key,
-      amount: paymentInfo.amount,
+      amount: paymentInfo.amount - (paymentInfo.amount * paymentInfo.discount_rate),
       orderId: paymentInfo.orderId,
       orderName: paymentInfo.orderName
     },
@@ -94,7 +97,8 @@ const requestPayment = async (paymentInfo) => {
     payments_name: paymentRes.data.orderName,
     requested_at: (paymentRes.data.requestedAt).slice(0, 19).replace(/[-T:]/g, ""),
     approved_at: (paymentRes.data.approvedAt).slice(0, 19).replace(/[-T:]/g, ""),
-    amount: paymentRes.data.card.amount,
+    amount: paymentInfo.amount,
+    discounted_amount: paymentRes.data.card.amount,
   };
 };
 
