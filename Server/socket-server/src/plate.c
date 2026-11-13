@@ -12,7 +12,7 @@
 #include "web_server.h"
 
 static int parse_plate_data(const char* buf, char* gate, char* action, char* plate, char* image_path, char* timestamp, char* plate_color);
-static int insert_record(MYSQL* conn, const char* plate_number, const char* image_path, const char* timestamp);
+static int insert_record(MYSQL* conn, const char* plate_number, const char* image_path, const char* timestamp, const char* plate_color);
 static int select_payment_id(MYSQL* conn, const char* plate_number, char* id);
 static int update_records(MYSQL* conn, const char* id, const char* image_path, const char* timestamp);
 
@@ -27,7 +27,7 @@ void plate_number_thread(client_info *info)
     char plate[PLATE_NUMBER_SIZE] = {0};  // 번호판 텍스트
     char image_path[BUFFER_SIZE] = {0};   // 캡쳐 이미지 경로
     char timestamp[TIMESTAMP_SIZE] = {0}; // 타임스탬프
-    char plate_color[COLOR_SIZE] = {0};
+    char plate_color[COLOR_SIZE] = {0};   // 번호판 바탕색 정보("white", "yellow", "green", "blue", "unknown")
     int read_status = 0;                  // 개행까지 잘 읽었는지 판단
 
     if (!(mysql_real_connect(conn, MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DB, 3306, NULL, 0)))
@@ -70,7 +70,7 @@ void plate_number_thread(client_info *info)
 
             if (gate == GATE_ENTRY && action == GATE_OPEN)        // 입구 + 열림 처리: insert, 대시보드에 차량정보 띄우기(SHOW)
             {
-                if (insert_record(conn, plate, image_path, timestamp))  // 성공 시 0 반환
+                if (insert_record(conn, plate, image_path, timestamp, plate_color))  // 성공 시 0 반환
                 {
                     printf("[FAILED] 차량정보 저장 실패.\n");
                 }
@@ -170,16 +170,16 @@ static int parse_plate_data(const char* buf, char* gate, char* action, char* pla
     return 1;
 }
 
-static int insert_record(MYSQL* conn, const char* plate_number, const char* image_path, const char* timestamp)
+static int insert_record(MYSQL* conn, const char* plate_number, const char* image_path, const char* timestamp, const char* plate_color)
 {
     printf("[TRY] Insert 시도.\n");
     char query_buffer[BUFFER_SIZE] = {0};
 
     sprintf(
         query_buffer,
-        "INSERT INTO records (id, car_number, entry_time, exit_time, updated_at, entry_image_path)"
-        "VALUES (null, '%s', STR_TO_DATE('%s', '%%Y%%m%%d%%H%%i%%s'), null, curtime(), '%s');",
-        plate_number, timestamp, image_path
+        "INSERT INTO records (id, car_number, entry_time, exit_time, updated_at, entry_image_path, plate_color)"
+        "VALUES (null, '%s', STR_TO_DATE('%s', '%%Y%%m%%d%%H%%i%%s'), null, curtime(), '%s', '%s');",
+        plate_number, timestamp, image_path, plate_color
     );
 
     return (run_nonselect_query(conn, query_buffer));
@@ -218,5 +218,4 @@ static int update_records(MYSQL* conn, const char* id, const char* image_path, c
     );
 
     return (run_nonselect_query(conn, query_buffer));
-
 }
