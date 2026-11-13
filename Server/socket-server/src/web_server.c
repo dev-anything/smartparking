@@ -177,12 +177,11 @@ void web_server_thread(client_info *info)
                 // 결제 결과 저장
                 else if (strcmp(token, PAYMENT_RESULT_CODE) == 0)
                 {
-                    char *payment_result_info[7] = {0};
+                    char* payment_result_info[8] = {0};
                     parse_payment_result_info_data(next_token, payment_result_info);
                     response = insert_payments_result(conn, payment_result_info);
 
-                    if (!response)
-                        printf("[SUCCESS] 결제정보 삽입 성공.\n");
+                    if (!response) printf("[SUCCESS] 결제정보 삽입 성공.\n");
                 }
             }
             else if (read_status == 0)
@@ -462,20 +461,22 @@ static int insert_payments_result(MYSQL *conn, const char **payments_result_info
     // 4: approved_at
     // 5: amount
     // 6: car_number
+    // 7: discounted_amount
     char query_buffer[BUFFER_SIZE] = {0};
 
     sprintf(
         query_buffer,
         "INSERT INTO "
-        "payments_result (payments_key, payments_id, payments_name, requested_at, approved_at, amount, car_number) "
-        "VALUES ('%s', '%s', '%s', STR_TO_DATE('%s', '%%Y%%m%%d%%H%%i%%s'), STR_TO_DATE('%s', '%%Y%%m%%d%%H%%i%%s'), %d, '%s');",
+        "payments_result (payments_key, payments_id, payments_name, requested_at, approved_at, amount, car_number, discounted_amount) "
+        "VALUES ('%s', '%s', '%s', STR_TO_DATE('%s', '%%Y%%m%%d%%H%%i%%s'), STR_TO_DATE('%s', '%%Y%%m%%d%%H%%i%%s'), %d, '%s', %d);",
         payments_result_info[0], // payments_key(토스가 응답한 고유 결제 키)
         payments_result_info[1], // payments_id(우리가 만든 order id)
         payments_result_info[2], // payment_name(우리가 만든 결제명)
         payments_result_info[3], // requested_at(요청 시각)
         payments_result_info[4], // approved_at(승인 시각)
         atoi(payments_result_info[5]),
-        payments_result_info[6] // car_number(차량번호)
+        payments_result_info[6], // car_number(차량번호),
+        atoi(payments_result_info[7])   // discounted_amount(할인된 금액)
 
     );
 
