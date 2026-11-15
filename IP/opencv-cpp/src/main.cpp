@@ -232,7 +232,7 @@ inline std::string to_color_string(PlateColor c)
         case PlateColor::YELLOW: return "yellow";
         case PlateColor::GREEN: return "green";
         case PlateColor::BLUE: return "blue";
-        default: return "unknown";
+        default: return "-";
     }
 }
 
@@ -990,7 +990,7 @@ class Recognizer
                 }
             }
 
-            std::cout << "[CLASSIFIED] 바탕색 분류 완료: " << PLATE_COLORS[best].name << std::endl;
+            //std::cout << "[CLASSIFIED] 바탕색 분류 완료: " << PLATE_COLORS[best].name << std::endl;
             return static_cast<PlateColor>(best);
         }
 };

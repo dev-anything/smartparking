@@ -14,10 +14,12 @@
 // 이미지 전처리 관련 상수값
 #define BLUR_KERNEL 5
 #define BLUR_SIGMA 1.7
-#define CANNY_LOW 180   // 흰색 번호판
-#define CANNY_HIGH 430  // 흰색 번호판
+//#define CANNY_LOW 180   // 흰색 번호판
+//#define CANNY_HIGH 430  // 흰색 번호판
 //#define CANNY_LOW 130   // 초록색 번호판
 //#define CANNY_HIGH 370  // 초록색 번호판
+#define CANNY_LOW 50    // 테스트용
+#define CANNY_HIGH 200  // 테스트용
 #define MORPH_KERNEL 3
 #define MORPH_ITER 2
 
