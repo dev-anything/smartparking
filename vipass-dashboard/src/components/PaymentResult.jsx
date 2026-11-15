@@ -15,7 +15,8 @@ const PaymentResult = ({ className = "" }) => {
               <th>요청시각</th>
               <th>승인시각</th>
               <th>차량번호</th>
-              <th className="pr-6 text-center">결제금액</th>
+              <th>총 금액</th>
+              <th>결제금액</th>
             </tr>
           </thead>
           <tbody>
@@ -27,7 +28,8 @@ const PaymentResult = ({ className = "" }) => {
                     <td><DateTime value={payment.requested_at} fallback="-" /></td>
                     <td><DateTime value={payment.approved_at} fallback="-" /></td>
                     <td>{payment.car_number}</td>
-                    <td className="pr-6 text-center">{payment.amount}원</td>
+                    <td>{payment.amount}원</td>
+                    <td>{payment.discounted_amount}원</td>
                   </tr>
                 );
               })
