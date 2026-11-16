@@ -22,6 +22,8 @@
 #define VISIBLE_COMMAND_SIZE 32
 // 타임스탬프 최대 사이즈
 #define TIMESTAMP_SIZE 32
+// 번호판 바탕색 최대 사이즈
+#define COLOR_SIZE 16
 
 // 모터 게이트와 열기/닫기 명령값
 #define GATE_ENTRY 'E'

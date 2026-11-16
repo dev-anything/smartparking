@@ -151,7 +151,6 @@ std::vector<PlateCandidate> detect_by_rect(const cv::Mat& preprocessed)
 }
 
 
-
 std::vector<PlateCandidate> detect_by_color(const cv::Mat& frame)
 {
     std::vector<PlateCandidate> cands;

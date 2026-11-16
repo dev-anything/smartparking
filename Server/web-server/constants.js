@@ -72,6 +72,10 @@ const PARKED_STATUS_POLL_MS = 1000;
 const RECORDS_POLL_MS = 3000;
 const PAYMENTS_RESULT_POLL_MS = 1000;
 
+// ===== 4. 결제 로직
+const CHARGE_PER_SEC = 100;         // 주차요금/SEC
+const CHARGE_DISCOUNT_RATE = 0.5;   // 친환경 차량 할인율
+
 
 
 
@@ -84,5 +88,7 @@ module.exports = {
   SERVER_PORT,
   PARKED_STATUS_POLL_MS,
   RECORDS_POLL_MS,
-  PAYMENTS_RESULT_POLL_MS
+  PAYMENTS_RESULT_POLL_MS,
+  CHARGE_PER_SEC,
+  CHARGE_DISCOUNT_RATE,
 };

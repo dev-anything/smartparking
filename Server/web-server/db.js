@@ -2,7 +2,6 @@ const { db } = require("./config");
 //const { config } = require('dotenv');
 const mysql = require('mysql2/promise');
 
-
 const pool = mysql.createPool({
   host: db.host,
   port: db.port,
@@ -138,6 +137,7 @@ const selectLlmQuery = async (query) => {
   return JSON.stringify(rows);
 };
 
+
 const selectPaymentInfo = async (id) => {
   const [rows] = await pool.query(
     `
@@ -145,7 +145,8 @@ const selectPaymentInfo = async (id) => {
       TIMESTAMPDIFF(SECOND, r.entry_time, r.exit_time) AS stay_time,
       c.billing_key,
       c.customer_key,
-      c.car_number
+      c.car_number,
+      r.plate_color
       FROM records r
       JOIN car_info c ON r.car_number = c.car_number
       WHERE r.id=?

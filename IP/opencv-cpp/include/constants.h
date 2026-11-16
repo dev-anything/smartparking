@@ -14,10 +14,12 @@
 // 이미지 전처리 관련 상수값
 #define BLUR_KERNEL 5
 #define BLUR_SIGMA 1.7
-#define CANNY_LOW 180   // 흰색 번호판
-#define CANNY_HIGH 430  // 흰색 번호판
+//#define CANNY_LOW 180   // 흰색 번호판
+//#define CANNY_HIGH 430  // 흰색 번호판
 //#define CANNY_LOW 130   // 초록색 번호판
 //#define CANNY_HIGH 370  // 초록색 번호판
+#define CANNY_LOW 50    // 테스트용
+#define CANNY_HIGH 200  // 테스트용
 #define MORPH_KERNEL 3
 #define MORPH_ITER 2
 
@@ -31,6 +33,8 @@
 #define SERVER_IP "127.0.0.1"
 #define SERVER_PORT 10000
 #define BUFFER_SIZE 1024
+
+#define DELIM ":"
 
 // 차영상 기준값
 #define DIFF_THRESHOLD 50  // 픽셀 밝기 차이 기준값(이 이상이면 감지)
